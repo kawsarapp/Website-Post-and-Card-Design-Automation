@@ -3,9 +3,9 @@
 @section('content')
     @include('news.studio.styles')
 
-    <div class="fixed inset-0 bg-gray-100 z-50 flex flex-col">
+    <div class="fixed inset-0 bg-gray-100 z-50 flex flex-col font-bangla">
         
-        <div class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm z-30">
+        <div class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm z-30 shrink-0">
             <div class="flex items-center gap-3">
                 <a href="{{ route('news.index') }}" class="flex items-center gap-1 text-gray-500 hover:text-gray-800 transition font-bold text-sm bg-gray-100 px-3 py-1.5 rounded-lg">
                     ← Back
@@ -27,5 +27,6 @@
         </div>
     </div>
 
+    @include('news.studio.templates')  
     @include('news.studio.scripts')
 @endsection

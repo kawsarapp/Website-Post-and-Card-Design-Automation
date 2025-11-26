@@ -8,6 +8,6 @@
    <div id="preview-wrapper" class="shadow-2xl transition-transform duration-200 ease-out origin-center ring-8 ring-white">
        <div id="canvas-container" class="bg-white relative flex flex-col overflow-hidden"
                style="width: 1080px; height: 1080px; flex-shrink: 0;">
-               </div>
+       </div>
    </div>
 </div>
