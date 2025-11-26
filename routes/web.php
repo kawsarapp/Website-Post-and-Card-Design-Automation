@@ -56,9 +56,10 @@ Route::middleware(['auth'])->group(function () {
     // User Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
-    
-    // ✅ লোগো আপলোড রাউটটি এখানে (সাধারণ ইউজারদের জন্য) নিয়ে আসা হয়েছে
     Route::post('/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
+
+    // Credits History (Settings Controller এর আন্ডারে)
+    Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');
 });
 
 // --- Admin Routes (Require Login + Admin Middleware) ---
@@ -70,6 +71,8 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::post('/users/{id}/toggle-status', [AdminController::class, 'toggleStatus'])->name('users.toggle');
     Route::post('/users/{id}/add-credits', [AdminController::class, 'addCredits'])->name('users.credits');
     
-    // Template Management (এটি আগের ধাপের সাথে মিল আছে)
+    // Template Management
     Route::post('/users/{id}/templates', [AdminController::class, 'updateTemplates'])->name('users.templates');
+	
+	Route::post('/users/{id}/limit', [AdminController::class, 'updateLimit'])->name('users.limit');
 });

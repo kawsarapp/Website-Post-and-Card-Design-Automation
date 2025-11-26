@@ -141,114 +141,143 @@ class NewsController extends Controller
 	
 
     public function postToWordPress($id)
-    {
-        set_time_limit(300);
+{
+    set_time_limit(300);
 
-        $user = Auth::user();
-        $settings = $user->settings;
+    $user = Auth::user();
+    $settings = $user->settings;
 
-        // --- ✅ নতুন লজিক: অটোমেশন অন থাকলে ম্যানুয়াল পোস্ট বন্ধ ---
-        if ($settings && $settings->is_auto_posting) {
-            return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
-        }
-        // --------------------------------------------------------
+    // --- ✅ অটোমেশন চেক ---
+    if ($settings && $settings->is_auto_posting) {
+        return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
+    }
 
-        if (!$settings || !$settings->wp_url || !$settings->wp_username) {
-            return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
-        }
+    if (!$settings || !$settings->wp_url || !$settings->wp_username) {
+        return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
+    }
 
-        $news = NewsItem::with('website')->findOrFail($id);
+    $news = NewsItem::with('website')->findOrFail($id);
 
-        if ($news->is_posted) return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
+    if ($news->is_posted) return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
 
-        // ক্রেডিট চেক
-        if ($user->role !== 'super_admin' && $user->credits <= 0) {
-            return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ! দয়া করে রিচার্জ করুন।');
-        }
+    // প্রাথমিক ক্রেডিট চেক
+    if ($user->role !== 'super_admin' && $user->credits <= 0) {
+        return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ! দয়া করে রিচার্জ করুন।');
+    }
 
-        try {
-            // ১. স্ক্র্যাপ কন্টেন্ট
-            if (empty($news->content) || strlen($news->content) < 150) {
-                $content = $this->scraper->scrape($news->original_link);
-                if ($content) {
-                    $news->update(['content' => $this->cleanUtf8($content)]);
-                } else {
-                    return back()->with('error', 'স্ক্র্যাপার কন্টেন্ট পায়নি।');
-                }
-            }
-
-            // ২. AI রিরাইট
-            $inputText = "HEADLINE: " . $news->title . "\n\nBODY:\n" . strip_tags($news->content);
-            $cleanText = $this->cleanUtf8($inputText);
-
-            $aiResponse = $this->aiWriter->rewrite($cleanText);
-
-            if (!$aiResponse) {
-                $rewrittenContent = $news->content;
-                $categoryId = $this->wpCategories['Others'];
+    try {
+        // ১. স্ক্র্যাপ কন্টেন্ট
+        if (empty($news->content) || strlen($news->content) < 150) {
+            $content = $this->scraper->scrape($news->original_link);
+            if ($content) {
+                $news->update(['content' => $this->cleanUtf8($content)]);
             } else {
-                $rewrittenContent = $aiResponse['content'];
-                $detectedCategory = $aiResponse['category'];
-                $categoryId = $this->wpCategories[$detectedCategory] ?? $this->wpCategories['Others'];
-
-                if ($user->role !== 'super_admin') {
-                    $user->decrement('credits');
-                }
+                return back()->with('error', 'স্ক্র্যাপার কন্টেন্ট পায়নি।');
             }
+        }
 
-            // ৩. ইমেজ আপলোড
-            $imageId = null;
-            if ($news->thumbnail_url) {
-                $upload = $this->wpService->uploadImage(
-                    $news->thumbnail_url, 
-                    $news->title,
-                    $settings->wp_url,
-                    $settings->wp_username,
-                    $settings->wp_app_password
-                );
+        // ২. AI রিরাইট
+        $inputText = "HEADLINE: " . $news->title . "\n\nBODY:\n" . strip_tags($news->content);
+        $cleanText = $this->cleanUtf8($inputText);
 
-                if ($upload && $upload['success']) {
-                    $imageId = $upload['id'];
-                } else {
-                    $rewrittenContent = '<img src="' . $news->thumbnail_url . '" style="width:100%; margin-bottom:15px;"><br>' . $rewrittenContent;
+        $aiResponse = $this->aiWriter->rewrite($cleanText);
+
+        // ভেরিয়েবল ইনিশিয়ালাইজেশন
+        $categoryId = $this->wpCategories['Others'];
+        $rewrittenContent = $news->content;
+
+        if (!$aiResponse) {
+            // AI ফেইল করলে অরিজিনাল কন্টেন্ট থাকবে (ক্রেডিট কাটবে না)
+            $rewrittenContent = $news->content;
+        } else {
+            $rewrittenContent = $aiResponse['content'];
+            $detectedCategory = $aiResponse['category'];
+            $categoryId = $this->wpCategories[$detectedCategory] ?? $this->wpCategories['Others'];
+
+            // ==========================================
+            // ✅ আপডেটেড ক্রেডিট এবং ডেইলি লিমিট লজিক
+            // ==========================================
+            if ($user->role !== 'super_admin') {
+                
+                // ১. ডেইলি লিমিট চেক
+                // (User মডেলে hasDailyLimitRemaining ফাংশন থাকতে হবে)
+                if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                    return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ! আগামীকাল আবার চেষ্টা করুন।");
                 }
+
+                // ২. ক্রেডিট কাটা
+                $user->decrement('credits');
+
+                // ৩. ক্রেডিট হিস্ট্রি লগ রাখা
+                \App\Models\CreditHistory::create([
+                    'user_id' => $user->id,
+                    'action_type' => 'manual_post',
+                    'description' => 'Post: ' . \Illuminate\Support\Str::limit($news->title, 40),
+                    'credits_change' => -1,
+                    'balance_after' => $user->credits
+                ]);
             }
+            // ==========================================
+        }
 
-            // ৪. ফাইনাল পোস্ট
-            $credit = '<hr><p style="text-align:center; font-size:13px; color:#888;">তথ্যসূত্র: অনলাইন ডেস্ক</p>';
-            $finalContent = $this->cleanUtf8($rewrittenContent . $credit);
-            $finalTitle   = $this->cleanUtf8($news->title);
-
-            $wpPost = $this->wpService->publishPost(
-                $finalTitle, 
-                $finalContent, 
+        // ৩. ইমেজ আপলোড
+        $imageId = null;
+        if ($news->thumbnail_url) {
+            $upload = $this->wpService->uploadImage(
+                $news->thumbnail_url, 
+                $news->title,
                 $settings->wp_url,
                 $settings->wp_username,
-                $settings->wp_app_password,
-                $categoryId,
-                $imageId
+                $settings->wp_app_password
             );
 
-            if ($wpPost) {
-                $news->update([
-                    'rewritten_content' => $finalContent,
-                    'is_posted'         => true,
-                    'wp_post_id'        => $wpPost['id']
-                ]);
-
-                if ($settings->telegram_channel_id) {
-                    $this->telegram->sendToChannel($settings->telegram_channel_id, $finalTitle, $wpPost['link']);
-                }
-
-                return back()->with('success', "পোস্ট পাবলিশ হয়েছে! ID: " . $wpPost['id']);
+            if ($upload && $upload['success']) {
+                $imageId = $upload['id'];
             } else {
-                return back()->with('error', 'ওয়ার্ডপ্রেস পোস্ট ফেইল করেছে। ক্রেডেনশিয়াল চেক করুন।');
+                $rewrittenContent = '<img src="' . $news->thumbnail_url . '" style="width:100%; margin-bottom:15px;"><br>' . $rewrittenContent;
+            }
+        }
+
+        // ৪. ফাইনাল পোস্ট পাবলিশিং
+        $credit = '<hr><p style="text-align:center; font-size:13px; color:#888;">তথ্যসূত্র: অনলাইন ডেস্ক</p>';
+        $finalContent = $this->cleanUtf8($rewrittenContent . $credit);
+        $finalTitle   = $this->cleanUtf8($news->title);
+
+        $wpPost = $this->wpService->publishPost(
+            $finalTitle, 
+            $finalContent, 
+            $settings->wp_url,
+            $settings->wp_username,
+            $settings->wp_app_password,
+            $categoryId,
+            $imageId
+        );
+
+        if ($wpPost) {
+            $news->update([
+                'rewritten_content' => $finalContent,
+                'is_posted'         => true,
+                'wp_post_id'        => $wpPost['id']
+            ]);
+
+            if ($settings->telegram_channel_id) {
+                $this->telegram->sendToChannel($settings->telegram_channel_id, $finalTitle, $wpPost['link']);
             }
 
-        } catch (\Exception $e) {
-            return back()->with('error', 'System Error: ' . $e->getMessage());
+            return back()->with('success', "পোস্ট পাবলিশ হয়েছে! ID: " . $wpPost['id']);
+        } else {
+            return back()->with('error', 'ওয়ার্ডপ্রেস পোস্ট ফেইল করেছে। ক্রেডেনশিয়াল চেক করুন।');
         }
+
+    } catch (\Exception $e) {
+        return back()->with('error', 'System Error: ' . $e->getMessage());
     }
+}
+	
+	
+	
+	
+	
 
     private function cleanUtf8($string)
     {

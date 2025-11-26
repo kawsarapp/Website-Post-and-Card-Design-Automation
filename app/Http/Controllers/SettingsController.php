@@ -62,4 +62,15 @@ class SettingsController extends Controller
 
         return response()->json(['success' => false], 400);
     }
+	
+	
+	
+	public function credits()
+    {
+        $user = Auth::user();
+        $histories = $user->creditHistories()->paginate(15);
+        return view('settings.credits', compact('histories', 'user'));
+    }
+	
+	
 }

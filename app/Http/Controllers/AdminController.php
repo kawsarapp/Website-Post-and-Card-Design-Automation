@@ -51,7 +51,6 @@ class AdminController extends Controller
         return back()->with('success', "ইউজার এখন {$status}!");
     }
 
-    // ক্রেডিট রিচার্জ করা
     public function addCredits(Request $request, $id)
     {
         $request->validate([
@@ -60,8 +59,24 @@ class AdminController extends Controller
 
         $user = User::findOrFail($id);
         $user->increment('credits', $request->amount);
-        $user->increment('total_credits_limit', $request->amount); // চাইলে লিমিটও বাড়াতে পারো
+        $user->increment('total_credits_limit', $request->amount);
 
         return back()->with('success', "{$request->amount} ক্রেডিট সফলভাবে যোগ করা হয়েছে।");
     }
+	
+    public function updateLimit(Request $request, $id)
+    {
+        $request->validate([
+            'limit' => 'required|integer|min:1'
+        ]);
+
+        $user = User::findOrFail($id);
+        $user->daily_post_limit = $request->limit;
+        $user->save();
+
+        return back()->with('success', "ডেইলি লিমিট আপডেট করা হয়েছে: {$user->daily_post_limit} টি");
+    }
+	
+	
+	
 }

@@ -14,7 +14,24 @@ class User extends Authenticatable
         'name', 'email', 'password', 'role', 'credits', 'total_credits_limit', 'is_active'
     ];
 
-    // ইউজারের সেটিংস
+	
+	public function hasDailyLimitRemaining()
+    {
+        
+		$todayUsage = $this->hasMany(CreditHistory::class)
+            ->whereDate('created_at', today())
+            ->where('credits_change', '<', 0)
+            ->count();
+
+        return $todayUsage < $this->daily_post_limit;
+    }
+    
+	public function creditHistories()
+    {
+        return $this->hasMany(CreditHistory::class)->latest();
+    }
+	
+
     public function settings()
     {
         return $this->hasOne(UserSetting::class);

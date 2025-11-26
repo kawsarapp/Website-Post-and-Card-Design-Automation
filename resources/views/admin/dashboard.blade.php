@@ -53,6 +53,7 @@
                         <th class="px-6 py-4 font-bold text-center">স্ট্যাটাস</th>
                         <th class="px-6 py-4 font-bold">জয়েনিং ডেট</th>
                         <th class="px-6 py-4 font-bold text-right">অ্যাকশন</th>
+						<th class="px-6 py-4 font-bold text-center">ডেইলি লিমিট</th> <th class="px-6 py-4 font-bold text-center">স্ট্যাটাস</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -80,6 +81,18 @@
                         <td class="px-6 py-4 text-sm text-slate-500">
                             {{ $user->created_at->format('d M, Y') }}
                         </td>
+						
+						<td class="px-6 py-4 text-center">
+							<div class="flex items-center justify-center gap-2">
+								<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+									{{ $user->daily_post_limit }} / Day
+								</span>
+								<button onclick="openLimitModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->daily_post_limit }}')" 
+										class="text-gray-400 hover:text-blue-600 transition" title="Edit Limit">
+									✏️
+								</button>
+							</div>
+						</td>
 
                         <td class="px-6 py-4 text-right flex justify-end gap-2 items-center">
                             
@@ -157,6 +170,29 @@
             </form>
         </div>
     </div>
+	
+			<div id="limitModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+				<div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden transform transition-all">
+					<div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+						<h3 class="font-bold text-gray-700">Set Limit for <span id="limitModalUserName" class="text-blue-600"></span></h3>
+						<button onclick="closeLimitModal()" class="text-gray-400 hover:text-red-500 text-2xl">&times;</button>
+					</div>
+					
+					<form id="limitForm" method="POST" class="p-6">
+						@csrf
+						<div class="mb-6">
+							<label class="block text-sm font-bold text-gray-600 mb-2">Daily Post Limit</label>
+							<input type="number" name="limit" id="limitInput" min="1" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-center text-xl font-bold text-gray-700" required>
+							<p class="text-xs text-gray-400 mt-2 text-center">এই ইউজার দিনে সর্বোচ্চ কয়টি পোস্ট করতে পারবে।</p>
+						</div>
+
+						<div class="flex justify-end gap-3">
+							<button type="button" onclick="closeLimitModal()" class="px-4 py-2 text-gray-600 bg-gray-200 rounded-lg font-bold hover:bg-gray-300 transition">Cancel</button>
+							<button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition shadow-lg">Update Limit</button>
+						</div>
+					</form>
+				</div>
+			</div>
 
 </div>
 
@@ -192,6 +228,24 @@
     function closeTemplateModal() {
         document.getElementById('templateModal').classList.add('hidden');
         document.getElementById('templateModal').classList.remove('flex');
+    }
+	
+	
+// ✅ Limit Modal Script
+    function openLimitModal(userId, userName, currentLimit) {
+        document.getElementById('limitModalUserName').innerText = userName;
+        document.getElementById('limitInput').value = currentLimit;
+        document.getElementById('limitForm').action = `/admin/users/${userId}/limit`;
+        
+        const modal = document.getElementById('limitModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeLimitModal() {
+        const modal = document.getElementById('limitModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
     }
 </script>
 @endsection
