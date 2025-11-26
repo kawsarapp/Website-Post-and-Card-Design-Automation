@@ -12,15 +12,14 @@ class AdminController extends Controller
 {
     public function index()
     {
-        // ড্যাশবোর্ড স্ট্যাটস
         $totalUsers = User::where('role', 'user')->count();
-        $totalNews = NewsItem::withoutGlobalScopes()->count(); // সব নিউজ (গ্লোবাল স্কোপ ছাড়া)
+        $totalNews = NewsItem::withoutGlobalScopes()->count();
         $totalWebsites = Website::withoutGlobalScopes()->count();
+		$allWebsites = Website::withoutGlobalScopes()->get();
         
-        // ইউজার লিস্ট (লেটেস্ট আগে)
-        $users = User::where('role', 'user')->latest()->paginate(20);
+		$users = User::where('role', 'user')->with('accessibleWebsites')->latest()->paginate(20);
 
-        return view('admin.dashboard', compact('users', 'totalUsers', 'totalNews', 'totalWebsites'));
+		return view('admin.dashboard', compact('users', 'totalUsers', 'totalNews', 'totalWebsites', 'allWebsites'));
     }
 	
 	
@@ -77,6 +76,12 @@ class AdminController extends Controller
         return back()->with('success', "ডেইলি লিমিট আপডেট করা হয়েছে: {$user->daily_post_limit} টি");
     }
 	
-	
+    public function updateWebsiteAccess(Request $request, $userId)
+    {
+        $user = User::findOrFail($userId);
+        $user->accessibleWebsites()->sync($request->websites ?? []);
+
+        return back()->with('success', 'সোর্স পারমিশন আপডেট করা হয়েছে!');
+    }
 	
 }

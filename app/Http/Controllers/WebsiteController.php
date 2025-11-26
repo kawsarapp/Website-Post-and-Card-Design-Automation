@@ -12,12 +12,28 @@ class WebsiteController extends Controller
 {
     public function index()
     {
-        $websites = Website::all();
+        // ১. সুপার এডমিন সব দেখবে
+        if (auth()->user()->role === 'super_admin') {
+            $websites = Website::withoutGlobalScopes()->get();
+        } 
+        // ২. সাধারণ ইউজার: পিভট টেবিল থেকে এক্সেস পাওয়া সাইটগুলো দেখবে
+        else {
+            // ✅ FIX: withoutGlobalScope ব্যবহার করা হয়েছে
+            // কারণ 'websites' টেবিলের user_id এখন এডমিনের, কিন্তু ইউজারের দেখার অনুমতি আছে
+            $websites = auth()->user()->accessibleWebsites()
+                        ->withoutGlobalScope(\App\Models\Scopes\UserScope::class)
+                        ->get();
+        }
+        
         return view('websites.index', compact('websites'));
     }
 
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super_admin') {
+            return back()->with('error', 'আপনার ওয়েবসাইট অ্যাড করার অনুমতি নেই।');
+        }
+
         $request->validate([
             'name' => 'required',
             'url' => 'required|url',
@@ -25,32 +41,30 @@ class WebsiteController extends Controller
             'selector_title' => 'required',
         ]);
 
-        Website::create($request->all());
+        $data = $request->all();
+        $data['user_id'] = auth()->id();
+
+        Website::create($data);
 
         return back()->with('success', 'Website added successfully!');
     }
 
     public function scrape($id)
     {
-        // ✅ ১. হিউম্যান ডিলে (Human Delay): 
-        // রোবট ডিটেকশন এড়াতে শুরুতে র‍্যান্ডম অপেক্ষা।
         sleep(rand(2, 5));
 
         $website = Website::findOrFail($id);
         
-        // ফাইল পাথ কনফিগারেশন
         $fileName = "scrape_" . time() . "_{$website->id}.html";
         $tempFile = storage_path("app/public/{$fileName}");
         $scriptPath = base_path("scraper-engine.js");
 
-        // ✅ JS আপডেট: Cloudflare Stealth Mode + Advanced Fingerprinting Spoofing
-        // এটি সাধারণ Puppeteer এর বদলে puppeteer-extra ব্যবহার করবে।
         $jsCode = <<<'JS'
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs';
 
-// ১. স্টেলথ প্লাগিন সক্রিয় করা (Cloudflare এর যম)
+// ১. স্টেলথ প্লাগিন সক্রিয় করা (Cloudflare এর যম)
 puppeteer.use(StealthPlugin());
 
 const url = process.argv[2];
@@ -76,7 +90,7 @@ if (!url || !outputFile) process.exit(1);
   try {
     const page = await browser.newPage();
     
-    // ২. রিয়েলিস্টিক ইউজার এজেন্ট সেট করা
+    // ২. রিয়েলিস্টিক ইউজার এজেন্ট সেট করা
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
 
     // ৩. ভিউপোর্ট সেট করা
@@ -91,8 +105,8 @@ if (!url || !outputFile) process.exit(1);
         'Sec-Fetch-User': '?1',
     });
 
-    // ৫. রিসোর্স অপটিমাইজেশন (দ্রুত লোড হওয়ার জন্য ফন্ট ও মিডিয়া ব্লক)
-    // তবে স্ক্রিপ্ট ব্লক করা যাবে না কারণ Cloudflare চেক স্ক্রিপ্টের মাধ্যমে হয়।
+    // ৫. রিসোর্স অপটিমাইজেশন (দ্রুত লোড হওয়ার জন্য ফন্ট ও মিডিয়া ব্লক)
+    // তবে স্ক্রিপ্ট ব্লক করা যাবে না কারণ Cloudflare চেক স্ক্রিপ্টের মাধ্যমে হয়।
     await page.setRequestInterception(true);
     page.on('request', (req) => {
         const resourceType = req.resourceType();
@@ -103,7 +117,7 @@ if (!url || !outputFile) process.exit(1);
         }
     });
 
-    // ৬. পেজ লোড (টাইমআউট বাড়িয়ে ৬০ সেকেন্ড)
+    // ৬. পেজ লোড (টাইমআউট বাড়িয়ে ৬০ সেকেন্ড)
     try {
         // networkidle2 মানে অন্তত ২টা কানেকশন বাকি থাকা পর্যন্ত অপেক্ষা (Kaler Kantho এর মতো ভারী সাইটের জন্য ভালো)
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -112,10 +126,10 @@ if (!url || !outputFile) process.exit(1);
     }
 
     // ✅ ৭. Cloudflare/Turnstile বাইপাস অপেক্ষা (সবচেয়ে গুরুত্বপূর্ণ ধাপ)
-    // পেজ লোড হওয়ার পর ৫ সেকেন্ড অপেক্ষা করবে যাতে চেকিং শেষ হয়।
+    // পেজ লোড হওয়ার পর ৫ সেকেন্ড অপেক্ষা করবে যাতে চেকিং শেষ হয়।
     await new Promise(r => setTimeout(r, 5000));
 
-    // ৮. মাউস মুভমেন্ট (হিউম্যান বিহেভিয়ার সিমুলেশন)
+    // ৮. মাউস মুভমেন্ট (হিউম্যান বিহেভিয়ার সিমুলেশন)
     try {
         await page.mouse.move(100, 100);
         await page.mouse.move(200, 200, { steps: 10 });
@@ -174,7 +188,7 @@ JS;
             shell_exec($command);
 
             if (!file_exists($tempFile)) {
-                return back()->with('error', "স্ক্র্যাপার ফাইল তৈরি হয়নি। Node.js ইন্সটল আছে কিনা চেক করুন।");
+                return back()->with('error', "স্ক্র্যাপার ফাইল তৈরি হয়নি। Node.js ইন্সটল আছে কিনা চেক করুন।");
             }
 
             $html = file_get_contents($tempFile);
@@ -184,7 +198,7 @@ JS;
             
             // Cloudflare ব্লক চেক
             if (str_contains($html, 'Attention Required') || str_contains($html, 'Just a moment...')) {
-                return back()->with('error', "Cloudflare ব্লক দিয়েছে। ২ মিনিট পর আবার চেষ্টা করুন।");
+                return back()->with('error', "Cloudflare ব্লক দিয়েছে। ২ মিনিট পর আবার চেষ্টা করুন।");
             }
 
             $containers = $crawler->filter($website->selector_container);
@@ -192,7 +206,7 @@ JS;
             if ($containers->count() === 0) {
                 // ডিবাগিং-এর জন্য (অপশনাল)
                 // Log::error("HTML Dump: " . substr($html, 0, 500)); 
-                return back()->with('error', "সিলেক্টর মিলেনি! ক্লাস নেম চেক করুন অথবা সাইট লোড হয়নি।");
+                return back()->with('error', "সিলেক্টর মিলেনি! ক্লাস নেম চেক করুন অথবা সাইট লোড হয়নি।");
             }
 
             $baseTime = now(); 
@@ -274,9 +288,9 @@ JS;
                 } catch (\Exception $e) {}
             });
 
-            if ($count === 0) return back()->with('error', "কোনো নিউজ পাওয়া যায়নি।");
+            if ($count === 0) return back()->with('error', "কোনো নিউজ পাওয়া যায়নি।");
             
-            return back()->with('success', "✅ {$count}টি নিউজ স্ক্র্যাপ হয়েছে! (Stealth Mode Active)");
+            return back()->with('success', "✅ {$count}টি নিউজ স্ক্র্যাপ হয়েছে! (Stealth Mode Active)");
 
         } catch (\Exception $e) {
             return back()->with('error', 'System Error: ' . $e->getMessage());

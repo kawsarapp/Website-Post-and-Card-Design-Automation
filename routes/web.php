@@ -75,4 +75,5 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::post('/users/{id}/templates', [AdminController::class, 'updateTemplates'])->name('users.templates');
 	
 	Route::post('/users/{id}/limit', [AdminController::class, 'updateLimit'])->name('users.limit');
+	Route::post('/users/{id}/websites', [AdminController::class, 'updateWebsiteAccess'])->name('users.websites');
 });

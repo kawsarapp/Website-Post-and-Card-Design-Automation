@@ -25,6 +25,12 @@ class User extends Authenticatable
 
         return $todayUsage < $this->daily_post_limit;
     }
+	
+	
+    public function accessibleWebsites()
+    {
+        return $this->belongsToMany(Website::class, 'user_website');
+    }
     
 	public function creditHistories()
     {
