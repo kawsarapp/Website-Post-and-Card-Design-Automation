@@ -3,31 +3,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\Website;
-use App\Models\NewsItem;
 use Illuminate\Http\Request;
-use Symfony\Component\DomCrawler\Crawler;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use App\Jobs\ScrapeWebsite; // ✅ জব ক্লাস ইমপোর্ট করা জরুরি
 
 class WebsiteController extends Controller
 {
+    // ১. ওয়েবসাইট লিস্ট (User Role অনুযায়ী)
     public function index()
     {
-        // ১. সুপার এডমিন সব দেখবে
         if (auth()->user()->role === 'super_admin') {
             $websites = Website::withoutGlobalScopes()->get();
-        } 
-        // ২. সাধারণ ইউজার: পিভট টেবিল থেকে এক্সেস পাওয়া সাইটগুলো দেখবে
-        else {
-            // withoutGlobalScope ব্যবহার করা হয়েছে কারণ 'websites' টেবিলের user_id এখন এডমিনের
+        } else {
+            // সাধারণ ইউজার: পিভট টেবিল থেকে এক্সেস পাওয়া সাইটগুলো দেখবে
             $websites = auth()->user()->accessibleWebsites()
                         ->withoutGlobalScope(\App\Models\Scopes\UserScope::class)
                         ->get();
         }
-        
         return view('websites.index', compact('websites'));
     }
 
+    // ২. নতুন ওয়েবসাইট অ্যাড (Only Super Admin)
     public function store(Request $request)
     {
         if (auth()->user()->role !== 'super_admin') {
@@ -39,6 +35,7 @@ class WebsiteController extends Controller
             'url' => 'required|url',
             'selector_container' => 'required',
             'selector_title' => 'required',
+            'scraper_method' => 'nullable|in:node,python'
         ]);
 
         $data = $request->all();
@@ -49,8 +46,33 @@ class WebsiteController extends Controller
         return back()->with('success', 'Website added successfully!');
     }
 
+    // ৩. ✅ আপডেট মেথড (নতুন যোগ করা হয়েছে)
+    public function update(Request $request, $id)
+    {
+        // সিকিউরিটি চেক: শুধুমাত্র সুপার অ্যাডমিন এডিট করতে পারবে
+        if (auth()->user()->role !== 'super_admin') {
+            return back()->with('error', 'আপনার ওয়েবসাইট এডিট করার অনুমতি নেই।');
+        }
+
+        $website = Website::withoutGlobalScopes()->findOrFail($id);
+
+        $request->validate([
+            'name' => 'required',
+            'url' => 'required|url',
+            'selector_container' => 'required',
+            'selector_title' => 'required',
+            'scraper_method' => 'nullable|in:node,python'
+        ]);
+
+        $website->update($request->all());
+
+        return back()->with('success', 'ওয়েবসাইট সফলভাবে আপডেট করা হয়েছে!');
+    }
+
+    // ৪. ✅ স্ক্র্যাপ ফাংশন (Queue ব্যবহার করবে)
     public function scrape($id)
     {
+        // A. ওয়েবসাইট ভ্যালিডেশন ও এক্সেস চেক
         if (auth()->user()->role === 'super_admin') {
             $website = Website::withoutGlobalScopes()->findOrFail($id);
         } else {
@@ -60,33 +82,11 @@ class WebsiteController extends Controller
                 ->firstOrFail();
         }
 
-        \App\Jobs\ScrapeWebsite::dispatch($website->id, auth()->id());
+        // B. জব কিউতে পাঠানো (Background Process)
+        // আমরা ইউজার আইডি সাথে পাঠিয়ে দিচ্ছি যাতে নিউজটি এই ইউজারের নামে সেভ হয়
+        ScrapeWebsite::dispatch($website, auth()->id());
 
-        return back()->with('success', 'স্ক্র্যাপিং ব্যাকগ্রাউন্ডে শুরু হয়েছে! ১-২ মিনিট পর পেজ রিফ্রেশ দিন। ⏳');
-    }
-    
-    // ইমেজ হেল্পার ফাংশন
-    private function extractImageSrc($node)
-    {
-        if ($node->count() === 0) return null;
-        $imgTag = ($node->nodeName() === 'img') ? $node : $node->filter('img');
-        
-        if ($imgTag->count() > 0) {
-            // সাধারণ src চেক
-            $src = $imgTag->attr('src');
-            if ($src && !str_contains($src, 'base64') && strlen($src) > 10) return $src;
-            
-            // Lazy loading attributes চেক
-            $attrs = ['data-original', 'data-src', 'srcset', 'data-srcset'];
-            foreach ($attrs as $attr) {
-                $val = $imgTag->attr($attr);
-                if ($val && !str_contains($val, 'base64')) return $val;
-            }
-        } else {
-            // Background Image চেক
-            $style = $node->attr('style');
-            if ($style && preg_match('/url\((.*?)\)/', $style, $matches)) return trim($matches[1], "'\" ");
-        }
-        return null;
+        // C. সাথে সাথে ইউজারকে রেসপন্স দেওয়া (ইউজারকে আর লোডিংয়ে আটকে থাকতে হবে না)
+        return back()->with('success', '⏳ স্ক্র্যাপিং রিকোয়েস্ট গ্রহণ করা হয়েছে! ১-২ মিনিট পর পেজ রিফ্রেশ দিন।');
     }
 }

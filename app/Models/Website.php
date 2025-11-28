@@ -20,6 +20,7 @@ class Website extends Model
         'selector_image',
         'selector_content',
         'selector_time',
+		'scraper_method',
     ];
 
     // ✅ স্কোপ বুট করা (তোমার প্রথম কোড থেকে যোগ করা হলো)

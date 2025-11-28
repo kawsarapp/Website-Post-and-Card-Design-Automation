@@ -4,10 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\TelegramBotController;
-use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Controllers\AdminController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +38,10 @@ Route::middleware(['auth'])->group(function () {
     // Website Management
     Route::get('/websites', [WebsiteController::class, 'index'])->name('websites.index');
     Route::post('/websites', [WebsiteController::class, 'store'])->name('websites.store');
+    
+    // ✅ Fix: Website Update Route (Added)
+    Route::put('/websites/{id}', [WebsiteController::class, 'update'])->name('websites.update');
+    
     Route::get('/websites/{id}/scrape', [WebsiteController::class, 'scrape'])->name('websites.scrape');
 
     // News & Card Maker
@@ -58,7 +62,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
 
-    // Credits History (Settings Controller এর আন্ডারে)
+    // Credits History
     Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');
 });
 
@@ -73,7 +77,11 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     
     // Template Management
     Route::post('/users/{id}/templates', [AdminController::class, 'updateTemplates'])->name('users.templates');
-	
-	Route::post('/users/{id}/limit', [AdminController::class, 'updateLimit'])->name('users.limit');
-	Route::post('/users/{id}/websites', [AdminController::class, 'updateWebsiteAccess'])->name('users.websites');
+    
+    // Limits & Access
+    Route::post('/users/{id}/limit', [AdminController::class, 'updateLimit'])->name('users.limit');
+    Route::post('/users/{id}/websites', [AdminController::class, 'updateWebsiteAccess'])->name('users.websites');
+
+    // ✅ Fix: User Scraper Settings Update Route (Moved here correctly)
+    Route::post('/users/{id}/scraper', [AdminController::class, 'updateScraperSettings'])->name('users.scraper');
 });

@@ -84,4 +84,14 @@ class AdminController extends Controller
         return back()->with('success', 'সোর্স পারমিশন আপডেট করা হয়েছে!');
     }
 	
+    public function updateScraperSettings(Request $request, $id)
+    {
+        $request->validate(['scraper_method' => 'nullable|in:node,python']);
+        
+        $settings = UserSetting::firstOrCreate(['user_id' => $id]);
+        $settings->scraper_method = $request->scraper_method;
+        $settings->save();
+
+        return back()->with('success', 'User scraper preference updated!');
+    }
 }

@@ -22,7 +22,8 @@ class UserSetting extends Model
         'auto_post_interval',
         'last_auto_post_at',
 		'allowed_templates', 
-		'default_template'
+		'default_template',
+		'scraper_method',
     ];
 
 

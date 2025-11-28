@@ -3,6 +3,7 @@
 @section('content')
 <div class="max-w-7xl mx-auto py-8 bg-gray-100 min-h-screen">
 
+    {{-- Header Section --}}
     <div class="flex flex-col md:flex-row justify-between items-center mb-8">
         <div>
             <h1 class="text-3xl font-bold text-slate-800">⚡ সুপার অ্যাডমিন প্যানেল</h1>
@@ -15,6 +16,7 @@
         </div>
     </div>
 
+    {{-- Alert Messages --}}
     @if(session('success'))
         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded shadow-sm" role="alert">
             <p class="font-bold">Success!</p>
@@ -22,6 +24,7 @@
         </div>
     @endif
 
+    {{-- Stats Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition">
             <div class="p-4 bg-blue-50 text-blue-600 rounded-xl text-2xl">👥</div>
@@ -48,6 +51,7 @@
         </div>
     </div>
 
+    {{-- User Table Section --}}
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
             <h2 class="text-lg font-bold text-slate-700">👤 ইউজার লিস্ট</h2>
@@ -61,24 +65,28 @@
                         <th class="px-6 py-4 font-bold text-center">ক্রেডিট</th>
                         <th class="px-6 py-4 font-bold text-center">ডেইলি লিমিট</th>
                         <th class="px-6 py-4 font-bold text-center">স্ট্যাটাস</th>
-                        <th class="px-6 py-4 font-bold">জয়েনিং ডেট</th>
+                        <th class="px-6 py-4 font-bold">জয়েনিং ডেট</th>
                         <th class="px-6 py-4 font-bold text-right">অ্যাকশন</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @foreach($users as $user)
                     <tr class="hover:bg-slate-50 transition group">
+                        
+                        {{-- Name & Email --}}
                         <td class="px-6 py-4">
                             <div class="font-bold text-slate-800">{{ $user->name }}</div>
                             <div class="text-sm text-slate-500">{{ $user->email }}</div>
                         </td>
 
+                        {{-- Credits --}}
                         <td class="px-6 py-4 text-center">
                             <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold inline-block min-w-[60px]">
                                 {{ $user->credits }} Left
                             </span>
                         </td>
 
+                        {{-- Daily Limit --}}
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center gap-2">
                                 <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
@@ -91,6 +99,7 @@
                             </div>
                         </td>
 
+                        {{-- Status --}}
                         <td class="px-6 py-4 text-center">
                             @if($user->is_active)
                                 <span class="text-green-600 text-xs font-bold bg-green-100 px-2 py-1 rounded border border-green-200">Active</span>
@@ -99,12 +108,15 @@
                             @endif
                         </td>
 
+                        {{-- Date --}}
                         <td class="px-6 py-4 text-sm text-slate-500">
                             {{ $user->created_at->format('d M, Y') }}
                         </td>
 
-                        <td class="px-6 py-4 text-right flex justify-end gap-2 items-center">
+                        {{-- Actions --}}
+                        <td class="px-6 py-4 text-right flex justify-end gap-2 items-center flex-wrap">
                             
+                            {{-- 1. Sources Button --}}
                             <button onclick='openSourceModal(
                                         "{{ $user->id }}", 
                                         "{{ $user->name }}", 
@@ -115,23 +127,33 @@
                                 🌐 <span class="hidden md:inline">Sources</span>
                             </button>
 
+                            {{-- 2. Templates Button --}}
                             <button onclick='openTemplateModal(
-                                    "{{ $user->id }}", 
-                                    "{{ $user->name }}", 
-                                    @json($user->settings->allowed_templates ?? []), 
-                                    "{{ $user->settings->default_template ?? "dhaka_post_card" }}"
-                                )' 
-                                class="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 flex items-center gap-1 shadow-sm" 
-                                title="Manage Templates">
+                                        "{{ $user->id }}", 
+                                        "{{ $user->name }}", 
+                                        @json($user->settings->allowed_templates ?? []), 
+                                        "{{ $user->settings->default_template ?? "dhaka_post_card" }}"
+                                    )' 
+                                    class="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 flex items-center gap-1 shadow-sm" 
+                                    title="Manage Templates">
                                 🎨 <span class="hidden md:inline">Templates</span>
                             </button>
 
+                            {{-- 3. Scraper Settings Button --}}
+                            <button onclick="openScraperModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->settings->scraper_method ?? '' }}')" 
+                                    class="bg-purple-600 text-white px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-700 shadow-sm flex items-center justify-center gap-1" 
+                                    title="Scraper Settings">
+                                🤖
+                            </button>
+
+                            {{-- 4. Add Credit Form --}}
                             <form action="{{ route('admin.users.credits', $user->id) }}" method="POST" class="flex items-center">
                                 @csrf
                                 <input type="number" name="amount" placeholder="+Cr" class="w-12 text-xs border border-slate-300 rounded-l-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500" required>
                                 <button type="submit" class="bg-indigo-600 text-white text-xs px-2 py-1.5 rounded-r-lg hover:bg-indigo-700 font-bold shadow-sm">Add</button>
                             </form>
 
+                            {{-- 5. Block/Unblock --}}
                             <form action="{{ route('admin.users.toggle', $user->id) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-bold border shadow-sm transition {{ $user->is_active ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-green-200 text-green-600 hover:bg-green-50' }}" onclick="return confirm('Are you sure?')">
@@ -151,6 +173,9 @@
         </div>
     </div>
 
+    {{-- MODALS SECTION --}}
+
+    {{-- 1. Template Modal --}}
     <div id="templateModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden transform scale-100 transition-transform">
             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -190,6 +215,7 @@
         </div>
     </div>
 
+    {{-- 2. Limit Modal --}}
     <div id="limitModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden transform transition-all">
             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -202,7 +228,7 @@
                 <div class="mb-6">
                     <label class="block text-sm font-bold text-gray-600 mb-2">Daily Post Limit</label>
                     <input type="number" name="limit" id="limitInput" min="1" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-center text-xl font-bold text-gray-700" required>
-                    <p class="text-xs text-gray-400 mt-2 text-center">এই ইউজার দিনে সর্বোচ্চ কয়টি পোস্ট করতে পারবে।</p>
+                    <p class="text-xs text-gray-400 mt-2 text-center">এই ইউজার দিনে সর্বোচ্চ কয়টি পোস্ট করতে পারবে।</p>
                 </div>
 
                 <div class="flex justify-end gap-3">
@@ -213,6 +239,7 @@
         </div>
     </div>
 
+    {{-- 3. Source Modal --}}
     <div id="sourceModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -243,10 +270,38 @@
         </div>
     </div>
 
+    {{-- 4. Scraper Modal (New) --}}
+    <div id="scraperModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden transform transition-all">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-bold text-gray-700">Scraper Config: <span id="scraperUserName" class="text-purple-600"></span></h3>
+                <button onclick="closeScraperModal()" class="text-gray-400 hover:text-red-500 text-2xl transition">&times;</button>
+            </div>
+            
+            <form id="scraperForm" method="POST" class="p-6">
+                @csrf
+                <div class="mb-6">
+                    <label class="block text-sm font-bold text-gray-600 mb-2">Preferred Scraper Method</label>
+                    <select name="scraper_method" id="scraperInput" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500 outline-none text-sm bg-white">
+                        <option value="">Global Default</option>
+                        <option value="node">Node.js (Puppeteer) - Fast ⚡</option>
+                        <option value="python">Python (Playwright) - Stable 🐍</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-2">নির্দিষ্ট সাইটের জন্য স্ক্র্যাপার মেথড পরিবর্তন করতে পারেন।</p>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeScraperModal()" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg font-bold hover:bg-gray-200 transition text-sm">Cancel</button>
+                    <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 transition shadow-md text-sm">Save Config</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
 
 <script>
-    // Template Modal
+    // --- Template Modal Script ---
     function openTemplateModal(userId, userName, allowedTemplates, defaultTemplate) {
         document.getElementById('modalUserName').innerText = userName;
         document.getElementById('templateForm').action = `/admin/users/${userId}/templates`;
@@ -277,7 +332,7 @@
         modal.classList.remove('flex');
     }
     
-    // Limit Modal
+    // --- Limit Modal Script ---
     function openLimitModal(userId, userName, currentLimit) {
         document.getElementById('limitModalUserName').innerText = userName;
         document.getElementById('limitInput').value = currentLimit;
@@ -294,7 +349,7 @@
         modal.classList.remove('flex');
     }
     
-    // Source Modal
+    // --- Source Modal Script ---
     function openSourceModal(userId, userName, assignedWebsites) {
         document.getElementById('sourceModalUserName').innerText = userName;
         document.getElementById('sourceForm').action = `/admin/users/${userId}/websites`;
@@ -318,6 +373,23 @@
 
     function closeSourceModal() {
         const modal = document.getElementById('sourceModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // --- Scraper Modal Script (New) ---
+    function openScraperModal(userId, userName, currentMethod) {
+        document.getElementById('scraperUserName').innerText = userName;
+        document.getElementById('scraperForm').action = `/admin/users/${userId}/scraper`;
+        document.getElementById('scraperInput').value = currentMethod || "";
+        
+        const modal = document.getElementById('scraperModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeScraperModal() {
+        const modal = document.getElementById('scraperModal');
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }

@@ -200,13 +200,12 @@ Artisan::command('news:autopost', function (
 // শিডিউল রানার (প্রতি মিনিটে)
 Schedule::command('news:autopost')->everyMinute();
 
-// --- AUTO CLEANUP COMMAND ---
-// প্রতিদিন ১২ ঘণ্টা পর পর ৭ দিনের পুরানো নিউজ ক্লিন করবে
+// ✅ Auto Cleanup: প্রতিদিন রাত ১২টা এবং দুপুর ১২টায় রান হবে
 Schedule::call(function () {
     $days = 7;
     $count = NewsItem::where('created_at', '<', now()->subDays($days))->delete();
     
     if ($count > 0) {
-        Log::info("🧹 Auto Clean (12H): {$count} old news items deleted.");
+        Log::info("🧹 Auto Clean (Twice Daily): {$count} old news items deleted.");
     }
-})->everyTwelveHours();
+})->twiceDaily(0, 12); // রাত ১২টা (0) এবং দুপুর ১২টা (12)

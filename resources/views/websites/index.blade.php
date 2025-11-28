@@ -17,41 +17,39 @@
 
     @if(auth()->user()->role === 'super_admin')
     <div class="bg-white p-6 rounded-xl shadow-lg border border-indigo-100 mb-10">
-        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            ➕ নতুন সোর্স যুক্ত করুন <span class="text-xs text-red-500">(Admin Only)</span>
-        </h2>
-        
+        <h2 class="text-xl font-bold text-gray-800 mb-4">➕ নতুন সোর্স যুক্ত করুন</h2>
         <form action="{{ route('websites.store') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             @csrf
-            
-            <div class="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Website Name</label>
-                    <input type="text" name="name" placeholder="e.g. Prothom Alo" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Website URL</label>
-                    <input type="url" name="url" placeholder="https://example.com" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500" required>
-                </div>
-            </div>
-
             <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase">Container Selector</label>
-                <input type="text" name="selector_container" placeholder=".news-item" class="w-full border-gray-300 rounded-lg text-sm font-mono bg-slate-50" required>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Website Name</label>
+                <input type="text" name="name" class="w-full border-gray-300 rounded-lg" required>
             </div>
             <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase">Title Selector</label>
-                <input type="text" name="selector_title" placeholder="h2.title" class="w-full border-gray-300 rounded-lg text-sm font-mono bg-slate-50" required>
+                <label class="block text-sm font-bold text-gray-700 mb-1">URL</label>
+                <input type="url" name="url" class="w-full border-gray-300 rounded-lg" required>
             </div>
             <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase">Image Selector</label>
-                <input type="text" name="selector_image" placeholder=".img-thumb" class="w-full border-gray-300 rounded-lg text-sm font-mono bg-slate-50">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Scraper Method</label>
+                <select name="scraper_method" class="w-full border-gray-300 rounded-lg">
+                    <option value="">System Default</option>
+                    <option value="node">Node.js (Puppeteer)</option>
+                    <option value="python">Python (Playwright)</option>
+                </select>
             </div>
-
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase">Container</label>
+                <input type="text" name="selector_container" class="w-full border-gray-300 rounded-lg text-sm font-mono bg-slate-50" required>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase">Title</label>
+                <input type="text" name="selector_title" class="w-full border-gray-300 rounded-lg text-sm font-mono bg-slate-50" required>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase">Image (Opt)</label>
+                <input type="text" name="selector_image" class="w-full border-gray-300 rounded-lg text-sm font-mono bg-slate-50">
+            </div>
             <div class="col-span-1 md:col-span-2 lg:col-span-3 flex justify-end">
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition shadow-md">
-                    Save Website
-                </button>
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-indigo-700">Save</button>
             </div>
         </form>
     </div>
@@ -62,48 +60,48 @@
             <thead>
                 <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
                     <th class="px-6 py-4 font-bold">Name</th>
-                    <th class="px-6 py-4 font-bold">Link</th>
-                    
+                    <th class="px-6 py-4 font-bold">Engine</th>
                     @if(auth()->user()->role === 'super_admin')
-                        <th class="px-6 py-4 font-bold">Selectors (Tech)</th>
+                        <th class="px-6 py-4 font-bold">Selectors</th>
                         <th class="px-6 py-4 font-bold text-right">Actions</th>
-                    @endif
-                    
-                    @if(auth()->user()->role !== 'super_admin')
+                    @else
                         <th class="px-6 py-4 font-bold text-right">Action</th>
                     @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @foreach($websites as $site)
-                <tr class="hover:bg-slate-50 transition group">
+                <tr class="hover:bg-slate-50 transition">
                     <td class="px-6 py-4 font-bold text-gray-800">
-                        <div class="flex items-center gap-2">
-                            <span class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">
-                                {{ substr($site->name, 0, 1) }}
-                            </span>
-                            {{ $site->name }}
-                        </div>
+                        <a href="{{ $site->url }}" target="_blank" class="text-blue-600 hover:underline">{{ $site->name }} ↗</a>
                     </td>
-                    <td class="px-6 py-4 text-sm text-blue-600 hover:underline">
-                        <a href="{{ $site->url }}" target="_blank">{{ parse_url($site->url, PHP_URL_HOST) }} ↗</a>
+                    <td class="px-6 py-4">
+                        @if($site->scraper_method == 'python')
+                            <span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded">Python</span>
+                        @elseif($site->scraper_method == 'node')
+                            <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">Node</span>
+                        @else
+                            <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">Default</span>
+                        @endif
                     </td>
 
                     @if(auth()->user()->role === 'super_admin')
                         <td class="px-6 py-4 text-xs font-mono text-slate-500">
-                            <div class="bg-slate-100 px-2 py-1 rounded inline-block mb-1">C: {{ $site->selector_container }}</div><br>
-                            <div class="bg-slate-100 px-2 py-1 rounded inline-block">T: {{ $site->selector_title }}</div>
+                            C: {{ $site->selector_container }} <br> T: {{ $site->selector_title }}
                         </td>
-                        <td class="px-6 py-4 text-right">
-                            <div class="flex justify-end gap-2">
-                                <a href="{{ route('websites.scrape', $site->id) }}" class="bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-200">
-                                    ⚡ Scrape
-                                </a>
-                                </div>
+                        <td class="px-6 py-4 text-right flex justify-end gap-2">
+                            <button onclick='openEditModal(@json($site))' 
+                                    class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-200">
+                                ✏️ Edit
+                            </button>
+                            
+                            <a href="{{ route('websites.scrape', $site->id) }}" class="bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-200">
+                                ⚡ Scrape
+                            </a>
                         </td>
                     @else
                         <td class="px-6 py-4 text-right">
-                            <a href="{{ route('websites.scrape', $site->id) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-sm">
+                            <a href="{{ route('websites.scrape', $site->id) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700">
                                 📥 Fetch News
                             </a>
                         </td>
@@ -112,12 +110,79 @@
                 @endforeach
             </tbody>
         </table>
-        
-        @if($websites->isEmpty())
-            <div class="p-10 text-center text-gray-400">
-                <p class="text-lg">কোনো সোর্স পাওয়া যায়নি। এডমিনের এপ্রুভালের অপেক্ষায় থাকুন।</p>
-            </div>
-        @endif
     </div>
 </div>
+
+<div id="editModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+        <div class="bg-gray-100 px-6 py-4 border-b flex justify-between items-center">
+            <h3 class="font-bold text-lg">Edit Website</h3>
+            <button onclick="closeEditModal()" class="text-gray-500 hover:text-red-500 text-2xl">&times;</button>
+        </div>
+        <form id="editForm" method="POST" class="p-6">
+            @csrf
+            @method('PUT')
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-bold mb-1">Name</label>
+                    <input type="text" name="name" id="editName" class="w-full border rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1">Scraper</label>
+                    <select name="scraper_method" id="editScraper" class="w-full border rounded p-2">
+                        <option value="">Default</option>
+                        <option value="node">Node.js</option>
+                        <option value="python">Python</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-bold mb-1">URL</label>
+                <input type="url" name="url" id="editUrl" class="w-full border rounded p-2">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase mb-1">Container</label>
+                    <input type="text" name="selector_container" id="editContainer" class="w-full border rounded p-2 text-sm font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase mb-1">Title</label>
+                    <input type="text" name="selector_title" id="editTitle" class="w-full border rounded p-2 text-sm font-mono">
+                </div>
+            </div>
+            <div class="mb-6">
+                <label class="block text-xs font-bold uppercase mb-1">Image Selector</label>
+                <input type="text" name="selector_image" id="editImage" class="w-full border rounded p-2 text-sm font-mono">
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-200 rounded font-bold">Cancel</button>
+                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded font-bold">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditModal(site) {
+        document.getElementById('editForm').action = `/websites/${site.id}`;
+        document.getElementById('editName').value = site.name;
+        document.getElementById('editUrl').value = site.url;
+        document.getElementById('editScraper').value = site.scraper_method || "";
+        document.getElementById('editContainer').value = site.selector_container;
+        document.getElementById('editTitle').value = site.selector_title;
+        document.getElementById('editImage').value = site.selector_image || "";
+        
+        document.getElementById('editModal').classList.remove('hidden');
+        document.getElementById('editModal').classList.add('flex');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.add('hidden');
+        document.getElementById('editModal').classList.remove('flex');
+    }
+</script>
 @endsection
