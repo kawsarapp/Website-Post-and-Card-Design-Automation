@@ -24,7 +24,7 @@ class ProcessNewsPost implements ShouldQueue
     protected $newsId;
     protected $userId;
 
-    // টাইমআউট ৫ মিনিট (যাতে AI দেরি করলেও সমস্যা না হয়)
+    // টাইমআউট ৫ মিনিট (যাতে AI দেরি করলেও সমস্যা না হয়)
     public $timeout = 300;
 
     public function __construct($newsId, $userId)
@@ -39,7 +39,7 @@ class ProcessNewsPost implements ShouldQueue
         WordPressService $wpService, 
         TelegramService $telegram
     ) {
-        // ১. ডাটা লোড (Global Scope ছাড়া)
+        // ১. ডাটা লোড (Global Scope ছাড়া)
         $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
         $user = User::find($this->userId);
         
@@ -66,19 +66,28 @@ class ProcessNewsPost implements ShouldQueue
             $aiResponse = $aiWriter->rewrite($cleanText);
 
             $rewrittenContent = $news->content;
-            $categoryId = 1;
-
-            // ক্যাটাগরি ম্যাপিং
-            $wpCategories = [
-                'Politics' => 14, 'International' => 37, 'Sports' => 15,
-                'Entertainment' => 11, 'Technology' => 1, 'Economy' => 1,
-                'Bangladesh' => 14, 'Crime' => 1, 'Others' => 1
-            ];
+            $categoryId = 1; // Default Uncategorized
 
             if ($aiResponse) {
                 $rewrittenContent = $aiResponse['content'];
                 $detectedCategory = $aiResponse['category'] ?? 'Others';
-                $categoryId = $wpCategories[$detectedCategory] ?? 1;
+                
+                // ✅ Dynamic Category Mapping Logic
+                // ইউজারের সেভ করা ম্যাপিং লোড করা হচ্ছে (ধরে নিচ্ছি মডেল-এ 'category_mapping' => 'array' কাস্ট করা আছে)
+                $userMapping = $settings->category_mapping ?? [];
+                
+                // ১. ইউজার ম্যাপ করেছে কিনা চেক
+                if (isset($userMapping[$detectedCategory]) && !empty($userMapping[$detectedCategory])) {
+                    $categoryId = $userMapping[$detectedCategory];
+                } 
+                // ২. না থাকলে 'Others' এর ম্যাপ চেক
+                elseif (isset($userMapping['Others']) && !empty($userMapping['Others'])) {
+                    $categoryId = $userMapping['Others'];
+                }
+                // ৩. তাও না থাকলে ডিফল্ট ১
+                else {
+                    $categoryId = 1;
+                }
 
                 // ক্রেডিট এবং লিমিট চেক ও ডিডাকশন
                 if ($user->role !== 'super_admin') {

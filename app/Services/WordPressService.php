@@ -7,22 +7,30 @@ use Illuminate\Support\Facades\Log;
 
 class WordPressService
 {
-    /**
-     * ================================
-     *  MERGED publishPost()
-     * ================================
-     *
-     * নতুন ভার্সনের signature রাখা হয়েছে:
-     * publishPost($title, $content, $domain, $username, $password, $categoryId, $featuredMediaId)
-     * যেন ইউজারের আলাদা credentials কাজ করে।
-     */
+    public function getCategories($domain, $username, $password)
+    {
+        $domain = rtrim($domain, '/');
+        $endpoint = "$domain/wp-json/wp/v2/categories?per_page=100";
+
+        try {
+            $response = Http::withBasicAuth($username, $password)
+                ->timeout(30)
+                ->get($endpoint);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+            return [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+	
     public function publishPost($title, $content, $domain, $username, $password, $categoryId = 1, $featuredMediaId = null)
     {
-        // ডোমেইন পরিষ্কার
         $domain = rtrim($domain, '/');
         $endpoint = "$domain/wp-json/wp/v2/posts";
 
-        // ডেটা তৈরি
         $data = [
             'title'   => $title,
             'content' => $content,
@@ -30,7 +38,6 @@ class WordPressService
             'categories' => [$categoryId],
         ];
 
-        // ইমেজ থাকলে যোগ করা
         if ($featuredMediaId) {
             $data['featured_media'] = $featuredMediaId;
         }
@@ -57,25 +64,15 @@ class WordPressService
         }
     }
 
-    /**
-     * ================================
-     *  MERGED uploadImage()
-     * ================================
-     *
-     * দুই ফাইলের uploadImage একইভাবে merge করা হয়েছে
-     * নতুন credentials ($domain, $username, $password) রাখা হয়েছে
-     */
+  
     public function uploadImage($imageUrl, $title, $domain, $username, $password)
     {
-        // সাইট URL পরিষ্কার
         $domain = rtrim($domain, '/');
         $endpoint = "$domain/wp-json/wp/v2/media";
 
         try {
-            // ইমেজ URL থেকে query remove
             $imageUrl = preg_replace('/\?.*/', '', $imageUrl);
 
-            // ইমেজ ডাউনলোড
             $response = Http::withOptions(['verify' => false])
                 ->withHeaders(['User-Agent' => 'Mozilla/5.0'])
                 ->timeout(30)
@@ -87,7 +84,6 @@ class WordPressService
             $contentType  = $response->header('Content-Type') ?: 'image/jpeg';
             $fileName     = 'news_' . time() . '.jpg';
 
-            // মিডিয়া আপলোড
             $wpResponse = Http::withBasicAuth($username, $password)
                 ->withHeaders([
                     'Content-Type'        => $contentType,
@@ -99,7 +95,6 @@ class WordPressService
             if ($wpResponse->successful()) {
                 $mediaId = $wpResponse->json()['id'];
 
-                // Alt text update চেষ্টা
                 try {
                     Http::withBasicAuth($username, $password)
                         ->post("$domain/wp-json/wp/v2/media/" . $mediaId, [
