@@ -2,15 +2,18 @@
 
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use App\Models\NewsItem;
 use App\Models\User;
+use App\Models\CreditHistory;
 use App\Services\NewsScraperService;
 use App\Services\AIWriterService;
 use App\Services\WordPressService;
 use App\Services\TelegramService;
 use Carbon\Carbon;
-use Illuminate\Support\Str; // Str ক্লাসের জন্য
 
+// --- AUTO POST COMMAND ---
 Artisan::command('news:autopost', function (
     NewsScraperService $scraper, 
     AIWriterService $aiWriter, 
@@ -24,7 +27,7 @@ Artisan::command('news:autopost', function (
         $q->where('is_auto_posting', true);
     })->where('credits', '>', 0)->where('is_active', true)->get();
 
-    $this->info("বোট: মোট " . $users->count() . " জন একটিভ ইউজার পাওয়া গেছে।");
+    $this->info("বোট: মোট " . $users->count() . " জন একটিভ ইউজার পাওয়া গেছে।");
 
     foreach ($users as $user) {
         $this->info("--- চেকিং ইউজার: {$user->name} ---");
@@ -36,25 +39,24 @@ Artisan::command('news:autopost', function (
             continue;
         }
 
-        // ২. সময় চেক করা
+        // ২. সময় চেক করা (Timezone Fixed)
         $lastPostTime = $settings->last_auto_post_at ? Carbon::parse($settings->last_auto_post_at) : null;
         $intervalMinutes = $settings->auto_post_interval ?? 10;
 
         if ($lastPostTime) {
             $diff = abs(now()->diffInMinutes($lastPostTime));
-            
             $this->info("ℹ️ শেষ পোস্ট: {$diff} মিনিট আগে। ইন্টারভাল: {$intervalMinutes} মিনিট।");
             
             if ($diff < $intervalMinutes) {
                 $wait = $intervalMinutes - $diff;
-                $this->warn("⏳ সময় হয়নি। আরও {$wait} মিনিট অপেক্ষা করতে হবে।");
+                $this->warn("⏳ সময় হয়নি। আরও {$wait} মিনিট অপেক্ষা করতে হবে।");
                 continue; 
             }
         }
 
-        // ৩. পেন্ডিং নিউজ খোঁজা (স্মার্ট প্রায়োরিটি লজিক)
+        // ৩. পেন্ডিং নিউজ খোঁজা (Priority Logic)
         
-        // স্টেপ A: প্রথমে দেখবে ইউজার কোনো নিউজ 'Select' করেছে কিনা
+        // A. প্রথমে দেখবে Queue তে কোনো নিউজ আছে কিনা
         $newsToPost = NewsItem::withoutGlobalScope(\App\Models\Scopes\UserScope::class)
             ->where('user_id', $user->id)
             ->where('is_posted', false)
@@ -62,10 +64,8 @@ Artisan::command('news:autopost', function (
             ->oldest()
             ->first();
 
-        // স্টেপ B: না থাকলে সাধারণ পুরানো নিউজ
+        // B. যদি Queue তে না থাকে, তবে সাধারণ পুরানো নিউজ
         if (!$newsToPost) {
-            $this->info("ℹ️ কোনো সিলেক্ট করা নিউজ নেই, ডিফল্ট মুডে যাচ্ছে...");
-            
             $newsToPost = NewsItem::withoutGlobalScope(\App\Models\Scopes\UserScope::class)
                 ->where('user_id', $user->id)
                 ->where('is_posted', false)
@@ -73,13 +73,13 @@ Artisan::command('news:autopost', function (
                 ->first();
         }
 
-        // স্টেপ C: এরপরও না থাকলে স্কিপ
+        // C. নিউজ না থাকলে স্কিপ
         if (!$newsToPost) {
-            $this->warn("⚠️ সকল নিউজ পোস্ট করা হয়েছে বা পেন্ডিং নিউজ নাই।");
+            $this->warn("⚠️ সকল নিউজ পোস্ট করা হয়েছে বা পেন্ডিং নিউজ নাই।");
             continue;
         }
 
-        $this->info("✅ নিউজ পাওয়া গেছে: {$newsToPost->title}");
+        $this->info("✅ নিউজ পাওয়া গেছে: {$newsToPost->title}");
 
         try {
             // স্ক্র্যাপ (যদি কন্টেন্ট না থাকে)
@@ -105,30 +105,22 @@ Artisan::command('news:autopost', function (
 
             if ($aiResponse) {
                 
-                // ==========================================
-                // ✅ ১. ডেইলি লিমিট চেক
-                // ==========================================
+                // ১. ডেইলি লিমিট চেক
                 if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
                     $this->warn("⛔ User {$user->name} daily limit exceeded. Skipping.");
                     continue; 
                 }
 
-                // ==========================================
-                // ✅ ২. ক্রেডিট কাটা এবং লগ রাখা
-                // ==========================================
+                // ২. ক্রেডিট কাটা এবং লগ রাখা
                 $user->decrement('credits');
                 
-                \App\Models\CreditHistory::create([
+                CreditHistory::create([
                     'user_id' => $user->id,
                     'action_type' => 'auto_post',
                     'description' => 'Auto: ' . Str::limit($newsToPost->title, 40),
                     'credits_change' => -1,
                     'balance_after' => $user->credits
                 ]);
-                
-                // ==========================================
-                // বাকি প্রসেস (ক্যাটাগরি, ইমেজ, পোস্ট)
-                // ==========================================
 
                 // ক্যাটাগরি ডিটেকশন
                 $wpCategories = [
@@ -146,8 +138,8 @@ Artisan::command('news:autopost', function (
                     $upload = $wpService->uploadImage(
                         $newsToPost->thumbnail_url, 
                         $newsToPost->title,
-                        $settings->wp_url,            
-                        $settings->wp_username,       
+                        $settings->wp_url,          
+                        $settings->wp_username,     
                         $settings->wp_app_password 
                     );
 
@@ -166,7 +158,7 @@ Artisan::command('news:autopost', function (
                 $wpPost = $wpService->publishPost(
                     $newsToPost->title, 
                     $finalContent, 
-                    $settings->wp_url,       
+                    $settings->wp_url,      
                     $settings->wp_username, 
                     $settings->wp_app_password,
                     $categoryId,
@@ -174,11 +166,10 @@ Artisan::command('news:autopost', function (
                 );
 
                 if ($wpPost) {
-                    // সফল হলে নিউজ আপডেট (ক্রেডিট আগেই কাটা হয়েছে)
                     $newsToPost->update([
                         'rewritten_content' => $finalContent, 
-                        'is_posted' => true, 
-                        'is_queued' => false,
+                        'is_posted' => true,
+                        'is_queued' => false, // পোস্ট হয়ে গেলে কিউ থেকে সরে যাবে
                         'wp_post_id' => $wpPost['id']
                     ]);
 
@@ -190,8 +181,12 @@ Artisan::command('news:autopost', function (
                     
                     $this->info("🚀 সফল! Post ID: {$wpPost['id']}");
                 } else {
-                    $this->error("❌ ওয়ার্ডপ্রেস পোস্ট ফেইল করেছে। (ক্রেডিট রিফান্ড করা যেতে পারে)");
-                    // অপশনাল: ফেইল করলে ক্রেডিট ফেরত দেওয়ার লজিক এখানে যুক্ত করতে পারেন
+                    $this->error("❌ ওয়ার্ডপ্রেস পোস্ট ফেইল করেছে।");
+                    // ফেইল করলে ক্রেডিট রিফান্ড করা যেতে পারে (অপশনাল)
+                    /*
+                    $user->increment('credits');
+                    CreditHistory::latest()->where('user_id', $user->id)->first()->delete();
+                    */
                 }
             }
         } catch (\Exception $e) {
@@ -202,4 +197,16 @@ Artisan::command('news:autopost', function (
 
 })->purpose('Auto post news with interval check');
 
+// শিডিউল রানার (প্রতি মিনিটে)
 Schedule::command('news:autopost')->everyMinute();
+
+// --- AUTO CLEANUP COMMAND ---
+// প্রতিদিন ১২ ঘণ্টা পর পর ৭ দিনের পুরানো নিউজ ক্লিন করবে
+Schedule::call(function () {
+    $days = 7;
+    $count = NewsItem::where('created_at', '<', now()->subDays($days))->delete();
+    
+    if ($count > 0) {
+        Log::info("🧹 Auto Clean (12H): {$count} old news items deleted.");
+    }
+})->everyTwelveHours();

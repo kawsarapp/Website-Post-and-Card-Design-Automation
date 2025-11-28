@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\NewsItem;
 use App\Models\UserSetting;
+use App\Models\CreditHistory; // ✅ নতুন যোগ করা হয়েছে
 use App\Services\NewsScraperService;
 use App\Services\AIWriterService;
 use App\Services\WordPressService;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class NewsController extends Controller
 {
@@ -41,16 +43,27 @@ class NewsController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $settings = $user->settings ?? UserSetting::create(['user_id' => $user->id]);
+        // সেটিংস লোড বা তৈরি
+        $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
         
-        $newsItems = NewsItem::with('website')->orderBy('published_at', 'desc')->paginate(20);
+        // ✅ FIX: Website রিলেশনশিপ লোড করার সময় গ্লোবাল স্কোপ বাদ দেওয়া হয়েছে
+        // যাতে ইউজার এডমিনের তৈরি করা ওয়েবসাইটের নাম দেখতে পায়
+        $newsItems = NewsItem::with(['website' => function ($query) {
+            $query->withoutGlobalScopes(); 
+        }])
+        ->orderBy('published_at', 'desc')
+        ->paginate(20);
         
         return view('news.index', compact('newsItems', 'settings'));
     }
 
     public function studio($id)
     {
-        $newsItem = NewsItem::with('website')->findOrFail($id);
+        // ✅ FIX: Website রিলেশনশিপ লোড করার সময় গ্লোবাল স্কোপ বাদ দেওয়া হয়েছে
+        $newsItem = NewsItem::with(['website' => function ($query) {
+            $query->withoutGlobalScopes(); 
+        }])->findOrFail($id);
+
         $settings = UserSetting::where('user_id', Auth::id())->first();
 
         return view('news.studio', compact('newsItem', 'settings'));
@@ -68,23 +81,25 @@ class NewsController extends Controller
             abort(404);
         }
     }
-	
-	
-	// ✅ কিউ (Queue) টগল করার ফাংশন
+    
+    // ✅ কিউ (Queue) টগল করার ফাংশন
     public function toggleQueue($id)
     {
         $news = NewsItem::findOrFail($id);
         
-        // স্ট্যাটাস উল্টিয়ে দেওয়া (True থাকলে False, False থাকলে True)
+        if ($news->is_posted) {
+            return back()->with('error', 'এটি ইতিমধ্যে পোস্ট হয়ে গেছে!');
+        }
+
         $news->is_queued = !$news->is_queued;
         $news->save();
 
-        $status = $news->is_queued ? 'অটো-পোস্ট লিস্টে যুক্ত হয়েছে (Priority) 📌' : 'লিস্ট থেকে সরানো হয়েছে';
+        $status = $news->is_queued ? '📌 অটো-পোস্ট লিস্টে যুক্ত হয়েছে (Priority)' : 'লিস্ট থেকে সরানো হয়েছে';
         
         return back()->with('success', $status);
     }
 
-    // এই মেথডটি NewsController.php তে রিপ্লেস করুন
+    // অটোমেশন টগল ফাংশন
     public function toggleAutomation(Request $request)
     {
         $request->validate([
@@ -93,10 +108,10 @@ class NewsController extends Controller
 
         $user = Auth::user();
         
-        // ইউজারের সেটিংস লোড করা বা তৈরি করা
+        // সেটিংস লোড বা তৈরি
         $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
 
-        // টগল লজিক (অন/অফ)
+        // টগল লজিক
         $settings->is_auto_posting = !$settings->is_auto_posting;
 
         // যদি ইনপুট দেয়, তবে আপডেট হবে
@@ -113,11 +128,10 @@ class NewsController extends Controller
 
         $status = $settings->is_auto_posting ? "চালু (প্রতি {$settings->auto_post_interval} মি. পর পর)" : 'বন্ধ';
 
-        return back()->with('success', "অটোমেশন {$status} করা হয়েছে।");
+        return back()->with('success', "অটোমেশন {$status} করা হয়েছে।");
     }
-	
-	
-	// ✅ AJAX এর জন্য স্ট্যাটাস চেক ফাংশন
+    
+    // ✅ AJAX এর জন্য স্ট্যাটাস চেক ফাংশন
     public function checkAutoPostStatus()
     {
         $user = Auth::user();
@@ -134,150 +148,46 @@ class NewsController extends Controller
 
         return response()->json([
             'status' => 'on',
-            'last_posted' => $settings->last_auto_post_at, // ডিবাগিং এর জন্য
-            'next_post_time' => $nextPost->format('Y-m-d H:i:s') // নতুন সময়
+            'last_posted' => $settings->last_auto_post_at, 
+            'next_post_time' => $nextPost->format('Y-m-d H:i:s') 
         ]);
     }
-	
+    
 
     public function postToWordPress($id)
-{
-    set_time_limit(300);
+    {
+        $user = Auth::user();
+        $settings = $user->settings;
 
-    $user = Auth::user();
-    $settings = $user->settings;
-
-    // --- ✅ অটোমেশন চেক ---
-    if ($settings && $settings->is_auto_posting) {
-        return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
-    }
-
-    if (!$settings || !$settings->wp_url || !$settings->wp_username) {
-        return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
-    }
-
-    $news = NewsItem::with('website')->findOrFail($id);
-
-    if ($news->is_posted) return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
-
-    // প্রাথমিক ক্রেডিট চেক
-    if ($user->role !== 'super_admin' && $user->credits <= 0) {
-        return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ! দয়া করে রিচার্জ করুন।');
-    }
-
-    try {
-        // ১. স্ক্র্যাপ কন্টেন্ট
-        if (empty($news->content) || strlen($news->content) < 150) {
-            $content = $this->scraper->scrape($news->original_link);
-            if ($content) {
-                $news->update(['content' => $this->cleanUtf8($content)]);
-            } else {
-                return back()->with('error', 'স্ক্র্যাপার কন্টেন্ট পায়নি।');
+        // ১. ভ্যালিডেশন
+        if ($settings && $settings->is_auto_posting) {
+            return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
+        }
+        if (!$settings || !$settings->wp_url || !$settings->wp_username) {
+            return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
+        }
+        
+        // ২. ক্রেডিট ও লিমিট চেক (প্রাথমিক)
+        if ($user->role !== 'super_admin') {
+            if ($user->credits <= 0) {
+                return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ!');
+            }
+            if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
             }
         }
 
-        // ২. AI রিরাইট
-        $inputText = "HEADLINE: " . $news->title . "\n\nBODY:\n" . strip_tags($news->content);
-        $cleanText = $this->cleanUtf8($inputText);
+        $news = NewsItem::with(['website' => function ($query) {
+            $query->withoutGlobalScopes(); 
+        }])->findOrFail($id);
 
-        $aiResponse = $this->aiWriter->rewrite($cleanText);
+        if ($news->is_posted) return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
 
-        // ভেরিয়েবল ইনিশিয়ালাইজেশন
-        $categoryId = $this->wpCategories['Others'];
-        $rewrittenContent = $news->content;
+        // ✅ ৩. ফাস্ট রেসপন্স: জব কিউতে পাঠানো হচ্ছে
+        \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id);
 
-        if (!$aiResponse) {
-            // AI ফেইল করলে অরিজিনাল কন্টেন্ট থাকবে (ক্রেডিট কাটবে না)
-            $rewrittenContent = $news->content;
-        } else {
-            $rewrittenContent = $aiResponse['content'];
-            $detectedCategory = $aiResponse['category'];
-            $categoryId = $this->wpCategories[$detectedCategory] ?? $this->wpCategories['Others'];
-
-            // ==========================================
-            // ✅ আপডেটেড ক্রেডিট এবং ডেইলি লিমিট লজিক
-            // ==========================================
-            if ($user->role !== 'super_admin') {
-                
-                // ১. ডেইলি লিমিট চেক
-                // (User মডেলে hasDailyLimitRemaining ফাংশন থাকতে হবে)
-                if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
-                    return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ! আগামীকাল আবার চেষ্টা করুন।");
-                }
-
-                // ২. ক্রেডিট কাটা
-                $user->decrement('credits');
-
-                // ৩. ক্রেডিট হিস্ট্রি লগ রাখা
-                \App\Models\CreditHistory::create([
-                    'user_id' => $user->id,
-                    'action_type' => 'manual_post',
-                    'description' => 'Post: ' . \Illuminate\Support\Str::limit($news->title, 40),
-                    'credits_change' => -1,
-                    'balance_after' => $user->credits
-                ]);
-            }
-            // ==========================================
-        }
-
-        // ৩. ইমেজ আপলোড
-        $imageId = null;
-        if ($news->thumbnail_url) {
-            $upload = $this->wpService->uploadImage(
-                $news->thumbnail_url, 
-                $news->title,
-                $settings->wp_url,
-                $settings->wp_username,
-                $settings->wp_app_password
-            );
-
-            if ($upload && $upload['success']) {
-                $imageId = $upload['id'];
-            } else {
-                $rewrittenContent = '<img src="' . $news->thumbnail_url . '" style="width:100%; margin-bottom:15px;"><br>' . $rewrittenContent;
-            }
-        }
-
-        // ৪. ফাইনাল পোস্ট পাবলিশিং
-        $credit = '<hr><p style="text-align:center; font-size:13px; color:#888;">তথ্যসূত্র: অনলাইন ডেস্ক</p>';
-        $finalContent = $this->cleanUtf8($rewrittenContent . $credit);
-        $finalTitle   = $this->cleanUtf8($news->title);
-
-        $wpPost = $this->wpService->publishPost(
-            $finalTitle, 
-            $finalContent, 
-            $settings->wp_url,
-            $settings->wp_username,
-            $settings->wp_app_password,
-            $categoryId,
-            $imageId
-        );
-
-        if ($wpPost) {
-            $news->update([
-                'rewritten_content' => $finalContent,
-                'is_posted'         => true,
-                'wp_post_id'        => $wpPost['id']
-            ]);
-
-            if ($settings->telegram_channel_id) {
-                $this->telegram->sendToChannel($settings->telegram_channel_id, $finalTitle, $wpPost['link']);
-            }
-
-            return back()->with('success', "পোস্ট পাবলিশ হয়েছে! ID: " . $wpPost['id']);
-        } else {
-            return back()->with('error', 'ওয়ার্ডপ্রেস পোস্ট ফেইল করেছে। ক্রেডেনশিয়াল চেক করুন।');
-        }
-
-    } catch (\Exception $e) {
-        return back()->with('error', 'System Error: ' . $e->getMessage());
+        return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! ১-২ মিনিটের মধ্যে সাইটে দেখা যাবে। ⏳');
     }
-}
-	
-	
-	
-	
-	
 
     private function cleanUtf8($string)
     {
