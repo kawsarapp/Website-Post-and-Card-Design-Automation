@@ -30,32 +30,38 @@ class ScrapeWebsite implements ShouldQueue
     public function handle()
     {
         try {
-            // ✅ FIX: ID Extraction Logic
-            // If websiteId came as an object/array (due to serialization issues), extract the ID
+            // ✅ FIX: ID Extraction Logic (Robust)
             $realId = $this->websiteId;
-            
-            if (is_object($realId) || is_array($realId)) {
-                // If it's a model or array, try to get 'id'
-                $realId = is_object($realId) ? $realId->id : $realId['id'];
+
+            if (is_object($realId)) {
+                $realId = $realId->id ?? null;
+            } elseif (is_array($realId)) {
+                $realId = $realId['id'] ?? null;
+            } elseif (is_string($realId)) {
+                 $decoded = json_decode($realId, true);
+                 if (json_last_error() === JSON_ERROR_NONE) {
+                     $realId = $decoded['id'] ?? $realId;
+                 }
             }
 
-            // Ensure it's an integer
             $realId = (int) $realId;
 
-            // Fetch Website
+            // ওয়েবসাইট খুঁজে বের করা
             $website = Website::withoutGlobalScopes()->where('id', $realId)->first();
 
             if (!$website) {
-                Log::error("Scrape Job Failed: Website ID {$realId} not found in DB.");
+                Log::error("Scrape Job Failed: Website ID {$realId} not found in DB. Original Input: " . json_encode($this->websiteId));
                 return;
             }
 
             Log::info("🚀 Starting Scraping for: " . $website->name);
 
+            // ফাইল পাথ
             $fileName = "scrape_" . time() . "_{$website->id}.html";
             $tempFile = storage_path("app/public/{$fileName}");
             $scriptPath = base_path("scraper-engine.js");
 
+            // Puppeteer Script
             $jsCode = <<<'JS'
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
@@ -86,7 +92,6 @@ if (!url || !outputFile) process.exit(1);
 
   try {
     const page = await browser.newPage();
-    
     await page.setRequestInterception(true);
     page.on('request', (req) => {
         if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
@@ -98,13 +103,8 @@ if (!url || !outputFile) process.exit(1);
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
 
-    try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    } catch (e) {}
-
-    try {
-        if(selector) await page.waitForSelector(selector, { timeout: 8000 });
-    } catch(e) {}
+    try { await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }); } catch (e) {}
+    try { if(selector) await page.waitForSelector(selector, { timeout: 8000 }); } catch(e) {}
 
     await page.evaluate(async () => {
         await new Promise((resolve) => {
@@ -132,7 +132,6 @@ if (!url || !outputFile) process.exit(1);
 
     const html = await page.content();
     fs.writeFileSync(outputFile, html);
-    
     await browser.close();
     process.exit(0);
 
@@ -145,9 +144,10 @@ if (!url || !outputFile) process.exit(1);
 JS;
 
             file_put_contents($scriptPath, $jsCode);
-
-            $nodePath = "node"; 
-            // $nodePath = "/usr/bin/node"; 
+            
+            // লিনাক্স পাথ ফিক্স
+            $nodePath = "/usr/bin/node"; 
+            if (!file_exists($nodePath)) $nodePath = "node";
 
             $command = "\"$nodePath\" \"$scriptPath\" \"{$website->url}\" \"$tempFile\" \"{$website->selector_container}\" 2>&1";
             $output = shell_exec($command);
@@ -164,7 +164,7 @@ JS;
             $containers = $crawler->filter($website->selector_container);
 
             if ($containers->count() === 0) {
-                Log::warning("No content found for {$website->name} with selector: {$website->selector_container}");
+                Log::warning("No content found for {$website->name}");
                 return;
             }
 
@@ -173,7 +173,6 @@ JS;
 
             $containers->each(function (Crawler $node) use ($website, &$count, $limit) {
                 if ($count >= $limit) return false;
-
                 try {
                     $titleNode = $node->filter($website->selector_title);
                     if ($titleNode->count() === 0) return;
@@ -214,24 +213,18 @@ JS;
                     }
 
                     NewsItem::updateOrCreate(
-                        [
-                            'original_link' => $link,
-                            'user_id' => $this->userId 
-                        ],
+                        ['original_link' => $link, 'user_id' => $this->userId],
                         [
                             'website_id' => $website->id,
                             'title' => $title,
                             'thumbnail_url' => $image,
-                            'published_at' => now()->subSeconds($count), 
+                            'published_at' => now()->subSeconds($count),
                         ]
                     );
                     $count++;
-
                 } catch (\Exception $e) {}
             });
-
             Log::info("✅ Scraped {$count} news items for {$website->name}");
-
         } catch (\Exception $e) {
             Log::error("Scrape Job Exception: " . $e->getMessage());
         }

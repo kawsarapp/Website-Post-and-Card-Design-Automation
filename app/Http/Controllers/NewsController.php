@@ -12,12 +12,13 @@ use App\Services\TelegramService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use App\Jobs\ProcessNewsPost; // ✅ Job Import
 
 class NewsController extends Controller
 {
     private $scraper, $aiWriter, $wpService, $telegram;
-    private $wpCategories = ['Politics' => 14, 'International' => 37, 'Sports' => 15, 'Entertainment' => 11, 'Technology' => 1, 'Economy' => 1, 'Bangladesh' => 14, 'Crime' => 1, 'Others' => 1];
 
     public function __construct(NewsScraperService $scraper, AIWriterService $aiWriter, WordPressService $wpService, TelegramService $telegram) {
         $this->scraper = $scraper; $this->aiWriter = $aiWriter; $this->wpService = $wpService; $this->telegram = $telegram;
@@ -28,7 +29,7 @@ class NewsController extends Controller
         $user = Auth::user();
         $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
         
-        // ✅ FIX: ওয়েবসাইট রিলেশনশিপে গ্লোবাল স্কোপ বন্ধ করা হয়েছে
+        // ✅ Website Name দেখার জন্য withoutGlobalScope ব্যবহার করা হয়েছে
         $newsItems = NewsItem::with(['website' => function ($query) {
             $query->withoutGlobalScopes(); 
         }])
@@ -45,6 +46,7 @@ class NewsController extends Controller
         }])->findOrFail($id);
 
         $settings = UserSetting::where('user_id', Auth::id())->first();
+
         return view('news.studio', compact('newsItem', 'settings'));
     }
 
@@ -76,7 +78,7 @@ class NewsController extends Controller
         if ($request->has('interval') && $request->interval > 0) $settings->auto_post_interval = $request->interval;
         if ($settings->is_auto_posting) $settings->last_auto_post_at = now();
         $settings->save();
-        $status = $settings->is_auto_posting ? "চালু (প্রতি {$settings->auto_post_interval} মি. পর পর)" : 'বন্ধ';
+        $status = $settings->is_auto_posting ? "চালু" : 'বন্ধ';
         return back()->with('success', "অটোমেশন {$status} করা হয়েছে।");
     }
     
@@ -95,8 +97,11 @@ class NewsController extends Controller
     {
         $user = Auth::user();
         $settings = $user->settings;
+
         if ($settings && $settings->is_auto_posting) return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
         if (!$settings || !$settings->wp_url || !$settings->wp_username) return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
+        
+        // প্রাথমিক ক্রেডিট চেক
         if ($user->role !== 'super_admin') {
             if ($user->credits <= 0) return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ!');
             if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
@@ -108,9 +113,9 @@ class NewsController extends Controller
 
         if ($news->is_posted) return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
 
-        \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id);
+        // ✅ Job Dispatch (Queue)
+        ProcessNewsPost::dispatch($news->id, $user->id);
+
         return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! ১-২ মিনিটের মধ্যে সাইটে দেখা যাবে। ⏳');
     }
-
-    private function cleanUtf8($string) { return is_string($string) ? mb_convert_encoding($string, 'UTF-8', 'UTF-8') : $string; }
 }

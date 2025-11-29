@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache; // ✅ Cache ইমপোর্ট করা হয়েছে
 use Illuminate\Support\Str;
 use App\Models\NewsItem;
 use App\Models\User;
@@ -25,12 +26,18 @@ Artisan::command('news:autopost', function (
     // ১. একটিভ অটোমেশন ইউজার খোঁজা
     $users = User::whereHas('settings', function($q) {
         $q->where('is_auto_posting', true);
-    })->where('credits', '>', 0)->where('is_active', true)->get();
+    })->where('is_active', true)->get();
 
     $this->info("বোট: মোট " . $users->count() . " জন একটিভ ইউজার পাওয়া গেছে।");
 
     foreach ($users as $user) {
         $this->info("--- চেকিং ইউজার: {$user->name} ---");
+
+        // ক্রেডিট চেক
+        if ($user->role !== 'super_admin' && $user->credits <= 0) {
+            $this->warn("⛔ User {$user->name} has no credits. Skipping.");
+            continue;
+        }
 
         $settings = $user->settings;
 
@@ -39,7 +46,7 @@ Artisan::command('news:autopost', function (
             continue;
         }
 
-        // ২. সময় চেক করা (Timezone Fixed)
+        // ২. সময় চেক করা
         $lastPostTime = $settings->last_auto_post_at ? Carbon::parse($settings->last_auto_post_at) : null;
         $intervalMinutes = $settings->auto_post_interval ?? 10;
 
@@ -55,31 +62,35 @@ Artisan::command('news:autopost', function (
         }
 
         // ৩. পেন্ডিং নিউজ খোঁজা (Priority Logic)
-        
-        // A. প্রথমে দেখবে Queue তে কোনো নিউজ আছে কিনা
-        $newsToPost = NewsItem::withoutGlobalScope(\App\Models\Scopes\UserScope::class)
+        // আমরা একবারে ৫টি নিউজ চেক করবো, যদি প্রথমটি লক করা থাকে পরেরটি নিবে
+        $newsCandidates = NewsItem::withoutGlobalScope(\App\Models\Scopes\UserScope::class)
             ->where('user_id', $user->id)
             ->where('is_posted', false)
-            ->where('is_queued', true)
+            ->orderBy('is_queued', 'desc') // Queue আগে
             ->oldest()
-            ->first();
+            ->limit(5) // ৫টি আনবো
+            ->get();
 
-        // B. যদি Queue তে না থাকে, তবে সাধারণ পুরানো নিউজ
-        if (!$newsToPost) {
-            $newsToPost = NewsItem::withoutGlobalScope(\App\Models\Scopes\UserScope::class)
-                ->where('user_id', $user->id)
-                ->where('is_posted', false)
-                ->oldest()
-                ->first();
+        $newsToPost = null;
+
+        // ✅ লকিং চেক: যে নিউজটি ফ্রি আছে সেটি নিবো
+        foreach ($newsCandidates as $candidate) {
+            $lockKey = "processing_news_{$candidate->id}";
+            
+            // Cache::add যদি true দেয়, তার মানে লক করা সফল হয়েছে (никিউ প্রসেস করছে না)
+            // ১০ মিনিটের জন্য লক করা হলো
+            if (Cache::add($lockKey, true, 600)) {
+                $newsToPost = $candidate;
+                break; // নিউজ পেয়েছি, লুপ বন্ধ
+            }
         }
 
-        // C. নিউজ না থাকলে স্কিপ
         if (!$newsToPost) {
-            $this->warn("⚠️ সকল নিউজ পোস্ট করা হয়েছে বা পেন্ডিং নিউজ নাই।");
+            $this->warn("⚠️ কোনো নিউজ পাওয়া যায়নি অথবা সব নিউজ বর্তমানে প্রসেসিং-এ আছে।");
             continue;
         }
 
-        $this->info("✅ নিউজ পাওয়া গেছে: {$newsToPost->title}");
+        $this->info("✅ প্রসেসিং শুরু: {$newsToPost->title}");
 
         try {
             // স্ক্র্যাপ (যদি কন্টেন্ট না থাকে)
@@ -92,6 +103,8 @@ Artisan::command('news:autopost', function (
                     $newsToPost->update(['content' => $content]);
                 } else {
                     $this->error("❌ স্ক্র্যাপ ফেইল (কন্টেন্ট নেই)। স্কিপ করছি...");
+                    // লক ছেড়ে দিচ্ছি যাতে পরে আবার চেষ্টা করতে পারে
+                    Cache::forget("processing_news_{$newsToPost->id}");
                     continue;
                 }
             }
@@ -106,30 +119,42 @@ Artisan::command('news:autopost', function (
             if ($aiResponse) {
                 
                 // ১. ডেইলি লিমিট চেক
-                if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                if ($user->role !== 'super_admin' && method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
                     $this->warn("⛔ User {$user->name} daily limit exceeded. Skipping.");
+                    Cache::forget("processing_news_{$newsToPost->id}"); // লক রিলিজ
                     continue; 
                 }
 
-                // ২. ক্রেডিট কাটা এবং লগ রাখা
-                $user->decrement('credits');
-                
-                CreditHistory::create([
-                    'user_id' => $user->id,
-                    'action_type' => 'auto_post',
-                    'description' => 'Auto: ' . Str::limit($newsToPost->title, 40),
-                    'credits_change' => -1,
-                    'balance_after' => $user->credits
-                ]);
+                // ২. ক্রেডিট কাটা
+                if ($user->role !== 'super_admin') {
+                    $user->decrement('credits');
+                    CreditHistory::create([
+                        'user_id' => $user->id,
+                        'action_type' => 'auto_post',
+                        'description' => 'Auto: ' . Str::limit($newsToPost->title, 40),
+                        'credits_change' => -1,
+                        'balance_after' => $user->credits
+                    ]);
+                }
 
-                // ক্যাটাগরি ডিটেকশন
+                // ক্যাটাগরি ম্যাপিং
                 $wpCategories = [
                     'Politics' => 14, 'International' => 37, 'Sports' => 15,
                     'Entertainment' => 11, 'Technology' => 1, 'Economy' => 1,
                     'Bangladesh' => 14, 'Crime' => 1, 'Others' => 1
                 ];
+                
                 $detectedCategory = $aiResponse['category'] ?? 'Others';
-                $categoryId = $wpCategories[$detectedCategory] ?? 1;
+                $categoryId = 1;
+
+                $userMapping = $settings->category_mapping ?? [];
+                if (isset($userMapping[$detectedCategory]) && !empty($userMapping[$detectedCategory])) {
+                    $categoryId = $userMapping[$detectedCategory];
+                } elseif (isset($userMapping['Others']) && !empty($userMapping['Others'])) {
+                    $categoryId = $userMapping['Others'];
+                } else {
+                    $categoryId = $wpCategories[$detectedCategory] ?? 1;
+                }
 
                 // ইমেজ আপলোড
                 $imageId = null;
@@ -146,7 +171,6 @@ Artisan::command('news:autopost', function (
                     if ($upload && $upload['success']) {
                         $imageId = $upload['id'];
                     } else {
-                        // আপলোড ফেইল হলে কন্টেন্টে এমবেড
                         $aiResponse['content'] = '<img src="' . $newsToPost->thumbnail_url . '" style="width:100%; margin-bottom:15px;"><br>' . $aiResponse['content'];
                     }
                 }
@@ -169,7 +193,7 @@ Artisan::command('news:autopost', function (
                     $newsToPost->update([
                         'rewritten_content' => $finalContent, 
                         'is_posted' => true,
-                        'is_queued' => false, // পোস্ট হয়ে গেলে কিউ থেকে সরে যাবে
+                        'is_queued' => false, 
                         'wp_post_id' => $wpPost['id']
                     ]);
 
@@ -182,30 +206,30 @@ Artisan::command('news:autopost', function (
                     $this->info("🚀 সফল! Post ID: {$wpPost['id']}");
                 } else {
                     $this->error("❌ ওয়ার্ডপ্রেস পোস্ট ফেইল করেছে।");
-                    // ফেইল করলে ক্রেডিট রিফান্ড করা যেতে পারে (অপশনাল)
-                    /*
-                    $user->increment('credits');
-                    CreditHistory::latest()->where('user_id', $user->id)->first()->delete();
-                    */
+                    if ($user->role !== 'super_admin') {
+                         $user->increment('credits'); // রিফান্ড
+                    }
                 }
             }
+            
+            // কাজ শেষ, লক রিলিজ
+            Cache::forget("processing_news_{$newsToPost->id}");
+
         } catch (\Exception $e) {
             $this->error("❌ এরর: " . $e->getMessage());
+            Cache::forget("processing_news_{$newsToPost->id}"); // এরর হলেও লক রিলিজ
         }
     }
     $this->info("🏁 চেক শেষ।");
 
 })->purpose('Auto post news with interval check');
 
-// শিডিউল রানার (প্রতি মিনিটে)
+// শিডিউল রানার
 Schedule::command('news:autopost')->everyMinute();
 
-// ✅ Auto Cleanup: প্রতিদিন রাত ১২টা এবং দুপুর ১২টায় রান হবে
+// অটো ক্লিনআপ
 Schedule::call(function () {
     $days = 7;
     $count = NewsItem::where('created_at', '<', now()->subDays($days))->delete();
-    
-    if ($count > 0) {
-        Log::info("🧹 Auto Clean (Twice Daily): {$count} old news items deleted.");
-    }
-})->twiceDaily(0, 12); // রাত ১২টা (0) এবং দুপুর ১২টা (12)
+    if ($count > 0) Log::info("🧹 Auto Clean: {$count} items deleted.");
+})->twiceDaily(0, 12);
