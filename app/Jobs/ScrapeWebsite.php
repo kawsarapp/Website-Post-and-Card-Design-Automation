@@ -30,12 +30,23 @@ class ScrapeWebsite implements ShouldQueue
     public function handle()
     {
         try {
-            // ✅ FIX: find($id) এর বদলে where('id', $id)->first() ব্যবহার করা হয়েছে
-            // যাতে Collection এর বদলে Single Model রিটার্ন করে
-            $website = Website::withoutGlobalScopes()->where('id', $this->websiteId)->first();
+            // ✅ FIX: ID Extraction Logic
+            // If websiteId came as an object/array (due to serialization issues), extract the ID
+            $realId = $this->websiteId;
+            
+            if (is_object($realId) || is_array($realId)) {
+                // If it's a model or array, try to get 'id'
+                $realId = is_object($realId) ? $realId->id : $realId['id'];
+            }
+
+            // Ensure it's an integer
+            $realId = (int) $realId;
+
+            // Fetch Website
+            $website = Website::withoutGlobalScopes()->where('id', $realId)->first();
 
             if (!$website) {
-                Log::error("Scrape Job Failed: Website ID {$this->websiteId} not found.");
+                Log::error("Scrape Job Failed: Website ID {$realId} not found in DB.");
                 return;
             }
 
@@ -136,7 +147,7 @@ JS;
             file_put_contents($scriptPath, $jsCode);
 
             $nodePath = "node"; 
-            // $nodePath = "/usr/bin/node"; // VPS এ সমস্যা হলে আনকমেন্ট করবেন
+            // $nodePath = "/usr/bin/node"; 
 
             $command = "\"$nodePath\" \"$scriptPath\" \"{$website->url}\" \"$tempFile\" \"{$website->selector_container}\" 2>&1";
             $output = shell_exec($command);
