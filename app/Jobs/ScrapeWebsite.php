@@ -30,8 +30,10 @@ class ScrapeWebsite implements ShouldQueue
     public function handle()
     {
         try {
-            $website = Website::withoutGlobalScopes()->find($this->websiteId);
-            
+            // ✅ FIX: find($id) এর বদলে where('id', $id)->first() ব্যবহার করা হয়েছে
+            // যাতে Collection এর বদলে Single Model রিটার্ন করে
+            $website = Website::withoutGlobalScopes()->where('id', $this->websiteId)->first();
+
             if (!$website) {
                 Log::error("Scrape Job Failed: Website ID {$this->websiteId} not found.");
                 return;
@@ -52,7 +54,7 @@ puppeteer.use(StealthPlugin());
 
 const url = process.argv[2];
 const outputFile = process.argv[3];
-const selector = process.argv[4]; 
+const selector = process.argv[4];
 
 if (!url || !outputFile) process.exit(1);
 
@@ -74,7 +76,6 @@ if (!url || !outputFile) process.exit(1);
   try {
     const page = await browser.newPage();
     
-    // রিসোর্স ব্লক (ইমেজ/ফন্ট লোড হবে না - স্পিড বাড়বে)
     await page.setRequestInterception(true);
     page.on('request', (req) => {
         if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
@@ -86,17 +87,14 @@ if (!url || !outputFile) process.exit(1);
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
 
-    // ফাস্ট লোড
     try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
     } catch (e) {}
 
-    // সিলেক্টরের জন্য অপেক্ষা
     try {
         if(selector) await page.waitForSelector(selector, { timeout: 8000 });
     } catch(e) {}
 
-    // ফাস্ট স্ক্রলিং
     await page.evaluate(async () => {
         await new Promise((resolve) => {
             let totalHeight = 0;
@@ -113,7 +111,6 @@ if (!url || !outputFile) process.exit(1);
         });
     });
 
-    // ইমেজ সোর্স ফিক্স
     await page.evaluate(() => {
         const images = document.querySelectorAll('img');
         images.forEach(img => {
@@ -138,8 +135,10 @@ JS;
 
             file_put_contents($scriptPath, $jsCode);
 
-            $command = "node \"$scriptPath\" \"{$website->url}\" \"$tempFile\" \"{$website->selector_container}\" 2>&1";
-            
+            $nodePath = "node"; 
+            // $nodePath = "/usr/bin/node"; // VPS এ সমস্যা হলে আনকমেন্ট করবেন
+
+            $command = "\"$nodePath\" \"$scriptPath\" \"{$website->url}\" \"$tempFile\" \"{$website->selector_container}\" 2>&1";
             $output = shell_exec($command);
 
             if (!file_exists($tempFile)) {
@@ -159,7 +158,7 @@ JS;
             }
 
             $count = 0;
-            $limit = 15; // সর্বোচ্চ ১৫টি নিউজ আনবে
+            $limit = 15;
 
             $containers->each(function (Crawler $node) use ($website, &$count, $limit) {
                 if ($count >= $limit) return false;
@@ -185,7 +184,6 @@ JS;
                     }
 
                     $image = null;
-                    // ইমেজ লজিক (সহজ করা হয়েছে)
                     try {
                         if ($website->selector_image && $node->filter($website->selector_image)->count() > 0) {
                             $imgNode = $node->filter($website->selector_image);

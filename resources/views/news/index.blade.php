@@ -179,7 +179,7 @@
                 </div>
             @endif
             <span class="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs font-bold px-2 py-1 rounded-md text-indigo-700 shadow-sm z-10">
-                {{ $item->website->name }}
+                {{ $item->website->name ?? 'Unknown Source' }}
             </span>
         </div>
        
