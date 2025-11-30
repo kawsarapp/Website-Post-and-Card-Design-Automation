@@ -3,9 +3,7 @@
 <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js"></script>
 
 <script>
-    // ==========================================
-    // 1. GLOBAL VARIABLES
-    // ==========================================
+
     var canvas;
     var mainImageObj = null;
     var frameObj = null;
@@ -37,10 +35,7 @@
         image: "{{ $newsItem->thumbnail_url ? route('proxy.image', ['url' => $newsItem->thumbnail_url]) : '' }}"
     };
 
-    // ==========================================
-    // 2. INITIALIZATION
-    // ==========================================
-	
+
 	
 	function fitToScreen() {
         const container = document.getElementById('workspace-container');
@@ -48,22 +43,17 @@
         
         if (!container || !wrapper) return;
 
-        // কন্টেইনারের সাইজ নেওয়া (প্যাডিং বাদ দিয়ে)
         const availableWidth = container.clientWidth - 60; // 60px padding
         const availableHeight = container.clientHeight - 60;
 
-        // ক্যানভাসের অরিজিনাল সাইজ
         const canvasWidth = 1080;
         const canvasHeight = 1080;
 
-        // স্কেল ক্যালকুলেশন (যাতে পুরোটা দেখা যায়)
         const scaleX = availableWidth / canvasWidth;
         const scaleY = availableHeight / canvasHeight;
         
-        // দুটোর মধ্যে যেটা ছোট, সেটা নেব (যাতে কেটে না যায়)
         let scale = Math.min(scaleX, scaleY);
 
-        // স্কেল অ্যাপ্লাই করা
         currentZoom = scale;
         updateZoomDisplay();
     }
@@ -71,7 +61,6 @@
 	function changeZoom(delta) {
         currentZoom += delta;
         
-        // লিমিট সেট করা (খুব ছোট বা খুব বড় যেন না হয়)
         if (currentZoom < 0.1) currentZoom = 0.1;
         if (currentZoom > 2.0) currentZoom = 2.0;
 
@@ -125,18 +114,11 @@
         initKeyboardEvents();
         activateDebugTools();
 
-        // 🔥 অটো ফিট কল করা (একটু ডিলে দিয়ে, যাতে এলিমেন্ট রেন্ডার হয়)
         setTimeout(fitToScreen, 100); 
-        
-        // উইন্ডো রিসাইজ করলে আবার ফিট হবে
         window.addEventListener('resize', fitToScreen);
     }
 
-    // ==========================================
-    // 3. CORE FUNCTIONS (Layout & Upload)
-    // ==========================================
     
-    // ✅ Custom Font Upload & Save Logic
     window.uploadCustomFont = function(input) {
         if (input.files && input.files[0]) {
             const file = input.files[0];
@@ -146,10 +128,8 @@
                 const fontName = file.name.split('.')[0]; 
                 const fontUrl = e.target.result;
 
-                // ফন্ট লোড এবং অ্যাপ্লাই
                 applyCustomFont(fontName, fontUrl);
 
-                // 🔥 লোকাল স্টোরেজে সেভ করা (যাতে রিলোড দিলেও থাকে)
                 try {
                     localStorage.setItem('custom_font_name', fontName);
                     localStorage.setItem('custom_font_url', fontUrl);
@@ -163,16 +143,14 @@
         }
     };
 
-    // Helper: লোড করা ফন্ট অ্যাপ্লাই করা
+
     function applyCustomFont(fontName, fontUrl) {
         const newFont = new FontFace(fontName, `url(${fontUrl})`);
         newFont.load().then(function(loadedFont) {
             document.fonts.add(loadedFont);
             
-            // ড্রপডাউনে যোগ করা
             const select = document.getElementById('font-family');
             if(select) {
-                // চেক করি আগে আছে কিনা
                 let exists = false;
                 for (let i = 0; i < select.options.length; i++) {
                     if (select.options[i].value === fontName) exists = true;
@@ -181,12 +159,11 @@
                     const option = document.createElement("option");
                     option.text = "📂 " + fontName;
                     option.value = fontName;
-                    select.add(option, select.options[0]); // সবার উপরে যোগ হবে
+                    select.add(option, select.options[0]);
                 }
                 select.value = fontName;
             }
 
-            // ক্যানভাসে অ্যাপ্লাই
             const obj = canvas.getActiveObject();
             if (obj && (obj.type === 'text' || obj.type === 'textbox')) {
                 obj.set("fontFamily", fontName);
@@ -194,13 +171,11 @@
                 saveHistory();
             }
             
-            // সেটিংসে আপডেট
             userSettings.font = fontName;
 
         }).catch(err => console.error("Font Load Error:", err));
     }
 
-    // Helper: পেজ রিলোড হলে স্টোরেজ থেকে ফন্ট লোড করা
     function loadStoredCustomFont() {
         const storedName = localStorage.getItem('custom_font_name');
         const storedUrl = localStorage.getItem('custom_font_url');
@@ -211,7 +186,6 @@
         }
     }
 
-    // ✅ Apply Template (All Fixed)
     window.applyAdminTemplate = function(imageUrl, layoutName, isRestore = false) {
         console.log("🚀 Applying Template:", imageUrl, "Layout:", layoutName);
 
@@ -223,7 +197,6 @@
         currentLayout = layoutName;
         userSettings.frameUrl = imageUrl;
 
-        // ক্লিনআপ
         const objects = canvas.getObjects();
         let titleObj = objects.find(obj => obj.isHeadline);
         let dateObj = objects.find(obj => obj.isDate);
@@ -235,7 +208,6 @@
             canvas.remove(obj);
         }
 
-        // হেডলাইন তৈরি
         if(!titleObj) {
             titleObj = new fabric.Textbox(newsData.title || "Headline Here", {
                 left: 50, top: 800, width: 980, fontSize: 60, fill: '#ffffff',
@@ -244,7 +216,6 @@
             canvas.add(titleObj);
         }
 
-        // ফ্রেম লোড
         fabric.Image.fromURL(imageUrl, function(img) {
             img.set({ 
                 left: 0, top: 0, scaleX: canvas.width / img.width, scaleY: canvas.height / img.height, 
@@ -260,7 +231,6 @@
             if(titleObj) canvas.bringToFront(titleObj);
             if(dateObj) canvas.bringToFront(dateObj);
 
-            // 🔥 ৪. লেআউট কনফিগারেশন (Strict Values)
             const commonDefaults = {
                 fontFamily: "'Hind Siliguri', sans-serif",
                 fill: '#000000',
@@ -302,7 +272,6 @@
             const defaultLayout = layouts['bottom'];
             const targetLayout = layouts[layoutName] || defaultLayout;
 
-            // 🔥 ৫. টাইটেল অ্যাপ্লাই
             if(titleObj) {
                 if (isRestore && window.userSettings?.titlePos) {
                     titleObj.set(window.userSettings.titlePos);
@@ -315,7 +284,6 @@
                         fill: config.fill, fontFamily: config.fontFamily
                     });
                     
-                    // ফন্ট লোড (যদি স্টোরেজ ফন্ট না হয়)
                     if(!config.fontFamily.includes('📂')) {
                         let cleanFont = config.fontFamily.replace(/'/g, "").split(',')[0].trim();
                         WebFont.load({ google: { families: [cleanFont] } });
@@ -331,7 +299,6 @@
                 titleObj.setCoords(); 
             }
 
-            // ডেট অ্যাপ্লাই
             if(dateObj) {
                 if (isRestore && window.userSettings?.datePos) {
                     dateObj.set(window.userSettings.datePos);
@@ -351,7 +318,6 @@
         }, { crossOrigin: 'anonymous' });
     }
 
-    // Helper to update Sidebar UI
     function updateUI(size, color, font) {
         if(document.getElementById('val-size')) document.getElementById('val-size').innerText = size;
         if(document.getElementById('text-size')) document.getElementById('text-size').value = size;
@@ -359,7 +325,6 @@
         if(document.getElementById('font-family')) document.getElementById('font-family').value = font;
     }
 
-    // ✅ Restore Function
     function restoreSavedDesign() {
         console.log("♻ Restoring Design...", userSettings);
         if (userSettings.frameUrl) {
@@ -374,7 +339,6 @@
         setTimeout(() => {
             let titleObj = canvas.getObjects().find(o => o.isHeadline);
             if (titleObj) {
-                // চেক করি কাস্টম ফন্ট আছে কিনা
                 let fontName = userSettings.font;
                 if(!fontName.includes('📂')) {
                      fontName = fontName.replace(/'/g, "").split(',')[0].trim();
@@ -389,7 +353,6 @@
         addDateText();
     }
 
-    // ✅ Save Function
     function saveCurrentDesign() {
         const titleObj = canvas.getObjects().find(obj => obj.isHeadline);
         const dateObj = canvas.getObjects().find(obj => obj.isDate);
@@ -418,7 +381,6 @@
         });
     }
 
-    // 4. UTILITY FUNCTIONS (Fixed Zoom Origin)
     function setupMainImage(img) {
         if (mainImageObj) canvas.remove(mainImageObj);
         const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
@@ -431,7 +393,6 @@
         mainImageObj = img; canvas.add(img); canvas.sendToBack(img);
     }
 
-    // Image Controller (Zoom & Move)
     window.controlMainImage = function(action, value) {
         let img = canvas.getObjects().find(o => o.isMainImage);
         if (!img) { alert("❌ কোনো নিউজ ইমেজ পাওয়া যায়নি!"); return; }
@@ -449,6 +410,148 @@
         }
         img.setCoords(); canvas.requestRenderAll(); saveHistory();
     };
+	
+	
+	// ==========================================
+    // 📑 MULTI-LAYER CONTROL SYSTEM
+    // ==========================================
+
+    // ১. লেয়ার লিস্ট রেন্ডার করা
+    window.renderLayerList = function() {
+        const container = document.getElementById('layer-list-container');
+        if (!container) return;
+
+        container.innerHTML = ''; // ক্লিয়ার
+        
+        // ক্যানভাসের সব অবজেক্ট নেওয়া (Reverse যাতে উপরের লেয়ার উপরে দেখায়)
+        const objects = canvas.getObjects().slice().reverse();
+
+        if (objects.length === 0) {
+            container.innerHTML = '<p class="text-xs text-gray-400 text-center">কোনো লেয়ার নেই</p>';
+            return;
+        }
+
+        objects.forEach((obj, index) => {
+            // আসল ইনডেক্স (Fabric এ নিচ থেকে গণনা হয়)
+            const realIndex = objects.length - 1 - index;
+
+            // নাম ঠিক করা
+            let name = "Shape / Rect";
+            let icon = "🟦";
+            
+            if (obj.isMainImage) { name = "News Image"; icon = "🖼️"; }
+            else if (obj.isFrame) { name = "Frame / Overlay"; icon = "🔲"; }
+            else if (obj.isHeadline) { name = "Headline Text"; icon = "📝"; }
+            else if (obj.isDate) { name = "Date Text"; icon = "📅"; }
+            else if (obj.type === 'image') { name = "Logo / Image"; icon = "📷"; }
+            else if (obj.type === 'text' || obj.type === 'textbox') { name = "Custom Text"; icon = "✍️"; }
+
+            // অ্যাক্টিভ ক্লাস
+            const isActive = canvas.getActiveObject() === obj ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white";
+
+            const itemHtml = `
+                <div class="flex items-center justify-between p-2 border rounded-lg ${isActive} hover:bg-gray-50 transition group cursor-pointer" onclick="selectLayer(${realIndex})">
+                    <div class="flex items-center gap-2 truncate">
+                        <span class="text-lg">${icon}</span>
+                        <span class="text-xs font-bold text-gray-700 truncate w-32">${name}</span>
+                    </div>
+                    <div class="flex gap-1 opacity-60 group-hover:opacity-100">
+                        <button onclick="toggleVisibility(event, ${realIndex})" class="p-1 hover:text-blue-600" title="Hide/Show">
+                            ${obj.visible ? '👁️' : '🚫'}
+                        </button>
+                        <button onclick="toggleLock(event, ${realIndex})" class="p-1 hover:text-red-600" title="Lock/Unlock">
+                            ${obj.lockMovementX ? '🔒' : '🔓'}
+                        </button>
+                        <button onclick="deleteLayer(event, ${realIndex})" class="p-1 hover:text-red-600" title="Delete">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += itemHtml;
+        });
+    };
+
+    // ২. লেয়ার সিলেক্ট করা
+    window.selectLayer = function(index) {
+        const obj = canvas.item(index);
+        if (obj) {
+            canvas.setActiveObject(obj);
+            canvas.renderAll();
+            renderLayerList(); // রি-রেন্ডার যাতে কালার চেঞ্জ হয়
+        }
+    };
+
+    // ৩. হাইড / শো
+    window.toggleVisibility = function(e, index) {
+        e.stopPropagation(); // প্যারেন্ট ডিভ ক্লিক বন্ধ করতে
+        const obj = canvas.item(index);
+        if (obj) {
+            obj.visible = !obj.visible;
+            if (!obj.visible) canvas.discardActiveObject(); // হাইড করলে সিলেকশন বাদ
+            canvas.renderAll();
+            renderLayerList();
+        }
+    };
+
+    // ৪. লক / আনলক
+    window.toggleLock = function(e, index) {
+        e.stopPropagation();
+        const obj = canvas.item(index);
+        if (obj) {
+            const isLocked = !obj.lockMovementX;
+            obj.set({
+                lockMovementX: isLocked,
+                lockMovementY: isLocked,
+                lockScalingX: isLocked,
+                lockScalingY: isLocked,
+                lockRotation: isLocked,
+                selectable: !isLocked // লক থাকলে সিলেক্ট করা যাবে না
+            });
+            canvas.renderAll();
+            renderLayerList();
+        }
+    };
+
+    // ৫. ডিলিট
+    window.deleteLayer = function(e, index) {
+        e.stopPropagation();
+        if(confirm('এই লেয়ারটি ডিলিট করতে চান?')) {
+            const obj = canvas.item(index);
+            canvas.remove(obj);
+            saveHistory();
+            renderLayerList();
+        }
+    };
+
+    // ৬. পজিশন মুভমেন্ট হেল্পার
+    window.moveLayer = function(direction) {
+        const obj = canvas.getActiveObject();
+        if(!obj) return;
+        
+        if(direction === 'up') canvas.bringForward(obj);
+        if(direction === 'down') canvas.sendBackwards(obj);
+        if(direction === 'top') canvas.bringToFront(obj);
+        if(direction === 'bottom') canvas.sendToBack(obj);
+        
+        canvas.renderAll();
+        saveHistory();
+        renderLayerList(); // অর্ডার চেঞ্জ হলে লিস্ট আপডেট
+    };
+
+    // 🔥 ইভেন্ট লিসেনারে অ্যাড করা (initCanvas এর ভেতরে)
+    // ক্যানভাসে কিছু চেঞ্জ হলেই লেয়ার লিস্ট আপডেট হবে
+    /* initCanvas ফাংশনের শেষে এই লাইনগুলো আছে কিনা চেক করুন, না থাকলে দিন:
+       canvas.on('object:added', () => { saveHistory(); renderLayerList(); });
+       canvas.on('object:removed', () => { saveHistory(); renderLayerList(); });
+       canvas.on('object:modified', () => { saveHistory(); }); 
+       canvas.on('selection:created', renderLayerList);
+       canvas.on('selection:updated', renderLayerList);
+    */
+	
+	
+	
+	
 
     function addProfileLogo(url) { fabric.Image.fromURL(url, function(img) { img.scaleToWidth(150); img.set({ left: 880, top: 50 }); canvas.add(img); canvas.bringToFront(img); }, { crossOrigin: "anonymous" }); }
     function addDateText() {

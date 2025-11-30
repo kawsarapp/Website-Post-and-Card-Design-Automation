@@ -220,17 +220,47 @@
 </div>
 
                 <div id="tab-layers" class="space-y-4 hidden">
-                    <label class="label-title">পজিশন কন্ট্রোল</label>
-                    <div class="grid grid-cols-2 gap-3">
-                         <button onclick="canvas.bringForward(canvas.getActiveObject())" class="layer-btn">⬆ এক ধাপ উপরে</button>
-                         <button onclick="canvas.sendBackwards(canvas.getActiveObject())" class="layer-btn">⬇ এক ধাপ নিচে</button>
-                         <button onclick="canvas.bringToFront(canvas.getActiveObject())" class="layer-btn font-bold text-indigo-600">🔝 সবার উপরে</button>
-                         <button onclick="canvas.sendToBack(canvas.getActiveObject())" class="layer-btn font-bold text-indigo-600">BOTTOM</button>
-                    </div>
-                    <div class="border-t pt-4 mt-2">
-                        <button onclick="deleteActive()" class="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-lg font-bold text-sm hover:bg-red-100 transition">🗑️ ডিলিট করুন</button>
-                    </div>
-                </div>
+
+    <!-- লেয়ার ম্যানেজমেন্ট + Refresh -->
+    <label class="label-title flex justify-between items-center">
+        লেয়ার ম্যানেজমেন্ট
+        <button onclick="renderLayerList()" class="text-[10px] text-blue-600 hover:underline">Refresh</button>
+    </label>
+
+    <!-- লেয়ার লিস্ট কন্টেইনার -->
+    <div id="layer-list-container" class="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
+    </div>
+
+    <!-- পজিশন কন্ট্রোল + মুভমেন্ট -->
+    <label class="label-title">পজিশন কন্ট্রোল</label>
+    <div class="grid grid-cols-2 gap-3">
+         <button onclick="canvas.bringForward(canvas.getActiveObject())" class="layer-btn">⬆ এক ধাপ উপরে</button>
+         <button onclick="canvas.sendBackwards(canvas.getActiveObject())" class="layer-btn">⬇ এক ধাপ নিচে</button>
+         <button onclick="canvas.bringToFront(canvas.getActiveObject())" class="layer-btn font-bold text-indigo-600">🔝 সবার উপরে</button>
+         <button onclick="canvas.sendToBack(canvas.getActiveObject())" class="layer-btn font-bold text-indigo-600">BOTTOM</button>
+    </div>
+
+    <div class="border-t pt-4 mt-2">
+        <label class="label-title">পজিশন মুভমেন্ট</label>
+        <div class="grid grid-cols-2 gap-3">
+             <button onclick="moveLayer('up')" class="layer-btn">⬆ এক ধাপ উপরে</button>
+             <button onclick="moveLayer('down')" class="layer-btn">⬇ এক ধাপ নিচে</button>
+             <button onclick="moveLayer('top')" class="layer-btn font-bold text-indigo-600">🔝 সবার উপরে</button>
+             <button onclick="moveLayer('bottom')" class="layer-btn font-bold text-indigo-600">BOTTOM</button>
+        </div>
+    </div>
+
+    <!-- ডিলিট বাটন -->
+    <div class="border-t pt-4 mt-2">
+        <button onclick="deleteActive()" class="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-lg font-bold text-sm hover:bg-red-100 transition">🗑️ ডিলিট করুন</button>
+    </div>
+
+</div>
+
+				
+				
+				
+				
             </div>
         </div>
         
