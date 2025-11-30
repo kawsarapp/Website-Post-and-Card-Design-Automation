@@ -25,6 +25,8 @@ class UserSetting extends Model
 		'default_template',
 		'scraper_method',
 		'category_mapping',
+		'design_preferences',
+		
     ];
 
 
@@ -33,6 +35,7 @@ class UserSetting extends Model
         'allowed_templates' => 'array',
         'is_auto_posting' => 'boolean',
 		'category_mapping' => 'array',
+		'design_preferences' => 'array',
     ];
 
     // ✅ টেমপ্লেট লিস্ট (Master List)

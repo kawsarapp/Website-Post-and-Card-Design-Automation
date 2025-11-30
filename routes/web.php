@@ -33,6 +33,9 @@ Route::middleware('guest')->group(function () {
 // --- Authenticated User Routes (Require Login) ---
 Route::middleware(['auth'])->group(function () {
     
+	
+	Route::post('/settings/save-design', [App\Http\Controllers\SettingsController::class, 'saveDesign'])->name('settings.save-design');
+	Route::post('/settings/upload-frame', [App\Http\Controllers\SettingsController::class, 'uploadFrame'])->name('settings.upload-frame');
     // Logout
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -59,9 +62,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
-    
-    // ✅ Fix: এটি এখন Auth গ্রুপের ভেতরে (সবাই এক্সেস পাবে)
     Route::get('/settings/fetch-categories', [SettingsController::class, 'fetchCategories'])->name('settings.fetch-categories');
+	
+
     
     // Credit History
     Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');

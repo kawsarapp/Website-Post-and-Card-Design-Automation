@@ -5,14 +5,18 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\UserSetting;
 use Illuminate\Support\Facades\Auth;
-use App\Services\WordPressService; // সার্ভিস ইমপোর্ট
+use App\Services\WordPressService;
+use Illuminate\Support\Facades\Log;
 
 class SettingsController extends Controller
 {
     // ১. সেটিংস পেজ ভিউ
     public function index()
     {
-        $settings = UserSetting::firstOrNew(['user_id' => Auth::id()]);
+        $user = Auth::user();
+        // যদি সেটিংস না থাকে, তবে নতুন ইনস্ট্যান্স তৈরি করবে (সেভ করবে না)
+        $settings = $user->settings ?? new UserSetting(['user_id' => $user->id]);
+        
         return view('settings.index', compact('settings'));
     }
 
@@ -24,26 +28,28 @@ class SettingsController extends Controller
             'wp_url' => 'nullable|url',
             'wp_username' => 'nullable|string',
             'wp_app_password' => 'nullable|string',
-            'category_mapping' => 'nullable|array', // ম্যাপিং অ্যারে ভ্যালিডেশন
+            'category_mapping' => 'nullable|array',
+            'logo_url' => 'nullable|url',
+            'telegram_channel_id' => 'nullable|string',
+            'default_theme_color' => 'nullable|string',
         ]);
 
-        // সেটিংস খুঁজে বের করা অথবা নতুন তৈরি করা
-        $settings = UserSetting::firstOrNew(['user_id' => Auth::id()]);
+        $user = Auth::user();
 
-        // বেসিক তথ্য আপডেট
+        // সেটিংস খুঁজে বের করা অথবা নতুন তৈরি করা
+        $settings = UserSetting::firstOrNew(['user_id' => $user->id]);
+
         $settings->brand_name = $request->brand_name;
-        $settings->default_theme_color = $request->default_theme_color;
+        $settings->default_theme_color = $request->default_theme_color ?? 'red';
         $settings->wp_url = $request->wp_url;
         $settings->wp_username = $request->wp_username;
         $settings->wp_app_password = $request->wp_app_password;
         $settings->telegram_channel_id = $request->telegram_channel_id;
 
-        // যদি লোগো URL রিকোয়েস্ট থেকে আসে (লোগো আপলোডার ছাড়া ম্যানুয়াল ইনপুট হলে)
         if ($request->filled('logo_url')) {
             $settings->logo_url = $request->logo_url;
         }
 
-        // ক্যাটাগরি ম্যাপিং সেভ (যদি রিকোয়েস্টে থাকে)
         if ($request->has('category_mapping')) {
             $settings->category_mapping = $request->category_mapping;
         }
@@ -53,13 +59,10 @@ class SettingsController extends Controller
         return back()->with('success', 'সেটিংস এবং ম্যাপিং সফলভাবে আপডেট হয়েছে!');
     }
 
-    // ৩. ক্যাটাগরি ফেচ করার মেথড (AJAX এর জন্য)
     public function fetchCategories(WordPressService $wpService)
     {
         $user = Auth::user();
-        
-        // রিলেশন থাকলে $user->settings ব্যবহার করতে পারেন, অথবা সরাসরি কুয়েরি:
-        $settings = UserSetting::where('user_id', $user->id)->first();
+        $settings = $user->settings;
 
         if (!$settings || !$settings->wp_url || !$settings->wp_username || !$settings->wp_app_password) {
             return response()->json(['error' => 'WordPress settings missing. Please save settings first.'], 400);
@@ -72,13 +75,16 @@ class SettingsController extends Controller
                 $settings->wp_app_password
             );
             
+            if (empty($categories)) {
+                return response()->json(['error' => 'No categories found or connection failed.'], 404);
+            }
+
             return response()->json($categories);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to fetch categories: ' . $e->getMessage()], 500);
         }
     }
 
-    // ৪. লোগো আপলোড মেথড
     public function uploadLogo(Request $request)
     {
         $request->validate([
@@ -91,7 +97,6 @@ class SettingsController extends Controller
             $path = $request->file('logo')->store('logos', 'public');
             $url = asset('storage/' . $path);
 
-            // ইউজারের সেটিংস খুঁজবে অথবা তৈরি করবে
             $settings = UserSetting::firstOrCreate(['user_id' => $user->id]);
             $settings->logo_url = $url;
             $settings->save();
@@ -102,11 +107,59 @@ class SettingsController extends Controller
         return response()->json(['success' => false], 400);
     }
 
-    // ৫. ক্রেডিট হিস্ট্রি
     public function credits()
     {
         $user = Auth::user();
-        $histories = $user->creditHistories()->latest()->paginate(15);
+        if (method_exists($user, 'creditHistories')) {
+            $histories = $user->creditHistories()->latest()->paginate(15);
+        } else {
+            $histories = collect();
+        }
+        
         return view('settings.credits', compact('histories', 'user'));
+    }
+    
+    
+	//-------------
+	// app/Http/Controllers/SettingsController.php এর ভেতরে
+public function saveDesign(Request $request)
+{
+    Log::info('Save Design Request Started for User: ' . auth()->id());
+    Log::info('Incoming Data:', $request->all());
+
+    try {
+        // Validate input
+        $request->validate([
+            'preferences' => 'required|array'
+        ]);
+
+        // Find or Create user settings
+        $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
+
+        // Save design preferences
+        $settings->design_preferences = $request->preferences;
+        $settings->save();
+
+        Log::info('✅ DB Save Success. Saved Data:', $settings->design_preferences ?? []);
+
+        return response()->json(['success' => true]);
+
+    } catch (\Exception $e) {
+        Log::error('❌ DB Save Error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'error' => $e->getMessage()]);
+    }
+}
+
+
+    // ৭. কাস্টম ফ্রেম আপলোড এবং সেভ
+    public function uploadFrame(Request $request)
+    {
+        $request->validate(['frame' => 'required|image|mimes:png|max:2048']); // PNG হতে হবে
+        
+        if ($request->hasFile('frame')) {
+            $path = $request->file('frame')->store('frames', 'public');
+            return response()->json(['success' => true, 'url' => asset('storage/' . $path)]);
+        }
+        return response()->json(['success' => false], 400);
     }
 }
