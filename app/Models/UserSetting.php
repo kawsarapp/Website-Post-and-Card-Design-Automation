@@ -40,15 +40,13 @@ class UserSetting extends Model
 
     // ✅ টেমপ্লেট লিস্ট (Master List)
     public const AVAILABLE_TEMPLATES = [
-        'dhaka_post_card' => '🟦 Dhaka Post Style',
-        'rtv_news_card' => '🟥 RTV News Style',
-        'viral_bold' => '⚡ Viral Bold',
-        'quote_pro' => '❝ Quote Statement',
-        'classic' => '📺 Classic Studio',
-        'modern_split' => '🔲 Modern Split',
-        'bold_overlay' => '🔴 Breaking Red',
-        'broadcast_tv' => '📡 TV Broadcast',
-        'insta_modern' => '📸 Insta Square',
+        'ntv'           => '🟩 NTV News',
+        'rtv'           => '🟥 RTV News',
+        'dhakapost'     => '🟦 Dhaka Post',
+        'dhakapost_new' => '⬛ Dhaka Post (Dark)',
+        'todayevents'   => '🟪 Today Events',
+        'modern_left'   => '🔵 Modern Left',
+        'top_heavy'     => '🏏 Sports/Top',
     ];
 
     public function user()

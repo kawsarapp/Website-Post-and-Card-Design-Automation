@@ -45,9 +45,80 @@ class NewsController extends Controller
             $query->withoutGlobalScopes(); 
         }])->findOrFail($id);
 
-        $settings = UserSetting::where('user_id', Auth::id())->first();
+        $user = Auth::user();
+        $settings = UserSetting::where('user_id', $user->id)->first();
 
-        return view('news.studio', compact('newsItem', 'settings'));
+        // ১. সব কার্ডের মাস্টার ডাটা (ইমেজ পাথ সহ)
+        $allTemplates = [
+            [
+                'key' => 'ntv', 
+                'name' => 'NTV News', 
+                'image' => 'templates/ntv.png', 
+                'layout' => 'ntv'
+            ],
+            [
+                'key' => 'rtv', 
+                'name' => 'RTV News', 
+                'image' => 'templates/rtv.png', 
+                'layout' => 'rtv'
+            ],
+            [
+                'key' => 'dhakapost', 
+                'name' => 'Dhaka Post', 
+                'image' => 'templates/dhakapost.png', 
+                'layout' => 'dhakapost'
+            ],
+            [
+                'key' => 'dhakapost_new', 
+                'name' => 'Dhaka Post Dark', 
+                'image' => 'templates/dhakapost-new.png', 
+                'layout' => 'dhakapost_new'
+            ],
+            [
+                'key' => 'todayevents', 
+                'name' => 'Today Events', 
+                'image' => 'templates/todayevents.png', 
+                'layout' => 'todayevents'
+            ],
+            // বাকি ওল্ড টেমপ্লেট
+            [
+                'key' => 'modern_left', 
+                'name' => 'Modern Blue', 
+                'image' => 'templates/blue.png', 
+                'layout' => 'modern_left'
+            ],
+            [
+                'key' => 'top_heavy', 
+                'name' => 'Sports Style', 
+                'image' => 'templates/sports.png', 
+                'layout' => 'top_heavy'
+            ],
+        ];
+
+        // ২. ইউজারের পারমিশন চেক করা
+        $allowed = $settings->allowed_templates ?? []; // ডাটাবেস থেকে পাওয়া অ্যারে (JSON Cast করা আছে)
+        $availableTemplates = [];
+
+        // ৩. ফিল্টারিং লজিক
+        if ($user->role === 'super_admin' || $user->role === 'admin') {
+            // এডমিন হলে সব পাবে
+            $availableTemplates = $allTemplates;
+        } else {
+            // সাধারণ ইউজার হলে শুধু সিলেক্ট করা গুলো পাবে
+            // যদি কোনো পারমিশন সেট করা না থাকে, তবে ডিফল্ট হিসেবে সব বা নির্দিষ্ট কিছু দেখাতে পারেন
+            if(empty($allowed)) {
+                 // অপশনাল: একদম নতুন ইউজারের জন্য ডিফল্ট ১-২টা দিতে পারেন
+                 // $allowed = ['ntv', 'rtv']; 
+            }
+
+            foreach ($allTemplates as $template) {
+                if (in_array($template['key'], $allowed)) {
+                    $availableTemplates[] = $template;
+                }
+            }
+        }
+
+        return view('news.studio', compact('newsItem', 'settings', 'availableTemplates'));
     }
 
     public function proxyImage(Request $request)

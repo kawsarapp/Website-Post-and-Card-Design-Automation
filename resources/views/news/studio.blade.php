@@ -50,76 +50,60 @@
 
             <div class="flex-1 overflow-y-auto custom-scrollbar p-5 pb-20">
                 <div id="tab-design" class="space-y-6">
-                    <div>
-                        <label class="label-title">🎨 প্রিসেট ডিজাইন</label>
-                        <div class="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
-						
-                            
-                            <div onclick="applyAdminTemplate('{{ asset('templates/ntv.png') }}', 'ntv')" 
-                                 class="cursor-pointer border border-gray-200 rounded-lg hover:border-indigo-500 transition p-1 bg-white">
-                                <img src="{{ asset('templates/ntv.png') }}" class="w-full h-20 object-contain bg-gray-50 mb-1">
-                                <p class="text-[10px] text-center font-bold">NTV News</p>
-                            </div>
+    <div>
+        <label class="label-title">🎨 প্রিসেট ডিজাইন</label>
+        
+        @if(count($availableTemplates) == 0)
+            <div class="bg-red-50 text-red-600 p-3 rounded text-xs text-center border border-red-200">
+                ❌ আপনার অ্যাকাউন্টে কোনো টেমপ্লেট অ্যাক্সেস নেই। এডমিনের সাথে যোগাযোগ করুন।
+            </div>
+        @endif
 
-                            <div onclick="applyAdminTemplate('{{ asset('templates/rtv.png') }}', 'rtv')" 
-                                 class="cursor-pointer border border-gray-200 rounded-lg hover:border-indigo-500 transition p-1 bg-white">
-                                <img src="{{ asset('templates/rtv.png') }}" class="w-full h-20 object-contain bg-gray-50 mb-1">
-                                <p class="text-[10px] text-center font-bold">RTV News</p>
-                            </div>
-
-                            <div onclick="applyAdminTemplate('{{ asset('templates/dhakapost.png') }}', 'dhakapost')" 
-                                 class="cursor-pointer border border-gray-200 rounded-lg hover:border-indigo-500 transition p-1 bg-white">
-                                <img src="{{ asset('templates/dhakapost.png') }}" class="w-full h-20 object-contain bg-gray-50 mb-1">
-                                <p class="text-[10px] text-center font-bold">Dhaka Post</p>
-                            </div>
-
-                            <div onclick="applyAdminTemplate('{{ asset('templates/todayevents.png') }}', 'todayevents')" 
-                                 class="cursor-pointer border border-gray-200 rounded-lg hover:border-indigo-500 transition p-1 bg-white">
-                                <img src="{{ asset('templates/todayevents.png') }}" class="w-full h-20 object-contain bg-gray-50 mb-1">
-                                <p class="text-[10px] text-center font-bold">Today Events</p>
-                            </div>
-
-                            <div onclick="applyAdminTemplate('{{ asset('templates/blue.png') }}', 'modern_left')" 
-                                 class="cursor-pointer border border-gray-200 rounded-lg hover:border-indigo-500 hover:shadow-md transition p-1 bg-white group">
-                                <img src="{{ asset('templates/blue.png') }}" alt="Modern" class="w-full h-20 object-contain rounded bg-gray-50 mb-1">
-                                <p class="text-[10px] text-center font-bold text-gray-600 group-hover:text-indigo-600">🔵 মডার্ন</p>
-                            </div>
-
-                             <div onclick="applyAdminTemplate('{{ asset('templates/sports.png') }}', 'top_heavy')" 
-                                 class="cursor-pointer border border-gray-200 rounded-lg hover:border-indigo-500 hover:shadow-md transition p-1 bg-white group">
-                                <img src="{{ asset('templates/sports.png') }}" alt="Sports" class="w-full h-20 object-contain rounded bg-gray-50 mb-1">
-                                <p class="text-[10px] text-center font-bold text-gray-600 group-hover:text-indigo-600">🏏 স্পোর্টস</p>
-                            </div>
-                        </div>
-                    </div>
+        <div class="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
+            
+            @foreach($availableTemplates as $template)
+                <div onclick="applyAdminTemplate('{{ asset($template['image']) }}', '{{ $template['layout'] }}')" 
+                     class="cursor-pointer border border-gray-200 rounded-lg hover:border-indigo-500 transition p-1 bg-white group hover:shadow-md">
                     
-                    <div class="border-t pt-4">
-                        <label class="label-title">🖼️ কাস্টমাইজ</label>
-                        <div class="grid grid-cols-2 gap-2 mb-3">
-                            <label class="cursor-pointer bg-indigo-50 border border-dashed border-indigo-300 text-indigo-600 p-3 rounded-lg text-center font-bold text-xs hover:bg-indigo-100 transition flex flex-col items-center justify-center gap-1 h-24">
-                                <input type="file" class="hidden" accept="image/*" onchange="setBackgroundImage(this)">
-                                <span>🌄 ব্যাকগ্রাউন্ড বদলান</span>
-                            </label>
-                            <label class="cursor-pointer bg-purple-50 border border-dashed border-purple-300 text-purple-600 p-3 rounded-lg text-center font-bold text-xs hover:bg-purple-100 transition flex flex-col items-center justify-center gap-1 h-24">
-                                <input type="file" class="hidden" accept="image/png" onchange="addCustomFrame(this)">
-                                <span>🖼️ ফ্রেম আপলোড (PNG)</span>
-                            </label>
-                        </div>
-                        <div class="flex items-center justify-between bg-gray-50 p-2 rounded border mt-2">
-                            <span class="text-xs text-gray-500">সলিড কালার:</span>
-                            <div class="flex items-center gap-2">
-                                <input type="color" class="w-8 h-8 rounded cursor-pointer border-0" oninput="setBackgroundColor(this.value)">
-                                <button onclick="removeFrame()" class="text-[10px] text-red-500 hover:underline">Remove Frame</button>
-                            </div>
-                        </div>
-                        <div class="mt-3 flex gap-2">
-                            <label class="flex-1 cursor-pointer bg-white border border-gray-200 text-gray-700 px-2 py-2 rounded text-xs font-bold hover:bg-gray-50 text-center">
-                                <input type="file" accept="image/*" onchange="uploadLogo(this)" class="hidden">
-                                📤 লোগো অ্যাড করুন
-                            </label>
-                        </div>
-                    </div>
+                    <img src="{{ asset($template['image']) }}" 
+                         alt="{{ $template['name'] }}" 
+                         class="w-full h-20 object-contain bg-gray-50 mb-1 rounded">
+                    
+                    <p class="text-[10px] text-center font-bold text-gray-600 group-hover:text-indigo-600">
+                        {{ $template['name'] }}
+                    </p>
                 </div>
+            @endforeach
+        </div>
+    </div>
+    
+    <div class="border-t pt-4">
+        <label class="label-title">🖼️ কাস্টমাইজ</label>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+            <label class="cursor-pointer bg-indigo-50 border border-dashed border-indigo-300 text-indigo-600 p-3 rounded-lg text-center font-bold text-xs hover:bg-indigo-100 transition flex flex-col items-center justify-center gap-1 h-24">
+                <input type="file" class="hidden" accept="image/*" onchange="setBackgroundImage(this)">
+                <span>🌄 ব্যাকগ্রাউন্ড বদলান</span>
+            </label>
+            <label class="cursor-pointer bg-purple-50 border border-dashed border-purple-300 text-purple-600 p-3 rounded-lg text-center font-bold text-xs hover:bg-purple-100 transition flex flex-col items-center justify-center gap-1 h-24">
+                <input type="file" class="hidden" accept="image/png" onchange="addCustomFrame(this)">
+                <span>🖼️ ফ্রেম আপলোড (PNG)</span>
+            </label>
+        </div>
+        <div class="flex items-center justify-between bg-gray-50 p-2 rounded border mt-2">
+            <span class="text-xs text-gray-500">সলিড কালার:</span>
+            <div class="flex items-center gap-2">
+                <input type="color" class="w-8 h-8 rounded cursor-pointer border-0" oninput="setBackgroundColor(this.value)">
+                <button onclick="removeFrame()" class="text-[10px] text-red-500 hover:underline">Remove Frame</button>
+            </div>
+        </div>
+        <div class="mt-3 flex gap-2">
+            <label class="flex-1 cursor-pointer bg-white border border-gray-200 text-gray-700 px-2 py-2 rounded text-xs font-bold hover:bg-gray-50 text-center">
+                <input type="file" accept="image/*" onchange="uploadLogo(this)" class="hidden">
+                📤 লোগো অ্যাড করুন
+            </label>
+        </div>
+    </div>
+</div>
 
                 <div id="tab-text" class="space-y-6 hidden">
 				
@@ -195,15 +179,45 @@
                 </div>
 
                 <div id="tab-image" class="space-y-6 hidden">
-                     <label class="w-full cursor-pointer bg-white border border-gray-300 text-gray-700 px-3 py-3 rounded-lg shadow-sm text-sm font-bold hover:bg-gray-50 text-center block transition transform hover:-translate-y-0.5">
-                        <input type="file" accept="image/*" onchange="addImageOnCanvas(this)" class="hidden">
-                        📷 এক্সট্রা ইমেজ যোগ করুন
-                    </label>
-                    <div class="border-t pt-4">
-                         <label class="label-title">ইমেজ সেটিংস</label>
-                         <div><label class="text-xs text-gray-500">Opacity</label><input type="range" min="0" max="1" step="0.1" id="img-opacity" oninput="updateActiveProp('opacity', parseFloat(this.value))"></div>
-                    </div>
-                </div>
+    
+    <label class="w-full cursor-pointer bg-white border border-gray-300 text-gray-700 px-3 py-3 rounded-lg shadow-sm text-sm font-bold hover:bg-gray-50 text-center block transition transform hover:-translate-y-0.5">
+        <input type="file" accept="image/*" onchange="addImageOnCanvas(this)" class="hidden">
+        📷 এক্সট্রা ইমেজ যোগ করুন
+    </label>
+
+    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+        <label class="label-title mb-3 text-center border-b pb-2 block">🖼️ মেইন ইমেজ কন্ট্রোল</label>
+        
+        <div class="flex items-center justify-between mb-4 bg-white p-2 rounded shadow-sm">
+            <button onclick="controlMainImage('zoom', -0.05)" class="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 font-bold transition text-lg" title="Zoom Out">➖</button>
+            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Zoom / Size</span>
+            <button onclick="controlMainImage('zoom', 0.05)" class="p-2 bg-green-50 text-green-600 rounded hover:bg-green-100 font-bold transition text-lg" title="Zoom In">➕</button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 max-w-[150px] mx-auto">
+            <div></div>
+            <button onclick="controlMainImage('moveY', -20)" class="p-2 bg-white border border-gray-300 rounded hover:bg-indigo-50 hover:border-indigo-300 transition shadow-sm text-gray-600 font-bold">⬆️</button>
+            <div></div>
+
+            <button onclick="controlMainImage('moveX', -20)" class="p-2 bg-white border border-gray-300 rounded hover:bg-indigo-50 hover:border-indigo-300 transition shadow-sm text-gray-600 font-bold">⬅️</button>
+            <button onclick="controlMainImage('reset')" class="p-2 bg-red-100 border border-red-200 rounded hover:bg-red-200 transition shadow-sm text-red-600 font-bold text-xs" title="Reset Image">RESET</button>
+            <button onclick="controlMainImage('moveX', 20)" class="p-2 bg-white border border-gray-300 rounded hover:bg-indigo-50 hover:border-indigo-300 transition shadow-sm text-gray-600 font-bold">➡️</button>
+
+            <div></div>
+            <button onclick="controlMainImage('moveY', 20)" class="p-2 bg-white border border-gray-300 rounded hover:bg-indigo-50 hover:border-indigo-300 transition shadow-sm text-gray-600 font-bold">⬇️</button>
+            <div></div>
+        </div>
+        
+        <p class="text-[10px] text-gray-400 text-center mt-3">মেইন ইমেজ অ্যাডজাস্ট করুন</p>
+    </div>
+
+    <div class="border-t pt-4">
+         <label class="label-title">ইমেজ অপাসিটি</label>
+         <div>
+            <input type="range" min="0" max="1" step="0.1" id="img-opacity" oninput="updateActiveProp('opacity', parseFloat(this.value))">
+         </div>
+    </div>
+</div>
 
                 <div id="tab-layers" class="space-y-4 hidden">
                     <label class="label-title">পজিশন কন্ট্রোল</label>
@@ -220,16 +234,19 @@
             </div>
         </div>
         
-        <div class="flex-1 bg-gray-200 flex items-center justify-center overflow-auto relative p-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
-            <div class="absolute bottom-6 right-6 flex bg-white shadow-lg rounded-full px-4 py-2 gap-4 z-40 border border-gray-200">
-               <button onclick="changeZoom(-0.1)" class="font-bold text-gray-600 hover:text-indigo-600 text-xl focus:outline-none">-</button>
-               <span class="text-sm font-bold text-gray-400 pt-1 select-none">ZOOM</span>
-               <button onclick="changeZoom(0.1)" class="font-bold text-gray-600 hover:text-indigo-600 text-xl focus:outline-none">+</button>
-           </div>
-           <div id="canvas-wrapper" class="shadow-2xl transition-transform duration-200 ease-out origin-center ring-8 ring-white">
-               <canvas id="newsCanvas" width="1080" height="1080"></canvas>
-           </div>
-        </div>
+        <div id="workspace-container" class="flex-1 bg-gray-200 flex items-center justify-center overflow-hidden relative p-4 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+    
+			<div class="absolute bottom-6 right-6 flex bg-white shadow-lg rounded-full px-4 py-2 gap-4 z-40 border border-gray-200">
+			   <button onclick="changeZoom(-0.1)" class="font-bold text-gray-600 hover:text-indigo-600 text-xl focus:outline-none cursor-pointer">➖</button>
+			   <span class="text-sm font-bold text-gray-400 pt-1 select-none" id="zoom-level">FIT</span>
+			   <button onclick="changeZoom(0.1)" class="font-bold text-gray-600 hover:text-indigo-600 text-xl focus:outline-none cursor-pointer">➕</button>
+			   <button onclick="fitToScreen()" class="text-xs font-bold text-blue-500 hover:underline border-l pl-3 ml-1" title="Fit to Screen">⟲ Fit</button>
+		   </div>
+
+		   <div id="canvas-wrapper" class="shadow-2xl transition-transform duration-200 ease-out origin-center ring-8 ring-white">
+			   <canvas id="newsCanvas" width="1080" height="1080"></canvas>
+		   </div>
+		</div>
     </div>
 
 	@include('news.studio.scripts')
