@@ -11,7 +11,6 @@ class NewsItem extends Model
 {
     use HasFactory;
 
-    // তোমার দেওয়া দুইটি fillable একত্র করা হয়েছে—কোনো কিছু বাদ দেওয়া হয়নি
     protected $fillable = [
 		'user_id',
         'user_id',
@@ -24,7 +23,10 @@ class NewsItem extends Model
         'rewritten_content',
         'is_posted',
 		'is_queued',
-        'wp_post_id'
+        'wp_post_id',
+		'status',  
+		'ai_title',
+		'ai_content'
 		
     ];
 

@@ -26,7 +26,13 @@ class UserSetting extends Model
 		'scraper_method',
 		'category_mapping',
 		'design_preferences',
-		
+		'fb_page_id',
+		'fb_access_token',
+		'telegram_bot_token',
+		'telegram_channel_id',
+		'post_to_fb',
+        'post_to_telegram',
+
     ];
 
 
@@ -36,6 +42,8 @@ class UserSetting extends Model
         'is_auto_posting' => 'boolean',
 		'category_mapping' => 'array',
 		'design_preferences' => 'array',
+		'post_to_fb' => 'boolean',
+        'post_to_telegram' => 'boolean',
     ];
 
     // ✅ টেমপ্লেট লিস্ট (Master List)

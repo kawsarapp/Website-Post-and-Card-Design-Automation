@@ -83,6 +83,74 @@
                 </div>
             </div>
         </div>
+		
+		
+		
+		
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+			
+			<div class="bg-white p-5 rounded-lg shadow border border-blue-100">
+				<h3 class="font-bold text-lg text-blue-700 mb-3 flex items-center gap-2">
+					<i class="fab fa-facebook"></i> Facebook Page Setup
+				</h3>
+				
+				<div class="mb-3">
+					<label class="block text-sm font-bold text-gray-700">Page ID</label>
+					<input type="text" name="fb_page_id" value="{{ $settings->fb_page_id ?? '' }}" 
+						   class="w-full border p-2 rounded text-sm" placeholder="Example: 100089...">
+				</div>
+
+				<div class="mb-3">
+					<label class="block text-sm font-bold text-gray-700">Page Access Token</label>
+					<textarea name="fb_access_token" rows="2" 
+							  class="w-full border p-2 rounded text-sm" placeholder="Enter long-lived token here...">{{ $settings->fb_access_token ?? '' }}</textarea>
+					<p class="text-[10px] text-gray-400 mt-1">
+						<a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-blue-500 hover:underline">Get Token via Graph API</a>
+					</p>
+				</div>
+			</div>
+
+			<div class="bg-white p-5 rounded-lg shadow border border-sky-100">
+				<h3 class="font-bold text-lg text-sky-600 mb-3 flex items-center gap-2">
+					<i class="fab fa-telegram"></i> Telegram Channel
+				</h3>
+
+				<div class="mb-3">
+					<label class="block text-sm font-bold text-gray-700">Bot Token</label>
+					<input type="text" name="telegram_bot_token" value="{{ $settings->telegram_bot_token ?? '' }}" 
+						   class="w-full border p-2 rounded text-sm" placeholder="Ex: 123456:ABC-DEF...">
+					<p class="text-[10px] text-gray-400">BotFather থেকে পাওয়া টোকেন দিন।</p>
+				</div>
+
+				<div class="mb-3">
+					<label class="block text-sm font-bold text-gray-700">Channel ID</label>
+					<input type="text" name="telegram_channel_id" value="{{ $settings->telegram_channel_id ?? '' }}" 
+						   class="w-full border p-2 rounded text-sm" placeholder="Ex: -100123456789">
+					<p class="text-[10px] text-gray-400">বটকে চ্যানেলের অ্যাডমিন করতে ভুলবেন না।</p>
+				</div>
+			</div>
+		</div>
+		
+		
+		<div class="mt-4 bg-white p-4 rounded shadow">
+			<h3 class="font-bold mb-3">Auto Post Preferences</h3>
+			<div class="flex gap-4">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="hidden" name="post_to_fb" value="0">
+					<input type="checkbox" name="post_to_fb" value="1" {{ $settings->post_to_fb ? 'checked' : '' }} class="toggle-checkbox">
+					<span>Facebook</span>
+				</label>
+
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="hidden" name="post_to_telegram" value="0">
+					<input type="checkbox" name="post_to_telegram" value="1" {{ $settings->post_to_telegram ? 'checked' : '' }} class="toggle-checkbox">
+					<span>Telegram</span>
+				</label>
+				
+				</div>
+		</div>
+				
+		
 
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <div class="flex justify-between items-center mb-4 border-b pb-2">

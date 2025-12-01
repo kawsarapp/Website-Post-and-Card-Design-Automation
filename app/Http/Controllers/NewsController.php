@@ -4,24 +4,32 @@ namespace App\Http\Controllers;
 
 use App\Models\NewsItem;
 use App\Models\UserSetting;
-use App\Models\CreditHistory;
 use App\Services\NewsScraperService;
 use App\Services\AIWriterService;
 use App\Services\WordPressService;
 use App\Services\TelegramService;
+use App\Services\SocialPostService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
-use App\Jobs\ProcessNewsPost; // ✅ Job Import
+use Illuminate\Support\Facades\Log;
+use App\Jobs\ProcessNewsPost;
+use App\Jobs\GenerateAIContent; 
 
 class NewsController extends Controller
 {
     private $scraper, $aiWriter, $wpService, $telegram;
 
-    public function __construct(NewsScraperService $scraper, AIWriterService $aiWriter, WordPressService $wpService, TelegramService $telegram) {
-        $this->scraper = $scraper; $this->aiWriter = $aiWriter; $this->wpService = $wpService; $this->telegram = $telegram;
+    public function __construct(
+        NewsScraperService $scraper, 
+        AIWriterService $aiWriter, 
+        WordPressService $wpService, 
+        TelegramService $telegram
+    ) {
+        $this->scraper = $scraper;
+        $this->aiWriter = $aiWriter;
+        $this->wpService = $wpService;
+        $this->telegram = $telegram;
     }
 
     public function index()
@@ -29,7 +37,6 @@ class NewsController extends Controller
         $user = Auth::user();
         $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
         
-        // ✅ Website Name দেখার জন্য withoutGlobalScope ব্যবহার করা হয়েছে
         $newsItems = NewsItem::with(['website' => function ($query) {
             $query->withoutGlobalScopes(); 
         }])
@@ -46,71 +53,24 @@ class NewsController extends Controller
         }])->findOrFail($id);
 
         $user = Auth::user();
-        $settings = UserSetting::where('user_id', $user->id)->first();
+        $settings = UserSetting::firstOrCreate(['user_id' => $user->id]);
 
-        // ১. সব কার্ডের মাস্টার ডাটা (ইমেজ পাথ সহ)
         $allTemplates = [
-            [
-                'key' => 'ntv', 
-                'name' => 'NTV News', 
-                'image' => 'templates/ntv.png', 
-                'layout' => 'ntv'
-            ],
-            [
-                'key' => 'rtv', 
-                'name' => 'RTV News', 
-                'image' => 'templates/rtv.png', 
-                'layout' => 'rtv'
-            ],
-            [
-                'key' => 'dhakapost', 
-                'name' => 'Dhaka Post', 
-                'image' => 'templates/dhakapost.png', 
-                'layout' => 'dhakapost'
-            ],
-            [
-                'key' => 'dhakapost_new', 
-                'name' => 'Dhaka Post Dark', 
-                'image' => 'templates/dhakapost-new.png', 
-                'layout' => 'dhakapost_new'
-            ],
-            [
-                'key' => 'todayevents', 
-                'name' => 'Today Events', 
-                'image' => 'templates/todayevents.png', 
-                'layout' => 'todayevents'
-            ],
-            // বাকি ওল্ড টেমপ্লেট
-            [
-                'key' => 'modern_left', 
-                'name' => 'Modern Blue', 
-                'image' => 'templates/blue.png', 
-                'layout' => 'modern_left'
-            ],
-            [
-                'key' => 'top_heavy', 
-                'name' => 'Sports Style', 
-                'image' => 'templates/sports.png', 
-                'layout' => 'top_heavy'
-            ],
+            ['key' => 'ntv', 'name' => 'NTV News', 'image' => 'templates/ntv.png', 'layout' => 'ntv'],
+            ['key' => 'rtv', 'name' => 'RTV News', 'image' => 'templates/rtv.png', 'layout' => 'rtv'],
+            ['key' => 'dhakapost', 'name' => 'Dhaka Post', 'image' => 'templates/dhakapost.png', 'layout' => 'dhakapost'],
+            ['key' => 'dhakapost_new', 'name' => 'Dhaka Post Dark', 'image' => 'templates/dhakapost-new.png', 'layout' => 'dhakapost_new'],
+            ['key' => 'todayevents', 'name' => 'Today Events', 'image' => 'templates/todayevents.png', 'layout' => 'todayevents'],
+            ['key' => 'modern_left', 'name' => 'Modern Blue', 'image' => 'templates/blue.png', 'layout' => 'modern_left'],
+            ['key' => 'top_heavy', 'name' => 'Sports Style', 'image' => 'templates/sports.png', 'layout' => 'top_heavy'],
         ];
 
-        // ২. ইউজারের পারমিশন চেক করা
-        $allowed = $settings->allowed_templates ?? []; // ডাটাবেস থেকে পাওয়া অ্যারে (JSON Cast করা আছে)
+        $allowed = $settings->allowed_templates ?? []; 
         $availableTemplates = [];
 
-        // ৩. ফিল্টারিং লজিক
         if ($user->role === 'super_admin' || $user->role === 'admin') {
-            // এডমিন হলে সব পাবে
             $availableTemplates = $allTemplates;
         } else {
-            // সাধারণ ইউজার হলে শুধু সিলেক্ট করা গুলো পাবে
-            // যদি কোনো পারমিশন সেট করা না থাকে, তবে ডিফল্ট হিসেবে সব বা নির্দিষ্ট কিছু দেখাতে পারেন
-            if(empty($allowed)) {
-                 // অপশনাল: একদম নতুন ইউজারের জন্য ডিফল্ট ১-২টা দিতে পারেন
-                 // $allowed = ['ntv', 'rtv']; 
-            }
-
             foreach ($allTemplates as $template) {
                 if (in_array($template['key'], $allowed)) {
                     $availableTemplates[] = $template;
@@ -163,30 +123,186 @@ class NewsController extends Controller
         $nextPost = $lastPost->addMinutes($intervalMinutes);
         return response()->json(['status' => 'on', 'next_post_time' => $nextPost->format('Y-m-d H:i:s')]);
     }
+	
+	
+	// 3. Final Publish (From Draft)
+    public function publishDraft(Request $request, $id)
+    {
+        $request->validate([
+            'title' => 'required',
+            'content' => 'required',
+            'category' => 'nullable'
+        ]);
 
-    public function postToWordPress($id)
+        $news = NewsItem::findOrFail($id);
+        $user = Auth::user();
+
+        $customData = [
+            'title' => $request->title,
+            'content' => $request->content,
+            'category_id' => $request->category
+        ];
+
+        // Status Update
+        $news->update(['status' => 'publishing']);
+
+        // Dispatch Job for Final Posting
+        ProcessNewsPost::dispatch($news->id, $user->id, $customData);
+
+        return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে! (Publishing Started)']);
+    }
+
+    // ==========================================
+    // 🔥 NEW: AI FLOW & DRAFTS
+    // ==========================================
+
+    // ১. নিউজকে AI প্রসেসিং কিউতে পাঠানো
+    public function sendToAiQueue($id)
+    {
+        $news = NewsItem::findOrFail($id);
+        $user = Auth::user();
+
+        if ($user->role !== 'super_admin' && $user->credits <= 0) {
+            return back()->with('error', 'আপনার ক্রেডিট শেষ!');
+        }
+
+        if ($news->status === 'processing') {
+            return back()->with('error', 'এটি ইতিমধ্যেই প্রসেসিং হচ্ছে...');
+        }
+
+        // স্ট্যাটাস আপডেট
+        $news->update(['status' => 'processing']);
+
+        // জব ডিসপ্যাচ
+        GenerateAIContent::dispatch($news->id, $user->id);
+
+        return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে! পেজ রিফ্রেশ করে স্ট্যাটাস দেখুন।');
+    }
+
+    // ২. ড্রাফট পেজ (Missing Method Fixed ✅)
+    public function drafts()
     {
         $user = Auth::user();
         $settings = $user->settings;
 
-        if ($settings && $settings->is_auto_posting) return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
-        if (!$settings || !$settings->wp_url || !$settings->wp_username) return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
-        
-        // প্রাথমিক ক্রেডিট চেক
+        // শুধু ড্রাফট স্ট্যাটাসের নিউজ ফেচ করা
+        $drafts = NewsItem::with(['website' => function ($query) {
+            $query->withoutGlobalScopes(); 
+        }])
+        ->where('status', 'draft')
+        ->orderBy('updated_at', 'desc')
+        ->paginate(20);
+
+        return view('news.drafts', compact('drafts', 'settings'));
+    }
+
+    // ৩. ড্রাফট কন্টেন্ট লোড করা (মডালের জন্য)
+    public function getDraftContent($id)
+    {
+        $news = NewsItem::findOrFail($id);
+        $user = Auth::user();
+
+        // ড্রাফট না থাকলে অরিজিনাল ডাটা
+        $title = !empty($news->ai_title) ? $news->ai_title : $news->title;
+        $content = !empty($news->ai_content) ? $news->ai_content : strip_tags($news->content);
+
+        return response()->json([
+            'success' => true,
+            'title'   => $title,
+            'content' => $content,
+            'categories' => $user->settings->category_mapping ?? [] 
+        ]);
+    }
+
+    public function confirmPublish(Request $request, $id)
+    {
+        $request->validate([
+            'title' => 'required',
+            'content' => 'required',
+            'category' => 'nullable'
+        ]);
+
+        $user = Auth::user();
+
         if ($user->role !== 'super_admin') {
-            if ($user->credits <= 0) return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ!');
-            if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
+            if ($user->credits <= 0) {
+                return response()->json(['success' => false, 'message' => '❌ আপনার ক্রেডিট শেষ! দয়া করে ক্রেডিট রিচার্জ করুন।']);
+            }
+
+            if (!$user->hasDailyLimitRemaining()) {
+                return response()->json(['success' => false, 'message' => "❌ আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!"]);
+            }
+        }
+
+        $news = NewsItem::findOrFail($id);
+
+        $customData = [
+            'title' => $request->title,
+            'content' => $request->content,
+            'category_id' => $request->category
+        ];
+
+        $news->update(['status' => 'publishing']);
+
+        ProcessNewsPost::dispatch($news->id, $user->id, $customData);
+
+        return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
+    }
+
+    // ==========================================
+    // 🔥 SOCIAL & MANUAL POST
+    // ==========================================
+
+    public function postToWordPress($id, SocialPostService $socialPoster)
+    {
+        $user = Auth::user();
+        $settings = $user->settings;
+
+        if ($settings && $settings->is_auto_posting) {
+            return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
+        }
+        
+        if (!$settings || !$settings->wp_url || !$settings->wp_username) {
+            return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
+        }
+        
+        if ($user->role !== 'super_admin') {
+            if ($user->credits <= 0) {
+                return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ!');
+            }
+            if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
+            }
         }
 
         $news = NewsItem::with(['website' => function ($query) {
             $query->withoutGlobalScopes(); 
         }])->findOrFail($id);
 
-        if ($news->is_posted) return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
+        if ($news->is_posted) {
+            return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
+        }
 
-        // ✅ Job Dispatch (Queue)
-        ProcessNewsPost::dispatch($news->id, $user->id);
+        $cardImageUrl = $news->thumbnail_url;
+        $newsLink = $news->source_url; 
 
-        return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! ১-২ মিনিটের মধ্যে সাইটে দেখা যাবে। ⏳');
+        try {
+            if ($settings->post_to_fb && !empty($settings->fb_page_id)) {
+                $socialPoster->postToFacebook($settings, $news->title, $cardImageUrl, $newsLink);
+            }
+            if ($settings->post_to_telegram && !empty($settings->telegram_channel_id)) {
+                $socialPoster->postToTelegram($settings, $news->title, $cardImageUrl, $newsLink);
+            }
+            if ($settings->post_to_whatsapp && !empty($settings->whatsapp_number_id)) {
+                $socialPoster->postToWhatsApp($settings, $news->title, $cardImageUrl, $newsLink);
+            }
+        } catch (\Exception $e) {
+            Log::error("Social Post Error: " . $e->getMessage());
+        }
+
+        // ওয়ার্ডপ্রেসে পোস্ট
+        ProcessNewsPost::dispatch($news->id, $user->id, []);
+
+        return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! (WP, FB, TG & WhatsApp) ⏳');
     }
 }

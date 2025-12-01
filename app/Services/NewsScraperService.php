@@ -4,49 +4,201 @@ namespace App\Services;
 
 use Symfony\Component\DomCrawler\Crawler;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class NewsScraperService
 {
-    public function scrape($url)
+    /**
+     * Main Scrape Method
+     */
+    public function scrape($url, $customSelectors = [], $method = 'node')
     {
+        Log::info("🕷️ Scraping Started via [{$method}]: $url");
+
+        // ১. পাইথন মেথড চেক
+        if ($method === 'python') {
+            return $this->runPythonScraper($url);
+        }
+
         $htmlContent = null;
 
-        // ১. সাধারণ HTTP চেষ্টা
+        // ২. HTTP Request
         try {
             $response = Http::withHeaders([
-                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            ])->timeout(15)->get($url);
+                'User-Agent' => $this->getRandomUserAgent(),
+                'Accept'     => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            ])->timeout(20)->get($url);
             
             if ($response->successful()) {
                 $htmlContent = $response->body();
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+            Log::warning("HTTP Scrape Failed: " . $e->getMessage());
+        }
 
-        // ২. Puppeteer Fallback
-        if (empty($htmlContent) || str_contains($htmlContent, 'Cloudflare')) {
+        // ৩. Puppeteer Fallback
+        if (empty($htmlContent) || str_contains($htmlContent, 'Cloudflare') || str_contains($htmlContent, 'Just a moment') || strlen($htmlContent) < 500) {
+            Log::info("🔄 Switching to Puppeteer for: $url");
             $htmlContent = $this->runPuppeteer($url);
         }
 
-        if (!$htmlContent) return null;
-
-        if (!str_contains($htmlContent, 'charset')) {
-            $htmlContent = '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">' . $htmlContent;
+        if (!$htmlContent) {
+            Log::error("❌ All scraping methods failed for: $url");
+            return null;
         }
 
-        $crawler = new Crawler($htmlContent);
+        return $this->processHtml($htmlContent, $url, $customSelectors);
+    }
+
+    /**
+     * 🛠️ HTML প্রসেসিং ইঞ্জিন
+     */
+    private function processHtml($html, $url, $customSelectors)
+    {
+        if (!mb_detect_encoding($html, 'UTF-8', true)) {
+            $html = mb_convert_encoding($html, 'UTF-8', 'auto');
+        }
+
+        $crawler = new Crawler($html);
+        $domain = parse_url($url, PHP_URL_HOST);
+
+        $this->cleanGarbage($crawler, $domain);
+
+        $data = [
+            'title'      => $this->extractTitle($crawler),
+            'image'      => $this->extractImage($crawler, $url),
+            'body'       => null,
+            'source_url' => $url
+        ];
+
+        // JSON-LD ডাটা
+        $jsonLdData = $this->extractFromJsonLD($crawler);
+        if (!empty($jsonLdData['articleBody']) && strlen($jsonLdData['articleBody']) > 200) {
+            $data['body'] = $this->formatText($jsonLdData['articleBody']);
+            
+            if (empty($data['image']) && !empty($jsonLdData['image'])) {
+                $img = $jsonLdData['image'];
+                $data['image'] = is_array($img) ? ($img['url'] ?? $img[0] ?? null) : $img;
+            }
+        }
+
+        if (empty($data['body'])) {
+            $data['body'] = $this->extractBodyManually($crawler, $customSelectors, $domain);
+        }
+
+        return !empty($data['body']) ? $data : null;
+    }
+
+    // --- CLEANING & EXTRACTION ---
+
+    private function cleanGarbage(Crawler $crawler, $domain)
+    {
+        $junkSelectors = [
+            'script', 'style', 'iframe', 'nav', 'header', 'footer', 'form', 
+            '.advertisement', '.ads', '.share-buttons', '.meta', '.comments-area', 
+            '.related-news', '.most-read', '.sidebar', '.print-section', 
+            '.author-section', '.tags', '.social-share', '.breadcrumb', 
+            '.more-news', '.top-news', '[class*="popup"]', '[id*="cookie"]', 
+            '.caption', '.image-caption'
+        ];
         
-        // ৩. ক্লিনিং (Garbage Removal)
-        $crawler->filter('script, style, .advertisement, .ads, .share-buttons, .meta, header, footer, .comments-area, .related-news, .most-read, .sidebar, .print-section')->each(function (Crawler $crawler) {
-            foreach ($crawler as $node) {
-                if ($node->parentNode) $node->parentNode->removeChild($node);
+        if (str_contains($domain, 'kalerkantho')) {
+            $junkSelectors = array_merge($junkSelectors, ['.more_news', '.print-hide', '.summery', '.date']);
+        }
+
+        $crawler->filter(implode(', ', $junkSelectors))->each(function (Crawler $crawlerNode) {
+            $node = $crawlerNode->getNode(0);
+            if ($node && $node->parentNode) {
+                $node->parentNode->removeChild($node);
+            }
+        });
+    }
+
+    private function extractTitle(Crawler $crawler)
+    {
+        if ($crawler->filter('h1')->count() > 0) return trim($crawler->filter('h1')->first()->text());
+        if ($crawler->filter('title')->count() > 0) return trim($crawler->filter('title')->text());
+        return "Untitled News";
+    }
+
+    
+	// NewsScraperService.php ফাইলের ভেতরে এই ফাংশনটি রিপ্লেস করুন
+    
+    private function extractImage(Crawler $crawler, $url)
+    {
+        $imageUrl = null;
+
+        // 🔥 Priority 1: Body Image (আর্টিকেলের ভেতরের ছবি - সবচেয়ে নিরাপদ)
+        // আমরা আগে বডি চেক করব, কারণ এখানকার ছবি সাধারণত ইউজার যা দেখে তাই (ক্লিন)
+        $crawler->filter('article img, .content-details img, .news-details img, .story-element img, .post-content img')->each(function (Crawler $node) use (&$imageUrl) {
+            if (!$imageUrl) {
+                // হাই কোয়ালিটি সোর্স অ্যাট্রিবিউট খোঁজা
+                $src = $node->attr('data-original') 
+                    ?? $node->attr('data-full-url') 
+                    ?? $node->attr('data-src') 
+                    ?? $node->attr('src');
+
+                // ১. সাইজ চেক (খুব ছোট আইকন বাদ)
+                $width = $node->attr('width');
+                if ($width && is_numeric($width) && $width < 200) {
+                    return; 
+                }
+
+                // ২. লোগো বা আইকন ফিল্টার
+                if ($src && strlen($src) > 20 && !$this->isGarbageImage($src)) {
+                    $imageUrl = $src;
+                }
             }
         });
 
-        // ৪. কন্টেন্ট এক্সট্রাকশন
+        // 🔥 Priority 2: JSON-LD (Fallback - যদি বডিতে কোনো ছবি না থাকে)
+        // বডিতে ছবি না পেলে আমরা JSON-LD চেক করব
+        if (!$imageUrl) {
+            $jsonLdData = $this->extractFromJsonLD($crawler);
+            if (!empty($jsonLdData['image'])) {
+                $img = $jsonLdData['image'];
+                if (is_array($img)) {
+                    $imageUrl = $img['url'] ?? $img[0] ?? null;
+                } elseif (is_string($img)) {
+                    $imageUrl = $img;
+                }
+            }
+        }
+
+        // ৩. URL Clean & Fix
+        if ($imageUrl) {
+            // রিলেটিভ পাথ ফিক্স
+            if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                $parsedUrl = parse_url($url);
+                $root = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
+                $imageUrl = $root . '/' . ltrim($imageUrl, '/');
+            }
+
+            // প্যারামিটার রিমুভ (Clean Original Image)
+            // image.jpg?width=600 -> image.jpg
+            if (str_contains($imageUrl, '?')) {
+                $parts = explode('?', $imageUrl);
+                // নিশ্চিত হওয়া যে এটি ইমেজ ফাইল
+                if (preg_match('/\.(jpg|jpeg|png|webp|avif)$/i', $parts[0])) {
+                    $imageUrl = $parts[0]; 
+                }
+            }
+        }
+
+        return $imageUrl;
+    }
+
+    private function extractBodyManually(Crawler $crawler, $customSelectors, $domain)
+    {
         $selectors = [
-            '#details', '.details', '.article-details', 'div[itemprop="articleBody"]',
-            'article', '#content', '.content-details', '.news-details', '.news-content'
+            'div[itemprop="articleBody"]', '.article-details', '#details', '.details', 
+            '.content-details', 'article', '#content', '.news-content', 
+            '.story-element-text', '.jw_article_body', '.description', 
+            '.post-content', '.entry-content', '.section-content'
         ];
+
+        if (str_contains($domain, 'dhakapost')) array_unshift($selectors, '.section-content article');
+        if (!empty($customSelectors['content'])) array_unshift($selectors, $customSelectors['content']);
 
         $bestContent = "";
         $maxLength = 0;
@@ -55,25 +207,22 @@ class NewsScraperService
             if ($crawler->filter($selector)->count() > 0) {
                 $combinedText = "";
                 
-                // <p> ট্যাগ লুপ
-                $crawler->filter($selector . ' p')->each(function (Crawler $node) use (&$combinedText) {
-                    $text = trim($node->text());
-                    // গার্বেজ ফিল্টার এবং ক্লিন টেক্সট
-                    $text = $this->cleanSpecificText($text);
-                    
-                    if (strlen($text) > 20 && !$this->isGarbage($text)) {
-                        $combinedText .= "<p>" . $text . "</p>";
+                $crawler->filter($selector)->children()->each(function (Crawler $node) use (&$combinedText) {
+                    $nodeName = $node->nodeName();
+                    if (in_array($nodeName, ['p', 'div', 'h2', 'h3', 'h4', 'span'])) {
+                        $text = trim($node->text());
+                        $text = $this->cleanSpecificText($text);
+                        if (strlen($text) > 20 && !$this->isGarbage($text)) {
+                            $combinedText .= $text . "\n\n"; 
+                        }
                     }
                 });
 
-                // Fallback raw text (যদি p ট্যাগ না থাকে)
-                if (strlen($combinedText) < 50) {
-                    $rawText = trim($crawler->filter($selector)->text());
-                    $rawText = $this->cleanSpecificText($rawText); // ক্লিন করা হচ্ছে
-                    if (strlen($rawText) > 50) {
-                        // লাইন ব্রেক দিয়ে প্যারাগ্রাফ বানানো
-                        $combinedText = "<p>" . str_replace("\n", "</p><p>", $rawText) . "</p>";
-                    }
+                if (strlen($combinedText) < 100) {
+                    $rawText = $crawler->filter($selector)->html();
+                    $rawText = preg_replace('/<br\s*\/?>/i', "\n\n", $rawText);
+                    $rawText = strip_tags($rawText); 
+                    $combinedText = $this->formatText($rawText);
                 }
 
                 if (strlen($combinedText) > $maxLength) {
@@ -83,76 +232,92 @@ class NewsScraperService
             }
         }
 
-        if ($maxLength > 150) return $bestContent;
-
-        // ৫. Universal Fallback
-        $universalText = "";
-        $crawler->filter('body p')->each(function (Crawler $node) use (&$universalText) {
-            $text = trim($node->text());
-            $text = $this->cleanSpecificText($text);
-            if (strlen($text) > 50 && !$this->isGarbage($text)) {
-                $universalText .= "<p>" . $text . "</p>";
-            }
-        });
-
-        return strlen($universalText) > 200 ? $universalText : null;
+        return ($maxLength > 100) ? trim($bestContent) : null;
     }
 
-    // ✅ নতুন ফাংশন: তারিখ এবং সময় রিমুভার
-    private function cleanSpecificText($text)
-    {
-        // ১. যমুনা/অন্যান্য মিডিয়ার টাইমস্ট্যাম্প রিমুভ (Regex)
-        // উদাহরণ: "প্রিন্ট: ২৫ নভেম্বর... ১২:১৫ পিএম" মুছে ফেলবে
-        $text = preg_replace('/(প্রিন্ট|প্রকাশ|আপডেট)\s*:\s*.*?(এএম|পিএম|AM|PM)/u', '', $text);
-        
-        // ২. এক্সট্রা স্পেস ক্লিন
-        $text = preg_replace('/\s+/', ' ', $text);
-        
-        return trim($text);
-    }
+    // --- RUNNERS ---
 
-    private function runPuppeteer($url)
+    public function runPuppeteer($url)
     {
         $tempFile = storage_path("app/public/temp_" . time() . "_" . rand(100,999) . ".html");
-        $scriptPath = base_path("scraper-detail.js");
-        $jsCode = <<<'JS'
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import fs from 'fs';
-puppeteer.use(StealthPlugin());
-const url = process.argv[2];
-const outputFile = process.argv[3];
-(async () => {
-  try {
-    const browser = await puppeteer.launch({headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']});
-    const page = await browser.newPage();
-    await page.setExtraHTTPHeaders({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'});
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await new Promise(r => setTimeout(r, 5000)); 
-    const html = await page.content();
-    fs.writeFileSync(outputFile, html);
-    await browser.close();
-    process.exit(0);
-  } catch (e) { process.exit(1); }
-})();
-JS;
-        file_put_contents($scriptPath, $jsCode);
-        $command = "node \"$scriptPath\" \"$url\" \"$tempFile\" 2>&1";
+        $scriptPath = base_path("scraper-engine.js");
+        if (!file_exists($scriptPath)) $scriptPath = base_path("scraper-detail.js");
+        
+        if (!file_exists($scriptPath)) {
+            Log::error("Node.js Scraper script not found!");
+            return null;
+        }
+
+        $command = "node " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " " . escapeshellarg($tempFile) . " body 2>&1";
         shell_exec($command);
         
         if (file_exists($tempFile)) {
-            $content = file_get_contents($tempFile);
+            $htmlContent = file_get_contents($tempFile);
             unlink($tempFile);
-            return $content;
+            return (strlen($htmlContent) > 500) ? $htmlContent : null;
         }
         return null;
     }
 
+    public function runPythonScraper($url)
+    {
+        $scriptPath = base_path("scraper.py"); 
+        if (!file_exists($scriptPath)) return null;
+
+        $pythonCmd = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'python' : 'python3';
+        $command = "$pythonCmd " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " 2>&1";
+        $output = shell_exec($command);
+        $data = json_decode($output, true);
+
+        return (isset($data['body']) && !empty($data['body'])) ? $data : null;
+    }
+
+    // --- HELPERS ---
+
+    private function extractFromJsonLD($crawler) {
+        try {
+            $scripts = $crawler->filter('script[type="application/ld+json"]');
+            foreach ($scripts as $script) {
+                $json = json_decode($script->nodeValue, true);
+                if (isset($json['articleBody'])) return $json;
+                if (isset($json['@graph'])) {
+                    foreach ($json['@graph'] as $item) {
+                        if (isset($item['articleBody'])) return $item;
+                    }
+                }
+            }
+        } catch (\Exception $e) {}
+        return null;
+    }
+
+    private function cleanSpecificText($text) {
+        $patterns = [
+            '/(প্রিন্ট|প্রকাশ|আপডেট|সংগৃহীত|অনলাইন)\s*:\s*.*?(এএম|পিএম|AM|PM)/u',
+            '/^নিজস্ব প্রতিবেদক.*?\|/u', '/^অনলাইন ডেস্ক.*?\|/u', '/^স্টাফ রিপোর্টার.*?\|/u', '/^ছবি:/u'
+        ];
+        foreach ($patterns as $pattern) $text = preg_replace($pattern, '', $text);
+        return trim(preg_replace('/\s+/', ' ', $text));
+    }
+
     private function isGarbage($text) {
-        $garbage = ['আরও পড়ুন', 'বিস্তারিত', 'বিজ্ঞাপন', 'Advertisement', 'Click to comment', 'Follow us', 'Google News', 'Share this', 'Latest News'];
-        foreach ($garbage as $g) {
-            if (stripos($text, $g) !== false) return true;
-        }
+        $garbage = ['আরও পড়ুন', 'বিস্তারিত', 'বিজ্ঞাপন', 'Advertisement', 'Click to comment', 'Follow us', 'Google News', 'Share this', 'Latest News', 'সাবস্ক্রাইব করুন'];
+        foreach ($garbage as $g) if (stripos($text, $g) !== false) return true;
         return false;
+    }
+
+    private function isGarbageImage($url) {
+        return preg_match('/(logo|icon|svg|avatar|profile|ad-|banner|share|button)/i', $url);
+    }
+
+    private function formatText($text) {
+        return trim(preg_replace("/[\r\n]+/", "\n\n", $text));
+    }
+
+    private function getRandomUserAgent() {
+        $agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        ];
+        return $agents[array_rand($agents)];
     }
 }

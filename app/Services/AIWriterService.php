@@ -7,57 +7,123 @@ use Illuminate\Support\Facades\Log;
 
 class AIWriterService
 {
-    public function rewrite($text)
+    /**
+     * Rewrite content using DeepSeek API
+     * @param string $content
+     * @param string $title
+     * @return array
+     */
+    public function rewrite($content, $title)
     {
-        $apiKey = env('DEEPSEEK_API_KEY');
-        if (!$apiKey) return null;
+        if (empty($content) || strlen($content) < 50) {
+            return ['title' => $title, 'content' => $content];
+        }
+
+        $apiKey = config('services.deepseek.key') ?? env('DEEPSEEK_API_KEY'); 
+
+        if (!$apiKey) {
+            Log::error("DeepSeek API Key missing!");
+            return ['title' => $title, 'content' => $content];
+        }
 
         $url = "https://api.deepseek.com/chat/completions";
-        $text = mb_substr($text, 0, 5000, 'UTF-8'); 
+        
+        $safeContent = mb_substr($content, 0, 8000, 'UTF-8'); 
 
-        // 🔥 আপডেটেড প্রম্পট: কম বোল্ড + তারিখ রিমুভ 🔥
-        $systemPrompt = <<<EOT
-You are a Senior Editor.
-**TASK:** Paraphrase the news article professionally.
+				
+		$systemPrompt = <<<EOT
+You are a Senior Sub-Editor at a leading Bengali News Portal.
+**YOUR GOAL:** rewrite the provided text to create a **comprehensive and engaging news report** in professional "Promit Bangla".
 
-**STRICT RULES:**
-1. **REMOVE METADATA:** Do NOT include publish dates, print times, or reporter names (e.g., "প্রকাশ: ..."). Start directly with the news.
-2. **LANGUAGE:** If input is BENGALI -> Output BENGALI. If ENGLISH -> Output ENGLISH. Do NOT translate.
-3. **QUOTES:** Keep direct speech 100% UNCHANGED.
+**🛡️ CRITICAL RULES:**
+1. **NO SUMMARIZATION:** Do not shorten the news. Cover **every single detail** found in the original text.
+2. **NO HALLUCINATION:** Do not invent new facts, numbers, or names that are not in the source.
+3. **FLOW & EXPANSION:** You can restructure sentences and use professional vocabulary to make the report sound **detailed and authoritative**, rather than just a direct translation. Connect ideas logically.
 
-**FORMATTING RULES (Follow Strictly):**
-- **BOLDING:** Use `<strong>` tags VERY SPARINGLY.
-   - ✅ BOLD ONLY: Names of important People, Team Names, or Countries (e.g., <strong>ম্যানচেস্টার ইউনাইটেড</strong>, <strong>লিওনেল মেসি</strong>).
-   - ❌ DO NOT BOLD: Verbs, Adjectives, Dates, or common words.
-- **PARAGRAPHS:** Use HTML `<p>` tags. Keep the flow natural.
+**✍️ WRITING STYLE:**
+- **Tone:** Formal, unbiased, and journalistic.
+- **Structure:**
+    - Use `<p>` tags for paragraphs. Break long blocks of text into readable paragraphs.
+    - **ONLY** use `<h3>` tags if the original text clearly has separate topics/sections. Otherwise, stick to paragraphs.
+    - Do not force bullet points (`<ul>`) unless the original text lists items.
 
-**OUTPUT:** JSON format: { "category": "CategoryName", "content": "<p>...</p>" }
-EOT;
+**🚫 NEGATIVE CONSTRAINTS:**
+- No "In conclusion" (পরিশেষে) type endings.
+- No personal opinions.
+- Do not make the content shorter than the original meaning requires.
+
+**OUTPUT FORMAT (JSON):**
+Return a valid JSON object:
+{
+    "title": "A catchy, standard news headline in Bengali (approx 6-10 words)",
+    "content": "HTML string with <p> tags. Ensure the content feels complete."
+}
+EOT;			
+		
 
         try {
+            $userMessage = "Here is the news to rewrite:\n\n**Title:** $title\n**Content:** $safeContent";
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type' => 'application/json',
-            ])->timeout(120)->post($url, [
+                'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json',
+            ])
+            ->timeout(90)
+            ->retry(3, 100)
+            ->post($url, [
                 "model" => "deepseek-chat",
                 "messages" => [
                     ["role" => "system", "content" => $systemPrompt], 
-                    ["role" => "user", "content" => $text]
+                    ["role" => "user", "content" => $userMessage]
                 ],
-                "temperature" => 0.2, 
+                "temperature" => 0.2,
                 "response_format" => ["type" => "json_object"]
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
-                if (isset($data['choices'][0]['message']['content'])) {
-                    $json = json_decode($data['choices'][0]['message']['content'], true);
-                    return $json ?? ['content' => $data['choices'][0]['message']['content'], 'category' => 'Others'];
+                $rawContent = $data['choices'][0]['message']['content'] ?? null;
+
+                if ($rawContent) {
+                    $cleanJson = $this->cleanJsonString($rawContent);
+                    $json = json_decode($cleanJson, true);
+                    
+                    if (json_last_error() === JSON_ERROR_NONE && isset($json['title'])) {
+                        return $json;
+                    }
+                    
+                    Log::warning("AI returned invalid JSON. Using raw output.");
+                    return [
+                        'title' => $title . ' (AI Revised)',
+                        'content' => strip_tags($rawContent)
+                    ];
                 }
+            } else {
+                Log::error("DeepSeek API Error: " . $response->body());
             }
+
         } catch (\Exception $e) {
-            Log::error("DeepSeek Error: " . $e->getMessage());
+            Log::error("DeepSeek Exception: " . $e->getMessage());
         }
-        return null;
+
+        return [
+            'title' => $title,
+            'content' => $content
+        ];
+    }
+
+    /**
+     * Helper to clean markdown code blocks from JSON string
+     */
+    private function cleanJsonString($string)
+    {
+        if (preg_match('/```json\s*([\s\S]*?)\s*```/', $string, $matches)) {
+            return trim($matches[1]);
+        }
+        if (preg_match('/```\s*([\s\S]*?)\s*```/', $string, $matches)) {
+            return trim($matches[1]);
+        }
+        return trim($string);
     }
 }

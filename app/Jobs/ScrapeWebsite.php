@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Website;
 use App\Models\NewsItem;
+use App\Services\NewsScraperService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,7 +20,8 @@ class ScrapeWebsite implements ShouldQueue
     protected $websiteId;
     protected $userId;
 
-    public $timeout = 600;
+    // Puppeteer এবং স্ক্র্যাপিং এর জন্য সময় বেশি লাগতে পারে, তাই Timeout বাড়ানো হলো
+    public $timeout = 1200; 
 
     public function __construct($websiteId, $userId)
     {
@@ -27,206 +29,147 @@ class ScrapeWebsite implements ShouldQueue
         $this->userId = $userId;
     }
 
-    public function handle()
+    public function handle(NewsScraperService $scraper)
     {
         try {
-            // ✅ FIX: ID Extraction Logic (Robust)
-            $realId = $this->websiteId;
-
-            if (is_object($realId)) {
-                $realId = $realId->id ?? null;
-            } elseif (is_array($realId)) {
-                $realId = $realId['id'] ?? null;
-            } elseif (is_string($realId)) {
-                 $decoded = json_decode($realId, true);
-                 if (json_last_error() === JSON_ERROR_NONE) {
-                     $realId = $decoded['id'] ?? $realId;
-                 }
-            }
-
-            $realId = (int) $realId;
-
-            // ওয়েবসাইট খুঁজে বের করা
-            $website = Website::withoutGlobalScopes()->where('id', $realId)->first();
+            // ১. ওয়েবসাইট লোড করা
+            $realId = is_array($this->websiteId) ? ($this->websiteId['id'] ?? null) : $this->websiteId;
+            $website = Website::withoutGlobalScopes()->find($realId);
 
             if (!$website) {
-                Log::error("Scrape Job Failed: Website ID {$realId} not found in DB. Original Input: " . json_encode($this->websiteId));
+                Log::error("❌ Scrape Job Failed: Website ID {$realId} not found.");
                 return;
             }
 
-            Log::info("🚀 Starting Scraping for: " . $website->name);
+            Log::info("🚀 Scraping Started for: {$website->name} ({$website->url})");
 
-            // ফাইল পাথ
-            $fileName = "scrape_" . time() . "_{$website->id}.html";
-            $tempFile = storage_path("app/public/{$fileName}");
-            $scriptPath = base_path("scraper-engine.js");
-
-            // Puppeteer Script
-            $jsCode = <<<'JS'
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import fs from 'fs';
-
-puppeteer.use(StealthPlugin());
-
-const url = process.argv[2];
-const outputFile = process.argv[3];
-const selector = process.argv[4];
-
-if (!url || !outputFile) process.exit(1);
-
-(async () => {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--disable-gpu',
-      '--window-size=1920,1080',
-      '--disable-infobars',
-      '--exclude-switches=enable-automation'
-    ]
-  });
-
-  try {
-    const page = await browser.newPage();
-    await page.setRequestInterception(true);
-    page.on('request', (req) => {
-        if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
-            req.abort();
-        } else {
-            req.continue();
-        }
-    });
-
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
-
-    try { await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }); } catch (e) {}
-    try { if(selector) await page.waitForSelector(selector, { timeout: 8000 }); } catch(e) {}
-
-    await page.evaluate(async () => {
-        await new Promise((resolve) => {
-            let totalHeight = 0;
-            const distance = 500; 
-            const timer = setInterval(() => {
-                const scrollHeight = document.body.scrollHeight;
-                window.scrollBy(0, distance);
-                totalHeight += distance;
-                if (totalHeight >= scrollHeight || totalHeight > 3000) {
-                    clearInterval(timer);
-                    resolve();
-                }
-            }, 100);
-        });
-    });
-
-    await page.evaluate(() => {
-        const images = document.querySelectorAll('img');
-        images.forEach(img => {
-            const hiddenSrc = img.getAttribute('data-src') || img.getAttribute('data-original');
-            if (hiddenSrc) img.setAttribute('src', hiddenSrc);
-        });
-    });
-
-    const html = await page.content();
-    fs.writeFileSync(outputFile, html);
-    await browser.close();
-    process.exit(0);
-
-  } catch (error) {
-    console.error('Puppeteer Error:', error);
-    await browser.close();
-    process.exit(1);
-  }
-})();
-JS;
-
-            file_put_contents($scriptPath, $jsCode);
+            // ২. লিস্ট পেজ ফেচ করা (Puppeteer ব্যবহার করে, কারণ অনেক সাইটে JS লোড থাকে)
+            $listPageHtml = $scraper->runPuppeteer($website->url); 
             
-            // লিনাক্স পাথ ফিক্স
-            $nodePath = "/usr/bin/node"; 
-            if (!file_exists($nodePath)) $nodePath = "node";
-
-            $command = "\"$nodePath\" \"$scriptPath\" \"{$website->url}\" \"$tempFile\" \"{$website->selector_container}\" 2>&1";
-            $output = shell_exec($command);
-
-            if (!file_exists($tempFile)) {
-                Log::error("Scraper Failed. Output: " . $output);
+            if (!$listPageHtml || strlen($listPageHtml) < 500) {
+                Log::error("❌ List Page Failed: {$website->url} returned empty or blocked content.");
                 return;
             }
 
-            $html = file_get_contents($tempFile);
-            unlink($tempFile);
-
-            $crawler = new Crawler($html);
-            $containers = $crawler->filter($website->selector_container);
+            $crawler = new Crawler($listPageHtml);
+            
+            // ৩. সিলেক্টর দিয়ে কন্টেইনার খোঁজা
+            $containerSelector = $website->selector_container ?? 'article';
+            $containers = $crawler->filter($containerSelector);
 
             if ($containers->count() === 0) {
-                Log::warning("No content found for {$website->name}");
+                Log::error("⚠️ No items found using selector '{$containerSelector}' on {$website->name}. Structure might have changed.");
                 return;
             }
 
             $count = 0;
-            $limit = 15;
+            $limit = 15; // একবারে সর্বোচ্চ ১৫টি নিউজ প্রসেস করবে
 
-            $containers->each(function (Crawler $node) use ($website, &$count, $limit) {
-                if ($count >= $limit) return false;
+            $containers->each(function (Crawler $node) use ($website, $scraper, &$count, $limit) {
+                if ($count >= $limit) return false; // লুপ ব্রেক
+
                 try {
-                    $titleNode = $node->filter($website->selector_title);
-                    if ($titleNode->count() === 0) return;
+                    // --- A. টাইটেল এক্সট্রাকশন ---
+                    $titleNode = $node->filter($website->selector_title ?? 'h2');
+                    if ($titleNode->count() === 0) return; // টাইটেল না থাকলে বাদ
                     $title = trim($titleNode->text());
 
+                    // --- B. লিংক এক্সট্রাকশন ---
                     $link = null;
-                    $anchor = $node->filter('a');
-                    if ($anchor->count() > 0) $link = $anchor->first()->attr('href');
-                    else {
-                        $titleLink = $node->filter($website->selector_title)->filter('a');
-                        if ($titleLink->count() > 0) $link = $titleLink->attr('href');
+                    if ($node->filter('a')->count() > 0) {
+                        $link = $node->filter('a')->first()->attr('href');
+                    } elseif ($titleNode->filter('a')->count() > 0) {
+                        $link = $titleNode->filter('a')->attr('href');
                     }
+
                     if (!$link) return;
 
+                    // Absolute URL বানানো
                     if (!str_starts_with($link, 'http')) {
                         $parsedUrl = parse_url($website->url);
                         $baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
                         $link = $baseUrl . '/' . ltrim($link, '/');
                     }
 
-                    $image = null;
+                    // --- C. ডুপ্লিকেট চেক ---
+                    if (NewsItem::where('original_link', $link)->exists()) {
+                        return; // যদি অলরেডি থাকে, তাহলে স্কিপ
+                    }
+
+                    // --- D. লিস্ট পেজ থেকে ইমেজ এক্সট্রাকশন (Thumbnail) ---
+                    $listImage = null;
                     try {
-                        if ($website->selector_image && $node->filter($website->selector_image)->count() > 0) {
-                            $imgNode = $node->filter($website->selector_image);
-                            $image = $imgNode->attr('src') ?? $imgNode->attr('data-src');
-                        } elseif ($node->filter('img')->count() > 0) {
-                            $imgNode = $node->filter('img')->first();
-                            $image = $imgNode->attr('src') ?? $imgNode->attr('data-src');
+                        $imgSelector = $website->selector_image ?? 'img';
+                        if ($node->filter($imgSelector)->count() > 0) {
+                            $imgNode = $node->filter($imgSelector)->first();
+                            $listImage = $imgNode->attr('src') ?? $imgNode->attr('data-src');
                         }
                     } catch (\Exception $e) {}
 
-                    if ($image) {
-                        if (!str_starts_with($image, 'http')) {
-                            $parsedUrl = parse_url($website->url);
-                            $baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
-                            $image = $baseUrl . '/' . ltrim($image, '/');
-                        }
+                    // --- E. মেইন ডিটেইলস পেজ স্ক্র্যাপ করা ---
+                    $customSelectors = [
+                        'container' => $website->selector_content ?? $website->selector_container,
+                        'content'   => $website->selector_content
+                    ];
+                    
+                    $method = $website->scraper_method ?? 'node';
+
+                    // সার্ভিস কল করা (এখন এটি অ্যারে রিটার্ন করে)
+                    $scrapedData = $scraper->scrape($link, $customSelectors, $method);
+
+                    // ভ্যালিডেশন
+                    if (!$scrapedData || empty($scrapedData['body'])) {
+                        Log::warning("⚠️ Empty Body for link: {$link}");
+                        return; 
                     }
 
-                    NewsItem::updateOrCreate(
-                        ['original_link' => $link, 'user_id' => $this->userId],
-                        [
-                            'website_id' => $website->id,
-                            'title' => $title,
-                            'thumbnail_url' => $image,
-                            'published_at' => now()->subSeconds($count),
-                        ]
-                    );
+                    // --- F. ডাটা মার্জ করা ---
+                    // ইমেজ: যদি স্ক্র্যাপার হাই-কোয়ালিটি ইমেজ পায় সেটা নেব, নাহলে লিস্ট পেজের ইমেজ
+                    $finalImage = $scrapedData['image'] ?? $listImage;
+                    
+                    // ইমেজ URL ফিক্স (যদি রিলেটিভ হয়)
+                    if ($finalImage && !str_starts_with($finalImage, 'http')) {
+                        $parsedUrl = parse_url($website->url);
+                        $baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
+                        $finalImage = $baseUrl . '/' . ltrim($finalImage, '/');
+                    }
+
+                    // 🔥🔥🔥🔥 IMAGE CLEANING LOGIC START 🔥🔥🔥🔥
+                    // Kaler Kantho বা অন্য সাইটের /og/ ফোল্ডার রিমুভ করে ক্লিন ইমেজ নেওয়া
+                    if (!empty($finalImage) && strpos($finalImage, '/og/') !== false) {
+                        $finalImage = str_replace('/og/', '/', $finalImage);
+                        // অপশনাল: লগ রাখা যাতে আপনি বুঝতে পারেন কাজ হচ্ছে
+                        // Log::info("✅ Image Cleaned: " . $finalImage); 
+                    }
+                    // 🔥🔥🔥🔥 IMAGE CLEANING LOGIC END 🔥🔥🔥🔥
+
+                    // টাইটেল: অনেক সময় লিস্ট পেজের টাইটেল ছোট থাকে, ডিটেইল পেজেরটা ভালো হয়
+                    $finalTitle = !empty($scrapedData['title']) && strlen($scrapedData['title']) > 10 
+                                  ? $scrapedData['title'] 
+                                  : $title;
+
+                    // --- G. ডাটাবেসে সেভ ---
+                    NewsItem::create([
+                        'user_id'       => $this->userId,
+                        'website_id'    => $website->id,
+                        'title'         => $finalTitle,
+                        'original_link' => $link,
+                        'thumbnail_url' => $finalImage, // ক্লিন ইমেজ সেভ হবে
+                        'content'       => $scrapedData['body'], // মেইন কন্টেন্ট
+                        'published_at'  => now(),
+                    ]);
+                    
                     $count++;
-                } catch (\Exception $e) {}
+
+                } catch (\Exception $e) {
+                    Log::error("❌ Item Error in {$website->name}: " . $e->getMessage());
+                }
             });
-            Log::info("✅ Scraped {$count} news items for {$website->name}");
+
+            Log::info("✅ Successfully scraped {$count} new items for {$website->name}");
+
         } catch (\Exception $e) {
-            Log::error("Scrape Job Exception: " . $e->getMessage());
+            Log::error("🔥 CRITICAL JOB ERROR: " . $e->getMessage());
         }
     }
 }

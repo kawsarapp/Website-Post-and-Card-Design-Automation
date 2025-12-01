@@ -4,19 +4,15 @@ namespace App\Jobs;
 
 use App\Models\NewsItem;
 use App\Models\User;
-use App\Models\CreditHistory;
-use App\Services\NewsScraperService;
-use App\Services\AIWriterService;
 use App\Services\WordPressService;
-use App\Services\TelegramService;
+use App\Notifications\PostPublishedNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class ProcessNewsPost implements ShouldQueue
 {
@@ -24,200 +20,110 @@ class ProcessNewsPost implements ShouldQueue
 
     protected $newsId;
     protected $userId;
+    protected $customData;
 
-    // Timeout: 10 minutes (AI delay handle করার জন্য)
-    public $timeout = 600;
-    public $tries = 1; // Retry করবে না (ডুপ্লিকেট এড়াতে)
+    // 🔥 রিট্রাই কনফিগারেশন
+    public $tries = 3; 
+    public $backoff = 60; 
 
-    public function __construct($newsId, $userId)
+    public function __construct($newsId, $userId, $customData = [])
     {
         $this->newsId = $newsId;
         $this->userId = $userId;
+        $this->customData = $customData;
     }
 
-    public function handle(
-        NewsScraperService $scraper, 
-        AIWriterService $aiWriter, 
-        WordPressService $wpService, 
-        TelegramService $telegram
-    ) {
-        Log::info("🚀 Job Started for News ID: {$this->newsId} | User ID: {$this->userId}");
-
-        // ✅ ১. ডুপ্লিকেট চেক (Lock Mechanism)
-        // একই নিউজ যদি প্রসেসিং এ থাকে, তবে দ্বিতীয়বার রান করবে না
-        $lockKey = "processing_news_{$this->newsId}";
-        if (!Cache::add($lockKey, true, 300)) { // ৫ মিনিটের জন্য লক
-            Log::warning("⚠️ News ID {$this->newsId} is already being processed. Skipping.");
-            return;
-        }
-
+    public function handle(WordPressService $wpService)
+    {
         try {
-            // ২. ডাটা লোড (Global Scope Bypass)
-            $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
+            Log::info("🚀 Publishing Job Started for News ID: {$this->newsId}");
+
+            // 🔥 ১. Global Scope বাইপাস করা (জরুরি)
+            // যেহেতু Queue Worker এর সময় কোনো User লগইন থাকে না, তাই withoutGlobalScopes() দিতেই হবে
+            $news = NewsItem::withoutGlobalScopes()
+                ->with(['website' => function ($query) {
+                    $query->withoutGlobalScopes(); 
+                }])->find($this->newsId);
+
             $user = User::find($this->userId);
-            
+
             if (!$news || !$user) {
-                Log::error("❌ Job Failed: News or User not found.");
+                Log::error("Job Failed: News or User not found. ID: {$this->newsId}");
                 return;
             }
 
-            // যদি ইতিমধ্যে পোস্ট হয়ে গিয়ে থাকে
-            if ($news->is_posted) {
-                Log::info("ℹ️ News ID {$this->newsId} is already posted. Skipping.");
-                return;
+            // প্রায়োরিটি লজিক (Custom > AI > Original)
+            $finalTitle = $this->customData['title'] ?? $news->ai_title ?? $news->title;
+            $finalContent = $this->customData['content'] ?? $news->ai_content ?? $news->content;
+            
+            // 🔥 ২. ইমেজ সিলেকশন (আপনার মডেলে thumbnail_url আছে, তাই সেটি ব্যবহার করছি)
+            $finalImage = $this->customData['featured_image'] ?? $news->thumbnail_url; 
+
+            // 🔥 ৩. '/og/' ফোল্ডার রিমুভ করার লজিক (Kaler Kantho fix)
+            // এটি চেক করবে লিংকে '/og/' আছে কিনা, থাকলে রিমুভ করে দিবে
+            if (!empty($finalImage) && strpos($finalImage, '/og/') !== false) {
+                $finalImage = str_replace('/og/', '/', $finalImage);
+                Log::info("✅ Image URL Cleaned: " . $finalImage);
             }
             
-            $settings = $user->settings;
-            if (!$settings) {
-                Log::error("❌ Job Failed: User settings not found.");
-                return;
-            }
+            $categoryId = $this->customData['category_id'] ?? null;
 
-            // ৩. স্ক্র্যাপ কন্টেন্ট (যদি না থাকে)
-            if (empty($news->content) || strlen($news->content) < 150) {
-                Log::info("⏳ Content missing/short, scraping original link...");
-                $content = $scraper->scrape($news->original_link);
-                if ($content) {
-                    $content = mb_convert_encoding($content, 'UTF-8', 'UTF-8');
-                    $news->update(['content' => $content]);
-                    Log::info("✅ Scrape Successful.");
-                } else {
-                    Log::error("❌ Job Failed: Content not found/scrape failed for News ID {$news->id}");
-                    return;
-                }
-            }
+            // ৪. ওয়ার্ডপ্রেসে পোস্ট করা (ক্লিন ইমেজ সহ)
+            $postResult = $wpService->createPost($news, $user, $finalTitle, $finalContent, $categoryId, $finalImage);
 
-            // ৪. AI রিরাইট
-            Log::info("🤖 Starting AI Rewrite...");
-            $inputText = "HEADLINE: " . $news->title . "\n\nBODY:\n" . strip_tags($news->content);
-            $cleanText = mb_convert_encoding($inputText, 'UTF-8', 'UTF-8');
-            
-            $aiResponse = $aiWriter->rewrite($cleanText);
-
-            $rewrittenContent = $news->content;
-            $categoryId = 1; 
-
-            // Default WP Categories
-            $wpCategories = [
-                'Politics' => 14, 'International' => 37, 'Sports' => 15,
-                'Entertainment' => 11, 'Technology' => 1, 'Economy' => 1,
-                'Bangladesh' => 14, 'Crime' => 1, 'Others' => 1
-            ];
-
-            if ($aiResponse) {
-                Log::info("✅ AI Response Received.");
+            if ($postResult['success']) {
                 
-                $rewrittenContent = $aiResponse['content'];
-                $detectedCategory = $aiResponse['category'] ?? 'Others';
-                
-                // Dynamic Mapping
-                $userMapping = $settings->category_mapping ?? [];
-                
-                if (isset($userMapping[$detectedCategory]) && !empty($userMapping[$detectedCategory])) {
-                    $categoryId = $userMapping[$detectedCategory];
-                } elseif (isset($userMapping['Others']) && !empty($userMapping['Others'])) {
-                    $categoryId = $userMapping['Others'];
-                } else {
-                    $categoryId = $wpCategories[$detectedCategory] ?? 1;
-                }
-                
-                Log::info("📂 Category Selected: {$detectedCategory} -> ID: {$categoryId}");
-
-                // Credit & Limit Check
-                if ($user->role !== 'super_admin') {
-                    if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
-                        Log::warning("⛔ Daily limit reached for user {$user->id}. Stopping Job.");
-                        return;
-                    }
-                    if ($user->credits <= 0) {
-                        Log::warning("⛔ Insufficient credits for user {$user->id}. Stopping Job.");
-                        return;
-                    }
-
-                    $user->decrement('credits');
+                // ৫. ডাটাবেস ট্রানজেকশন (নিরাপদ আপডেট)
+                DB::transaction(function () use ($news, $user, $postResult, $finalImage) {
                     
-                    CreditHistory::create([
-                        'user_id' => $user->id,
-                        'action_type' => 'manual_post', 
-                        'description' => 'Post: ' . Str::limit($news->title, 40),
-                        'credits_change' => -1,
-                        'balance_after' => $user->credits
+                    // নিউজ স্ট্যাটাস এবং ক্লিন ইমেজ আপডেট
+                    $news->update([
+                        'is_posted' => true,
+                        'wp_post_id' => $postResult['post_id'],
+                        'posted_at' => now(),
+                        'status' => 'published',
+                        'thumbnail_url' => $finalImage // 🔥 ক্লিন করা ইমেজটি ডাটাবেসে সেভ করে দিচ্ছি
                     ]);
-                    
-                    Log::info("💰 Credit Deducted. New Balance: {$user->credits}");
+
+                    // ৬. ক্রেডিট কাটা (যদি সুপার এডমিন না হয়)
+                    if ($user->role !== 'super_admin') {
+                        $user->decrement('credits');
+                        Log::info("✅ Credit deducted for User ID: {$user->id}");
+                    }
+                });
+
+                Log::info("✅ Post Published Successfully (WP ID: {$postResult['post_id']})");
+
+                // ৭. নোটিফিকেশন পাঠানো
+                try {
+                    $user->notify(new PostPublishedNotification($finalTitle));
+                } catch (\Exception $e) {
+                    Log::error("Notification Error: " . $e->getMessage());
                 }
+
             } else {
-                Log::warning("⚠️ AI Rewrite returned null. Using original content.");
-            }
-
-            // ৫. ইমেজ আপলোড
-            $imageId = null;
-            // Fallback Image Logic (যদি ইমেজ না থাকে)
-            if ($news->thumbnail_url) {
-                Log::info("🖼️ Uploading Image...");
-                $upload = $wpService->uploadImage(
-                    $news->thumbnail_url, 
-                    $news->title,
-                    $settings->wp_url,
-                    $settings->wp_username,
-                    $settings->wp_app_password
-                );
-
-                if ($upload && $upload['success']) {
-                    $imageId = $upload['id'];
-                    Log::info("✅ Image Uploaded. ID: {$imageId}");
-                } else {
-                    Log::warning("⚠️ Image Upload Failed. Embedding in content.");
-                    $rewrittenContent = '<img src="' . $news->thumbnail_url . '" style="width:100%; margin-bottom:15px;"><br>' . $rewrittenContent;
-                }
-            } else {
-                Log::warning("⚠️ No Thumbnail found for News ID {$news->id}");
-            }
-
-            // ৬. পোস্ট পাবলিশ
-            Log::info("🚀 Publishing to WordPress...");
-            
-            $credit = '<hr><p style="text-align:center; font-size:13px; color:#888;">তথ্যসূত্র: অনলাইন ডেস্ক</p>';
-            $finalContent = $rewrittenContent . $credit;
-            
-            $wpPost = $wpService->publishPost(
-                $news->title, 
-                $finalContent, 
-                $settings->wp_url,
-                $settings->wp_username,
-                $settings->wp_app_password,
-                $categoryId,
-                $imageId
-            );
-
-            if ($wpPost) {
-                $news->update([
-                    'rewritten_content' => $finalContent,
-                    'is_posted' => true,
-                    'wp_post_id' => $wpPost['id']
-                ]);
-
-                if ($settings->telegram_channel_id) {
-                    $telegram->sendToChannel($settings->telegram_channel_id, $news->title, $wpPost['link']);
-                    Log::info("📱 Sent to Telegram.");
-                }
-                
-                Log::info("✅ Job Success! Post ID: {$wpPost['id']}");
-            } else {
-                Log::error("❌ WP Post Failed (API Error).");
-                // Optional Refund Logic
-                 if ($user->role !== 'super_admin') {
-                    $user->increment('credits');
-                    CreditHistory::latest()->where('user_id', $user->id)->first()->delete();
-                    Log::info("🔄 Credit Refunded due to failure.");
-                 }
+                // WP ফেইল করলে
+                Log::error("WP Post Failed for News ID {$news->id}: " . json_encode($postResult));
+                throw new \Exception("WordPress Posting Failed: " . ($postResult['message'] ?? 'Unknown Error'));
             }
 
         } catch (\Exception $e) {
-            Log::error("❌ Job Exception News ID {$this->newsId}: " . $e->getMessage());
-        } finally {
-            // কাজ শেষ হলে বা এরর হলে লক রিলিজ করা
-            Cache::forget($lockKey);
+            Log::error("ProcessNewsPost Job Exception: " . $e->getMessage());
+            throw $e; 
+        }
+    }
+
+    /**
+     * জব ফেইল হলে (৩ বার চেষ্টার পর)
+     */
+    public function failed(\Throwable $exception)
+    {
+        // এখানেও withoutGlobalScopes() লাগবে, নাহলে নিউজ খুঁজে পাবে না
+        $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
+        
+        if ($news) {
+            $news->update(['status' => 'failed']);
+            Log::error("❌ Job Final Failure for News ID: {$this->newsId}");
         }
     }
 }

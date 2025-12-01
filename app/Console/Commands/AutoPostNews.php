@@ -4,29 +4,21 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\NewsItem;
+use App\Models\UserSetting; // ✅ User Setting Model Import
 use App\Services\NewsScraperService;
 use App\Services\AIWriterService;
 use App\Services\WordPressService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use App\Services\TelegramService;
 
 class AutoPostNews extends Command
 {
     protected $signature = 'news:autopost';
     protected $description = 'Automatically post news to WordPress with random delay';
 
-    // সার্ভিস ইনজেকশন
     private $scraper;
     private $aiWriter;
     private $wpService;
-
-    // ক্যাটাগরি ম্যাপ (কন্ট্রোলার থেকে এখানেও লাগবে)
-    private $wpCategories = [
-        'Politics' => 14, 'International' => 37, 'Sports' => 15, 
-        'Entertainment' => 11, 'Technology' => 1, 'Economy' => 1, 
-        'Bangladesh' => 14, 'Crime' => 1, 'Others' => 1
-    ];
 
     public function __construct(NewsScraperService $scraper, AIWriterService $aiWriter, WordPressService $wpService)
     {
@@ -38,114 +30,87 @@ class AutoPostNews extends Command
 
     public function handle()
     {
-        // ১. চেক করুন অটোমেশন অন আছে কিনা
-        if (!Cache::get('auto_post_enabled', false)) {
-            $this->info('Automation is OFF.');
-            return;
-        }
-
-        // ২. চেক করুন সময় হয়েছে কিনা (Time Check)
-        $nextRunTime = Cache::get('next_auto_post_time', now());
+        // ১. অটোমেশন চেক (যেকোনো একজন ইউজার যার অটোমেশন অন আছে)
+        // এখানে লজিক একটু জটিল কারণ এটি মাল্টি-ইউজার। আপাতত আমরা এমন নিউজ খুঁজব যা পোস্ট হয়নি।
         
-        if (now()->lessThan($nextRunTime)) {
-            $this->info('Waiting for next slot: ' . $nextRunTime->format('h:i:s A'));
-            return;
-        }
-
-        // ৩. পোস্ট করা হয়নি এমন একটি নিউজ খুঁজুন
         $news = NewsItem::where('is_posted', false)
-            ->whereNotNull('thumbnail_url') // ইমেজ ছাড়া নিউজ বাদ
-            ->orderBy('id', 'desc') // লেটেস্ট আগে
+            ->whereNotNull('thumbnail_url')
+            ->orderBy('id', 'desc')
             ->first();
 
         if (!$news) {
             $this->info('No pending news found.');
             return;
         }
-		
-		
-		if ($wpPost) {
-                $news->update([
-                    'rewritten_content' => $finalContent, 
-                    'is_posted' => true, 
-                    'wp_post_id' => $wpPost['id']
-                ]);
-                $this->info("✅ Posted Successfully! ID: " . $wpPost['id']);
 
+        // ইউজারের অটোমেশন অন আছে কিনা চেক
+        $userSettings = UserSetting::where('user_id', $news->user_id)->first();
+        if (!$userSettings || !$userSettings->is_auto_posting) {
+            $this->info("User automation is OFF for News ID: {$news->id}");
+            return;
+        }
 
-                $interval = (int) Cache::get('auto_post_interval', 5); 
-
-                $nextTime = now()->addMinutes($interval);
-                Cache::put('next_auto_post_time', $nextTime);
-                
-                $this->info("Next post scheduled in {$interval} minutes at: " . $nextTime->format('h:i:s A'));
-
-            } else {
-                $this->error("WP Post Failed.");
-            }
+        // টাইম চেক
+        $lastPostTime = $userSettings->last_auto_post_at ? \Carbon\Carbon::parse($userSettings->last_auto_post_at) : now()->subHour();
+        $interval = $userSettings->auto_post_interval ?? 10;
+        
+        if (now()->diffInMinutes($lastPostTime) < $interval) {
+            $this->info("Waiting for interval... Next post in " . ($interval - now()->diffInMinutes($lastPostTime)) . " mins");
+            return;
+        }
 
         $this->info("Processing ID: {$news->id} - {$news->title}");
 
         try {
-            // --- STEP A: SCRAPE ---
+            // --- STEP A: SCRAPE (যদি কন্টেন্ট না থাকে) ---
             if (empty($news->content) || strlen($news->content) < 150) {
-                $content = $this->scraper->scrape($news->original_link);
+                
+                $website = $news->website;
+                
+                // ড্যাশবোর্ডের সিলেক্টর পাঠানো
+                $customSelectors = [
+                    'container' => $website->selector_container ?? null,
+                    'content'   => $website->selector_content ?? null
+                ];
+                
+                $method = $website->scraper_method ?? 'node';
+
+                // স্ক্র্যাপার কল
+                $content = $this->scraper->scrape($news->original_link, $customSelectors, $method);
+                
                 if ($content) {
                     $news->update(['content' => $this->cleanUtf8($content)]);
                 } else {
                     $this->error("Scraping failed.");
-                    // ফেইল করলে এটাকে স্কিপ করার ব্যবস্থা (সাময়িক ফ্ল্যাগ বা লগ)
+                    // ফেইলড হিসেবে মার্ক করা যেতে পারে যাতে বারবার চেষ্টা না করে
                     return;
                 }
             }
 
             // --- STEP B: AI REWRITE ---
-            $inputText = "HEADLINE: " . $news->title . "\n\nBODY:\n" . strip_tags($news->content);
-            $cleanText = $this->cleanUtf8($inputText);
+            // এখানে আমাদের আগের AI সার্ভিস ব্যবহার হবে (DeepSeek)
+            $aiResponse = $this->aiWriter->rewrite($news->content, $news->title);
             
-            $aiResponse = $this->aiWriter->rewrite($cleanText);
+            $finalTitle = $aiResponse['title'] ?? $news->title;
+            $finalContent = $aiResponse['content'] ?? $news->content;
+
+            // --- STEP C: PUBLISH ---
+            // এখানে WordPressService এর createPost মেথড কল করা হবে যা আমরা আগেই ঠিক করেছি
+            $user = $news->user; // নিউজ আইটেমের মালিক
             
-            if (!$aiResponse) {
-                $rewrittenContent = $news->content; 
-                $categoryId = $this->wpCategories['Others'];
-            } else {
-                $rewrittenContent = $aiResponse['content'];
-                $detectedCategory = $aiResponse['category'];
-                $categoryId = $this->wpCategories[$detectedCategory] ?? $this->wpCategories['Others'];
-            }
+            $postResult = $this->wpService->createPost($news, $user, $finalTitle, $finalContent);
 
-            // --- STEP C: IMAGE UPLOAD ---
-            $imageId = null;
-            if ($news->thumbnail_url) {
-                $upload = $this->wpService->uploadImage($news->thumbnail_url, $news->title);
-                if ($upload['success']) {
-                    $imageId = $upload['id'];
-                } else {
-                    $rewrittenContent = '<img src="' . $news->thumbnail_url . '" style="width:100%; margin-bottom:15px;"><br>' . $rewrittenContent;
-                }
-            }
-
-            // --- STEP D: PUBLISH ---
-            $credit = '<hr><p style="text-align:center; font-size:13px; color:#888;">তথ্যসূত্র: অনলাইন ডেস্ক</p>';
-            $finalContent = $this->cleanUtf8($rewrittenContent . $credit);
-            $finalTitle = $this->cleanUtf8($news->title);
-
-            $wpPost = $this->wpService->publishPost($finalTitle, $finalContent, $categoryId, $imageId);
-
-            if ($wpPost) {
+            if ($postResult['success']) {
                 $news->update([
-                    'rewritten_content' => $finalContent, 
                     'is_posted' => true, 
-                    'wp_post_id' => $wpPost['id']
+                    'wp_post_id' => $postResult['post_id'],
+                    'posted_at' => now()
                 ]);
-                $this->info("✅ Posted Successfully! ID: " . $wpPost['id']);
-
-                // ✅ ৪. পরবর্তী রান টাইম সেট করা (২ থেকে ৮ মিনিটের মধ্যে র‍্যান্ডম)
-                $minutes = rand(2, 8);
-                $nextTime = now()->addMinutes($minutes);
-                Cache::put('next_auto_post_time', $nextTime);
                 
-                $this->info("Next post scheduled at: " . $nextTime->format('h:i:s A'));
+                // লাস্ট পোস্ট টাইম আপডেট
+                $userSettings->update(['last_auto_post_at' => now()]);
+                
+                $this->info("✅ Posted Successfully! ID: " . $postResult['post_id']);
 
             } else {
                 $this->error("WP Post Failed.");
