@@ -21,7 +21,7 @@ except IndexError:
 
 def get_html_advanced(target_url):
     """
-    Real Chrome Browser সেজে রিকোয়েস্ট পাঠাবে (Cloudflare Bypass)
+    Real Chrome Browser সেজে রিকোয়েস্ট পাঠাবে (Cloudflare/Bot Bypass)
     """
     try:
         response = requests.get(
@@ -32,10 +32,18 @@ def get_html_advanced(target_url):
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8',
                 'Referer': 'https://www.google.com/',
-                'Upgrade-Insecure-Requests': '1'
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-User': '?1',
+                'Sec-Fetch-Dest': 'document'
             }
         )
         if response.status_code == 200:
+            # এনকোডিং ফিক্স
             if response.encoding is None or response.encoding == 'ISO-8859-1':
                 response.encoding = response.apparent_encoding
             return response.text
@@ -52,7 +60,8 @@ def is_valid_image(img_url):
     
     garbage_keywords = [
         'logo', 'icon', 'svg', 'button', 'sprite', 'ad-', 'banner', 
-        'loader', 'spinner', 'placeholder', 'pixel', 'blank', 'avatar', 'author', 'share'
+        'loader', 'spinner', 'placeholder', 'pixel', 'blank', 'avatar', 
+        'author', 'share', 'profile', 'widget', 'tracking', 'gif'
     ]
     if any(x in img_lower for x in garbage_keywords):
         return False
@@ -93,62 +102,63 @@ try:
         elif soup.title:
             final_output["title"] = soup.title.string
 
-        # --- B. IMAGE EXTRACTION (BODY FIRST STRATEGY) ---
+        # --- B. IMAGE EXTRACTION (No og:image) ---
         
         best_image = None
         
-        # 🔥 Priority 1: Body Image (আর্টিকেলের ভেতরের ছবি - সবচেয়ে নিরাপদ)
-        # আমরা আগে বডি চেক করব, কারণ এখানকার ছবি সাধারণত ইউজার যা দেখে তাই (ক্লিন)
-        article = soup.select_one('article, [itemprop="articleBody"], .article-details, #content, .news-details, .content-details, .story-element, .post-content')
-        
-        if article:
-            images = article.find_all('img')
-            for img in images:
-                # ১. হাই কোয়ালিটি অ্যাট্রিবিউট আগে চেক
-                src = img.get('data-original') or img.get('data-full-url') or img.get('data-src') or img.get('src')
-                
-                if src and len(src) > 20 and is_valid_image(src):
-                    # ২. সাইজ চেক (খুব ছোট আইকন বাদ)
-                    width = img.get('width')
-                    if width and width.isdigit() and int(width) < 200:
-                        continue
-                    
-                    best_image = src
-                    break # প্রথম ভালো ইমেজ পেলেই ব্রেক
-
-        # 🔥 Priority 2: JSON-LD (Fallback - যদি বডিতে ছবি না পাওয়া যায়)
-        if not best_image:
-            scripts = soup.find_all('script', type='application/ld+json')
-            for script in scripts:
-                try:
-                    data = json.loads(script.string)
-                    if isinstance(data, dict):
-                        if 'image' in data:
-                            img = data['image']
-                            candidate = img['url'] if isinstance(img, dict) else (img[0] if isinstance(img, list) else img)
-                            if candidate and is_valid_image(candidate):
-                                best_image = candidate
-                                break
-                        
-                        if '@graph' in data:
-                            for item in data['@graph']:
-                                if 'image' in item and 'url' in item['image']:
-                                    candidate = item['image']['url']
-                                    if is_valid_image(candidate):
-                                        best_image = candidate
-                                        break
-                except: pass
+        # 🔥 Priority 1: JSON-LD (Most Accurate for News)
+        scripts = soup.find_all('script', type='application/ld+json')
+        for script in scripts:
+            try:
+                data = json.loads(script.string)
+                if isinstance(data, dict):
+                    # Direct image property
+                    if 'image' in data:
+                        img = data['image']
+                        candidate = img['url'] if isinstance(img, dict) else (img[0] if isinstance(img, list) else img)
+                        if candidate and is_valid_image(candidate):
+                            best_image = candidate
+                            break
+                    # Graph approach
+                    if '@graph' in data:
+                        for item in data['@graph']:
+                            if 'image' in item and 'url' in item['image']:
+                                candidate = item['image']['url']
+                                if is_valid_image(candidate):
+                                    best_image = candidate
+                                    break
                 if best_image: break
+            except: pass
 
-        # ফাইনাল প্রসেসিং
+        # 🔥 Priority 2: Body Image (Fallback)
+        # og:image লজিক এখান থেকে ডিলিট করা হয়েছে
+        if not best_image:
+            article = soup.select_one('article, [itemprop="articleBody"], .article-details, #content, .news-details, .post-content')
+            target = article if article else soup.body
+            
+            if target:
+                images = target.find_all('img')
+                for img in images:
+                    src = img.get('data-original') or img.get('data-full-url') or img.get('data-src') or img.get('src')
+                    if src and len(src) > 20 and is_valid_image(src):
+                        width = img.get('width')
+                        # সাইজ চেক: ২০০ পিক্সেলের নিচে বাদ
+                        if width and width.isdigit() and int(width) < 200:
+                            continue
+                        best_image = src
+                        break
+
+        # ফাইনাল ইমেজ প্রসেসিং
         if best_image:
             final_output["image"] = clean_and_resolve_url(url, best_image)
 
         # --- C. BODY EXTRACTION ---
+        # Trafilatura settings optimized for clean content
         result = trafilatura.extract(
             html_content, 
             include_images=False, 
             include_comments=False,
+            favor_precision=True,
             output_format='json'
         )
 
@@ -161,19 +171,20 @@ try:
                 formatted_body = ""
                 for p in paragraphs:
                     p = p.strip()
-                    if len(p) > 20 and "আরও পড়ুন" not in p and "Share" not in p: 
+                    # বাংলা বা ইংলিশ আর্টিকেলের জাঙ্ক ফিল্টার
+                    if len(p) > 20 and "আরও পড়ুন" not in p and "Share" not in p: 
                         formatted_body += f"<p>{p}</p>"
                 final_output["body"] = formatted_body
 
-        # Fallback Body
+        # Fallback Body (যদি Trafilatura ফেইল করে)
         if not final_output["body"]:
-             target = article if 'article' in locals() and article else soup.body
+             target = soup.select_one('article') if soup.select_one('article') else soup.body
              if target:
                  paragraphs = target.find_all(['p', 'div'])
                  temp_body = ""
                  for p in paragraphs:
                      txt = p.get_text(strip=True)
-                     if len(txt) > 30:
+                     if len(txt) > 40: # ছোট লাইন বাদ
                          temp_body += f"<p>{txt}</p>"
                  final_output["body"] = temp_body
 

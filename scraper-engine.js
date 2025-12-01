@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs';
 
-// ১. স্টিলথ প্লাগিন (Cloudflare/Bot ডিটেকশন এড়াতে)
+// ১. স্টিলথ প্লাগিন সেটআপ
 puppeteer.use(StealthPlugin());
 
 const url = process.argv[2];
@@ -13,10 +13,21 @@ if (!url || !outputFile) {
     process.exit(1);
 }
 
-// র‍্যান্ডম ডিলে ফাংশন (মানুষের মতো আচরণ)
+// 🔥 BLOCK LIST (Script 2 থেকে)
+const BLOCKED_RESOURCE_TYPES = ['image', 'media', 'font', 'stylesheet', 'websocket', 'manifest', 'other'];
+const BLOCKED_DOMAINS = [
+    'googlesyndication.com', 'doubleclick.net', 'google-analytics.com',
+    'facebook.net', 'connect.facebook.net', 'googleads', 'g.doubleclick',
+    'adnxs.com', 'advertising', 'ads', 'marketing', 'tracker', 'analytics',
+    'taboola', 'outbrain', 'criteo', 'pubmatic', 'rubiconproject',
+    'amazon-adsystem', 'smartadserver', 'popups', 'onesignal'
+];
+
+// র‍্যান্ডম ডিলে ফাংশন
 const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 (async () => {
+  // ২. ব্রাউজার লঞ্চ কনফিগারেশন (উভয় স্ক্রিপ্ট এর বেস্ট সেটিংস)
   const browser = await puppeteer.launch({
     headless: "new",
     args: [
@@ -27,17 +38,19 @@ const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + 
       '--disable-gpu',
       '--window-size=1920,1080',
       '--disable-infobars',
-      '--exclude-switches=enable-automation'
+      '--exclude-switches=enable-automation',
+      '--disable-notifications', // Script 2
+      '--disable-popup-blocking' // Script 2
     ]
   });
 
   try {
     const page = await browser.newPage();
     
-    // ভিউপোর্ট ল্যাপটপের মতো সেট করা
+    // ভিউপোর্ট সেটআপ
     await page.setViewport({ width: 1920, height: 1080 });
 
-    // ২. রিয়েল ব্রাউজার হেডার (Security Bypass)
+    // ৩. রিয়েল ব্রাউজার হেডার (Script 1 - Security Bypass এর জন্য জরুরি)
     await page.setExtraHTTPHeaders({
         'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8',
         'Upgrade-Insecure-Requests': '1',
@@ -46,29 +59,36 @@ const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + 
         'Sec-Ch-Ua-Platform': '"Windows"'
     });
 
-    // ৩. রিসোর্স ব্লক (ইমেজ ডাউনলোড ব্লক করে স্পিড বাড়ানো)
+    // ৪. স্মার্ট রিকোয়েস্ট ব্লকিং (Script 2 এর লজিক - ফাস্ট লোডিং)
     await page.setRequestInterception(true);
     page.on('request', (req) => {
         const resourceType = req.resourceType();
-        // ইমেজ বা ফন্ট ডাউনলোড করার দরকার নেই, শুধু HTML স্ট্রাকচার দরকার
-        if (['image', 'media', 'font', 'stylesheet', 'websocket'].includes(resourceType)) {
+        const requestUrl = req.url().toLowerCase();
+
+        // ভারি রিসোর্স ব্লক
+        if (BLOCKED_RESOURCE_TYPES.includes(resourceType)) {
             req.abort();
-        } else {
-            req.continue();
+            return;
         }
+        // অ্যাড এবং ট্র্যাকার ডোমেইন ব্লক
+        if (BLOCKED_DOMAINS.some(domain => requestUrl.includes(domain))) {
+            req.abort();
+            return;
+        }
+        req.continue();
     });
 
-    // ৪. ইউজার এজেন্ট
+    // ৫. ইউজার এজেন্ট
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-    // ৫. পেজ লোড
+    // ৬. পেজ লোড
     try { 
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }); 
     } catch (e) {
-        console.log("Warning: Page load timed out, proceeding to scrape...");
+        console.log("Warning: Page load timed out or incomplete, proceeding to scrape...");
     }
 
-    // ৬. মাউস মুভমেন্ট (Anti-Bot Trick)
+    // ৭. মাউস মুভমেন্ট (Anti-Bot Trick)
     try {
         await page.mouse.move(100, 100);
         await page.mouse.down();
@@ -76,7 +96,7 @@ const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + 
         await page.mouse.up();
     } catch (e) {}
 
-    // ৭. স্মার্ট স্ক্রল (Lazy Load ইমেজ ট্যাগ লোড করার জন্য)
+    // ৮. স্মার্ট স্ক্রল (Lazy Load ট্রিগার করার জন্য)
     await page.evaluate(async () => {
         await new Promise((resolve) => {
             let totalHeight = 0;
@@ -85,8 +105,7 @@ const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + 
                 const scrollHeight = document.body.scrollHeight;
                 window.scrollBy(0, distance);
                 totalHeight += distance;
-
-                // পেজ শেষ হলে বা ৬০০০ পিক্সেল স্ক্রল হলে থামা
+                // ৬০০০ পিক্সেল পর্যন্ত স্ক্রল করবে (Script 1 এর লজিক বেশি নিরাপদ)
                 if (totalHeight >= scrollHeight || totalHeight > 6000) {
                     clearInterval(timer);
                     resolve();
@@ -95,18 +114,29 @@ const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + 
         });
     });
 
-    // 🔥 ৮. DOM ম্যানিপুলেশন (Powerful Cleaning Logic) 🔥
+    // 🔥 ৯. DOM ম্যানিপুলেশন (Script 1 & 2 Merged) 🔥
     await page.evaluate(() => {
-        // A. মেটা ট্যাগ রিমুভ করা (যাতে PHP স্ক্রিপ্ট এগুলো না পায়)
-        // আমরা চাই PHP শুধু বডি ইমেজ বা JSON-LD ব্যবহার করুক
+        // A. Junk Removal (Script 2) - ক্লিন কন্টেন্ট পাওয়ার জন্য
+        const junkSelectors = [
+            'header', 'footer', 'nav', 'aside', 'iframe', 
+            '.advertisement', '.ads', '#ads', '.banner', 
+            '.sidebar', '.comments', '.related-news', 
+            '.share-buttons', '.social-media', 
+            '[id^="google_ads"]', '[class*="popup"]'
+        ];
+        junkSelectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(el => el.remove());
+        });
+
+        // B. মেটা ট্যাগ রিমুভ (Script 1)
         const metasToRemove = document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]');
         metasToRemove.forEach(meta => meta.remove());
 
-        // B. ইমেজ প্রসেসিং (High Quality Force)
+        // C. ইমেজ প্রসেসিং (Script 1 এর অ্যাডভান্সড লজিক)
         const images = document.querySelectorAll('img');
         
         images.forEach(img => {
-            // ১. হাই কোয়ালিটি সোর্স খোঁজা (Lazy Load Attribute)
+            // ১. হাই কোয়ালিটি সোর্স খোঁজা
             let bestSrc = 
                 img.getAttribute('data-original') || 
                 img.getAttribute('data-full-url') || 
@@ -115,25 +145,22 @@ const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + 
                 img.getAttribute('src');
 
             if (bestSrc) {
-                // ২. প্যারামিটার রিমুভ (JS দিয়ে)
+                // ২. প্যারামিটার রিমুভ (Script 1 Speciality)
                 // যেমন: image.jpg?width=300 -> image.jpg
                 if (bestSrc.includes('?')) {
                     const parts = bestSrc.split('?');
-                    // চেক করা যে এটি ইমেজ ফাইল এক্সটেনশন
                     if (parts[0].match(/\.(jpeg|jpg|png|webp|avif)$/i)) {
                         bestSrc = parts[0];
                     }
                 }
-
-                // ৩. মেইন src তে হাই-কোয়ালিটি লিংক বসানো
-                // এতে PHP যখন HTML পড়বে, সে সরাসরি ক্লিন লিংক পাবে
+                // ৩. ক্লিন লিংক বসানো
                 img.setAttribute('src', bestSrc);
             }
         });
     });
 
-    // ৯. ফাইনাল HTML সেভ করা
-    await new Promise(r => setTimeout(r, 1000)); // DOM আপডেটের জন্য একটু অপেক্ষা
+    // ১০. ফাইনাল HTML সেভ করা
+    await new Promise(r => setTimeout(r, 1000)); // DOM আপডেটের অপেক্ষা
     
     const html = await page.content();
     fs.writeFileSync(outputFile, html);
