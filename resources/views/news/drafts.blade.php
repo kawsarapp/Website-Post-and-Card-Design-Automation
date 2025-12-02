@@ -22,7 +22,7 @@
         </div>
     @endif
 
-    {{-- Grid Layout for News Cards --}}
+    {{-- Grid Layout --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         @foreach($drafts as $item)
         <div class="bg-white rounded-xl shadow border border-gray-100 flex flex-col h-full overflow-hidden relative transition hover:shadow-lg">
@@ -46,11 +46,10 @@
                 </div>
             @endif
 
-            {{-- Image & Delete Action --}}
+            {{-- Image & Delete --}}
             <div class="h-40 overflow-hidden relative bg-gray-100 group">
                  <img src="{{ $item->thumbnail_url ?? asset('images/placeholder.png') }}" class="w-full h-full object-cover opacity-95 group-hover:scale-105 transition duration-500">
                  
-                 {{-- Delete Button (Visible on Hover/Always) --}}
                  <form action="{{ route('news.destroy', $item->id) }}" method="POST" onsubmit="return confirm('আপনি কি নিশ্চিত এই নিউজটি মুছে ফেলতে চান?');" class="absolute top-2 left-2 z-20">
                     @csrf
                     @method('DELETE')
@@ -60,9 +59,8 @@
                 </form>
             </div>
            
-            {{-- Content Section --}}
+            {{-- Content --}}
             <div class="p-4 flex flex-col flex-1">
-                {{-- Source Badge --}}
                 <div class="mb-2">
                     <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border border-blue-100">
                         {{ $item->website->name ?? 'Unknown Source' }}
@@ -79,7 +77,7 @@
 
                 <div class="mt-auto pt-3 border-t border-gray-50">
                     @if($item->status == 'published')
-                        {{-- 🔥 PUBLISHED LINK VIEW --}}
+                        {{-- Published View --}}
                         <div class="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
                             <p class="text-xs text-green-700 font-bold mb-1">সফলভাবে পোস্ট করা হয়েছে</p>
                             @if($item->wp_post_id && optional($settings)->wp_url)
@@ -92,7 +90,6 @@
                         </div>
 
                     @elseif($item->status == 'processing' || $item->status == 'publishing')
-                        {{-- Processing State --}}
                         <button disabled class="w-full bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold cursor-wait flex items-center justify-center gap-2">
                             <svg class="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -102,7 +99,7 @@
                         </button>
 
                     @else
-                        {{-- Draft State: Edit & Publish Button --}}
+                        {{-- Edit & Publish Button --}}
                         <button type="button" 
                             onclick="openPublishModal({{ $item->id }}, '{{ addslashes($item->ai_title ?? $item->title) }}', `{{ base64_encode($item->ai_content ?? $item->content) }}`)"
                             class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2 rounded-lg hover:shadow-lg hover:from-purple-700 hover:to-indigo-700 transition text-sm font-bold flex items-center justify-center gap-2">
@@ -115,11 +112,10 @@
         @endforeach
     </div>
 
-    {{-- Empty State --}}
     @if($drafts->count() == 0)
         <div class="p-10 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
             <p class="text-4xl mb-2">📭</p>
-            <p class="font-bangla text-lg">কোনো ড্রাফট পাওয়া যায়নি।</p>
+            <p class="font-bangla text-lg">কোনো ড্রাফট পাওয়া যায়নি।</p>
             <a href="{{ route('news.index') }}" class="text-indigo-500 text-sm hover:underline mt-2 inline-block font-bold">নতুন নিউজ প্রসেস করুন</a>
         </div>
     @endif
@@ -129,7 +125,7 @@
     </div>
 </div>
 
-{{-- PUBLISH MODAL (Integrated from Code 2) --}}
+{{-- PUBLISH MODAL --}}
 <div id="rewriteModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh] transform transition-all scale-100">
         {{-- Modal Header --}}
@@ -152,9 +148,24 @@
                 <textarea id="previewContent" rows="10" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 font-bangla text-sm text-gray-900 shadow-sm leading-relaxed transition"></textarea>
             </div>
             
+            {{-- 🔥 CATEGORY DROPDOWN --}}
             <div class="mb-2">
-                <label class="block text-sm font-bold text-gray-700 mb-2">Category ID <span class="text-gray-400 font-normal text-xs">(Optional)</span></label>
-                <input type="number" id="previewCategory" class="w-full border border-gray-300 rounded-lg p-2.5 text-gray-900 shadow-sm focus:ring-green-500 focus:border-green-500" placeholder="e.g. 5">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Select Category <span class="text-gray-400 font-normal text-xs">(Optional)</span></label>
+                
+                <select id="previewCategory" class="w-full border border-gray-300 rounded-lg p-2.5 text-gray-900 shadow-sm focus:ring-green-500 focus:border-green-500 bg-white">
+                    <option value="">-- ক্যাটাগরি সিলেক্ট করুন --</option>
+                    
+                    {{-- সেটিংস থেকে ক্যাটাগরি পপুলেট করা হচ্ছে --}}
+                    @if(isset($settings->category_mapping) && is_array($settings->category_mapping))
+                        @foreach($settings->category_mapping as $aiCat => $wpId)
+                            {{-- যদি WP ID সেট করা থাকে তবেই অপশন দেখাবে --}}
+                            @if(!empty($wpId))
+                                <option value="{{ $wpId }}">{{ $aiCat }} (ID: {{ $wpId }})</option>
+                            @endif
+                        @endforeach
+                    @endif
+                </select>
+                <p class="text-xs text-gray-400 mt-1">সেটিংস পেজে ম্যাপ করা ক্যাটাগরিগুলো এখানে দেখাচ্ছে।</p>
             </div>
         </div>
 
@@ -173,14 +184,10 @@
     function openPublishModal(id, title, encodedContent) {
         let content = "";
         try {
-            // Decode base64 string to handle special characters and new lines safely
             content = atob(encodedContent);
-            
-            // Fix Bangla character encoding issues
             try {
                 content = decodeURIComponent(escape(content));
             } catch (e) {
-                // If decodeURIComponent fails, use raw atob result (fallback)
                 console.log("Encoding fallback used");
             }
         } catch (e) {
@@ -188,12 +195,13 @@
             content = "Error loading content.";
         }
         
-        // Set values to Modal Inputs
         document.getElementById('previewNewsId').value = id;
         document.getElementById('previewTitle').value = title;
         document.getElementById('previewContent').value = content;
         
-        // Show Modal
+        // Reset Dropdown
+        document.getElementById('previewCategory').value = ""; 
+
         const modal = document.getElementById('rewriteModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -204,15 +212,14 @@
         const id = document.getElementById('previewNewsId').value;
         const title = document.getElementById('previewTitle').value;
         const content = document.getElementById('previewContent').value;
-        const category = document.getElementById('previewCategory').value;
+        // ইনপুট বক্সের বদলে এখন ড্রপডাউনের ভ্যালু নেওয়া হচ্ছে
+        const category = document.getElementById('previewCategory').value; 
         const btn = document.getElementById('btnPublish');
 
-        // Loading State
         btn.innerText = "Publishing...";
         btn.disabled = true;
         btn.classList.add('opacity-75', 'cursor-not-allowed');
 
-        // Fetch API Request
         fetch(`/news/${id}/publish-draft`, {
             method: 'POST',
             headers: {
@@ -224,24 +231,20 @@
         .then(res => res.json())
         .then(data => {
             if(data.success) {
-                // Success
                 alert("✅ " + data.message);
-                window.location.href = "{{ route('news.index') }}"; // Redirect on success
+                window.location.href = "{{ route('news.index') }}"; 
             } else {
-                // Server Error Message
                 alert("❌ Failed: " + data.message);
                 resetButton();
             }
         })
         .catch(err => {
-            // Network Error
             console.error(err);
             alert("⚠️ Network Error. Please try again.");
             resetButton();
         });
     }
 
-    // Reset Button State
     function resetButton() {
         const btn = document.getElementById('btnPublish');
         btn.innerText = "🚀 Publish Now";
@@ -249,14 +252,12 @@
         btn.classList.remove('opacity-75', 'cursor-not-allowed');
     }
 
-    // Close Modal Logic
     function closeRewriteModal() {
         const modal = document.getElementById('rewriteModal');
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
     
-    // Close Modal on clicking outside
     window.onclick = function(event) {
         const modal = document.getElementById('rewriteModal');
         if (event.target == modal) {
