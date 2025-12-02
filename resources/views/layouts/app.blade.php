@@ -61,7 +61,7 @@
                 <div class="flex items-center gap-4">
 
                     @auth
-                        <a href="#" class="hidden sm:flex items-center gap-1 bg-gradient-to-r from-yellow-100 to-amber-100 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm hover:shadow hover:scale-105 transition">
+                        <a href="/credits" class="hidden sm:flex items-center gap-1 bg-gradient-to-r from-yellow-100 to-amber-100 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm hover:shadow hover:scale-105 transition">
                             <span>🪙</span>
                             <span>Credits: {{ auth()->user()->credits ?? 0 }}</span>
                         </a>

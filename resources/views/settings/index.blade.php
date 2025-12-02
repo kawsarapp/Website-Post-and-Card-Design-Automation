@@ -30,6 +30,54 @@
             </ul>
         </div>
     @endif
+	
+	
+	{{-- 🔥 ২. প্রোফাইল আপডেট সেকশন (নতুন) --}}
+    <form action="{{ route('settings.update-profile') }}" method="POST" class="mb-8">
+        @csrf
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <h2 class="text-xl font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
+                👤 আমার প্রোফাইল
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {{-- নাম --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">আপনার নাম</label>
+                    <input type="text" name="name" value="{{ old('name', auth()->user()->name) }}" 
+                           class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition" required>
+                </div>
+
+                {{-- ইমেইল --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">ইমেইল (লগিন ইউজারনেম)</label>
+                    <input type="email" name="email" value="{{ old('email', auth()->user()->email) }}" 
+                           class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition" required>
+                </div>
+
+                {{-- পাসওয়ার্ড --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">নতুন পাসওয়ার্ড</label>
+                    <input type="password" name="password" placeholder="পরিবর্তন করতে চাইলে লিখুন..." 
+                           class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+
+                {{-- কনফার্ম পাসওয়ার্ড --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">পাসওয়ার্ড নিশ্চিত করুন</label>
+                    <input type="password" name="password_confirmation" placeholder="একই পাসওয়ার্ড আবার লিখুন" 
+                           class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+            </div>
+
+            <div class="mt-4 text-right">
+                <button type="submit" class="bg-gray-800 text-white px-6 py-2 rounded-lg font-bold hover:bg-gray-900 transition shadow">
+                    প্রোফাইল আপডেট করুন
+                </button>
+            </div>
+        </div>
+    </form>
+
 
     <form action="{{ route('settings.update') }}" method="POST" class="space-y-8">
         @csrf

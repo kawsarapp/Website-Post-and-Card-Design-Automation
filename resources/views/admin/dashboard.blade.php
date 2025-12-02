@@ -55,7 +55,11 @@
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
             <h2 class="text-lg font-bold text-slate-700">👤 ইউজার লিস্ট</h2>
+			<button onclick="openCreateUserModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shadow flex items-center gap-2">
+				➕ নতুন ইউজার
+			</button>
         </div>
+		
 
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -115,6 +119,15 @@
 
                         {{-- Actions --}}
                         <td class="px-6 py-4 text-right flex justify-end gap-2 items-center flex-wrap">
+						
+						
+						
+						{{-- Edit User Button --}}
+						<button onclick="openEditUserModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->email }}')" 
+								class="bg-yellow-500 text-white px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-600 shadow-sm flex items-center justify-center gap-1" 
+								title="Edit Name/Email/Pass">
+							✏️ Edit
+						</button>
                             
                             {{-- 1. Sources Button --}}
                             <button onclick='openSourceModal(
@@ -297,6 +310,80 @@
             </form>
         </div>
     </div>
+	
+	
+	
+	{{-- 5. Create User Modal --}}
+    <div id="createUserModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-gray-800">Add New User</h3>
+                <button onclick="closeCreateUserModal()" class="text-gray-400 hover:text-red-500 text-2xl transition">&times;</button>
+            </div>
+            
+            <form action="{{ route('admin.users.store') }}" method="POST" class="p-6 space-y-4">
+                @csrf
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
+                    <input type="text" name="name" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+                    <input type="email" name="email" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Password</label>
+                    <input type="password" name="password" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Credits</label>
+                        <input type="number" name="credits" value="10" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Daily Limit</label>
+                        <input type="number" name="daily_post_limit" value="10" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md w-full">Create User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- 6. Edit User Modal (Name, Email, Password) --}}
+    <div id="editUserModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-gray-800">Edit User Profile</h3>
+                <button onclick="closeEditUserModal()" class="text-gray-400 hover:text-red-500 text-2xl transition">&times;</button>
+            </div>
+            
+            <form id="editUserForm" method="POST" class="p-6 space-y-4">
+                @csrf
+                @method('PUT')
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
+                    <input type="text" name="name" id="editName" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-yellow-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+                    <input type="email" name="email" id="editEmail" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-yellow-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">New Password <span class="text-gray-400 font-normal">(Optional)</span></label>
+                    <input type="password" name="password" placeholder="Leave empty to keep current" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-yellow-500">
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button type="submit" class="bg-yellow-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-yellow-600 shadow-md w-full">Update Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
 </div>
 
@@ -393,5 +480,40 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+	
+	
+	
+	// --- Create User Modal ---
+    function openCreateUserModal() {
+        const modal = document.getElementById('createUserModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeCreateUserModal() {
+        const modal = document.getElementById('createUserModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // --- Edit User Modal ---
+    function openEditUserModal(userId, name, email) {
+        document.getElementById('editName').value = name;
+        document.getElementById('editEmail').value = email;
+        document.getElementById('editUserForm').action = `/admin/users/${userId}/update`;
+        
+        const modal = document.getElementById('editUserModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeEditUserModal() {
+        const modal = document.getElementById('editUserModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+	
+	
+	
 </script>
 @endsection

@@ -7,6 +7,8 @@ use App\Models\NewsItem;
 use App\Models\Website;
 use Illuminate\Http\Request;
 use App\Models\UserSetting;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
@@ -93,5 +95,53 @@ class AdminController extends Controller
         $settings->save();
 
         return back()->with('success', 'User scraper preference updated!');
+    }
+	
+	
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6',
+            'credits' => 'nullable|integer',
+            'daily_post_limit' => 'nullable|integer'
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'credits' => $request->credits ?? 0,
+            'daily_post_limit' => $request->daily_post_limit ?? 10,
+            'role' => 'user',
+            'is_active' => true
+        ]);
+
+        UserSetting::create(['user_id' => $user->id]);
+
+        return back()->with('success', 'নতুন ইউজার সফলভাবে তৈরি করা হয়েছে!');
+    }
+
+    public function updateUser(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'password' => 'nullable|string|min:6'
+        ]);
+
+        $user->name = $request->name;
+        $user->email = $request->email;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+
+        return back()->with('success', 'ইউজারের তথ্য আপডেট করা হয়েছে!');
     }
 }

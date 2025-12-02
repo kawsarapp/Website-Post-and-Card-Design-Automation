@@ -7,6 +7,8 @@ use App\Models\UserSetting;
 use Illuminate\Support\Facades\Auth;
 use App\Services\WordPressService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
@@ -120,23 +122,18 @@ class SettingsController extends Controller
     }
     
     
-	//-------------
-	// app/Http/Controllers/SettingsController.php এর ভেতরে
 public function saveDesign(Request $request)
 {
     Log::info('Save Design Request Started for User: ' . auth()->id());
     Log::info('Incoming Data:', $request->all());
 
     try {
-        // Validate input
         $request->validate([
             'preferences' => 'required|array'
         ]);
 
-        // Find or Create user settings
         $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
 
-        // Save design preferences
         $settings->design_preferences = $request->preferences;
         $settings->save();
 
@@ -151,7 +148,6 @@ public function saveDesign(Request $request)
 }
 
 
-    // ৭. কাস্টম ফ্রেম আপলোড এবং সেভ
     public function uploadFrame(Request $request)
     {
         $request->validate(['frame' => 'required|image|mimes:png|max:2048']); // PNG হতে হবে
@@ -161,5 +157,29 @@ public function saveDesign(Request $request)
             return response()->json(['success' => true, 'url' => asset('storage/' . $path)]);
         }
         return response()->json(['success' => false], 400);
+    }
+	
+	public function updateProfile(Request $request)
+    {
+        $user = Auth::user();
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => [
+                'required', 
+                'email', 
+                'max:255', 
+                Rule::unique('users')->ignore($user->id), 
+            ],
+            'password' => 'nullable|string|min:6|confirmed', 
+        ]);
+
+        $user->name = $request->name;
+        $user->email = $request->email;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+        $user->save();
+        return back()->with('success', 'প্রোফাইল তথ্য সফলভাবে আপডেট হয়েছে!');
     }
 }

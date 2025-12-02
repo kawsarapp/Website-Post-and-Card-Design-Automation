@@ -70,6 +70,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
     Route::get('/settings/fetch-categories', [SettingsController::class, 'fetchCategories'])->name('settings.fetch-categories');
+	Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.update-profile');
+	Route::post('/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
+
 
     // Credit History
     Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');
@@ -95,6 +98,8 @@ Route::middleware(['auth', AdminMiddleware::class])
     Route::post('/users/{id}/limit', [AdminController::class, 'updateLimit'])->name('users.limit');
     Route::post('/users/{id}/websites', [AdminController::class, 'updateWebsiteAccess'])->name('users.websites');
     Route::post('/users/{id}/scraper', [AdminController::class, 'updateScraperSettings'])->name('users.scraper');
+	Route::post('/users/create', [AdminController::class, 'store'])->name('users.store');
+	Route::put('/users/{id}/update', [AdminController::class, 'updateUser'])->name('users.update');
 
     // Payment Management (Admin)
     Route::get('/payments', [PaymentController::class, 'adminIndex'])->name('payments.index');
