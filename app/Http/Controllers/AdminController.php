@@ -41,7 +41,6 @@ class AdminController extends Controller
         return back()->with('success', 'টেমপ্লেট পারমিশন আপডেট করা হয়েছে!');
     }
 
-    // ইউজার ব্যান/আনব্যান করা
     public function toggleStatus($id)
     {
         $user = User::findOrFail($id);
@@ -144,4 +143,25 @@ class AdminController extends Controller
 
         return back()->with('success', 'ইউজারের তথ্য আপডেট করা হয়েছে!');
     }
+	
+	
+			public function destroy($id)
+			{
+				$news = NewsItem::findOrFail($id);
+				if (auth()->user()->role !== 'super_admin' && $news->user_id !== auth()->id()) {
+					return back()->with('error', 'আপনার অনুমতি নেই।');
+				}
+				$news->delete();
+				return back()->with('success', 'নিউজটি সফলভাবে মুছে ফেলা হয়েছে।');
+			}
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
 }

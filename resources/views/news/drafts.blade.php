@@ -1,98 +1,167 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap');
+    .font-bangla { font-family: 'Hind Siliguri', sans-serif; }
+</style>
+
 <div class="max-w-7xl mx-auto py-6">
-    
     {{-- Header --}}
     <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            📝 ড্রাফট তালিকা <span class="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">{{ $drafts->total() }}</span>
+        <h2 class="text-2xl font-bold text-gray-800 font-bangla flex items-center gap-2">
+            📝 ড্রাফট এবং প্রকাশিত নিউজ 
+            <span class="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">{{ $drafts->total() }}</span>
         </h2>
         <a href="{{ route('news.index') }}" class="text-indigo-600 hover:underline font-bold text-sm">← Back to News Feed</a>
     </div>
 
-    {{-- Draft Table --}}
-    <div class="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-200">
-        @if($drafts->count() > 0)
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">News Title (AI Generated)</th>
-                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Original Source</th>
-                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Created At</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @foreach($drafts as $draft)
-                    <tr class="hover:bg-gray-50 transition">
-                        <td class="px-6 py-4">
-                            <div class="text-sm font-bold text-gray-900 line-clamp-2">{{ $draft->ai_title ?? $draft->title }}</div>
-                            <div class="text-xs text-gray-500 mt-1 line-clamp-1">{{ Str::limit(strip_tags($draft->ai_content), 100) }}</div>
-                        </td>
-                        <td class="px-6 py-4 text-center">
-                            <span class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-bold">
-                                {{ $draft->website->name ?? 'Unknown' }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-center text-xs text-gray-500">
-                            {{ $draft->updated_at->diffForHumans() }}
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            {{-- 🔥 Edit & Publish Button --}}
-                            <button onclick="openPublishModal({{ $draft->id }}, '{{ addslashes($draft->ai_title ?? $draft->title) }}', `{{ base64_encode($draft->ai_content ?? $draft->content) }}`)" 
-                                    class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition shadow-sm flex items-center gap-1 ml-auto">
-                                ✏️ Edit & Publish
-                            </button>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+    @if(session('success'))
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded shadow-sm">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    {{-- Grid Layout for News Cards --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        @foreach($drafts as $item)
+        <div class="bg-white rounded-xl shadow border border-gray-100 flex flex-col h-full overflow-hidden relative transition hover:shadow-lg">
             
-            <div class="p-4 border-t">
-                {{ $drafts->links() }}
+            {{-- Status Badge --}}
+            @if($item->status == 'published')
+                <div class="absolute top-3 right-3 z-20 bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow flex items-center gap-1">
+                    ✅ PUBLISHED
+                </div>
+            @elseif($item->status == 'publishing')
+                <div class="absolute top-3 right-3 z-20 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow animate-pulse">
+                    🚀 SENDING...
+                </div>
+            @elseif($item->status == 'processing')
+                 <div class="absolute top-3 right-3 z-20 bg-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow animate-pulse">
+                    ⏳ AI WRITING...
+                </div>
+            @else
+                <div class="absolute top-3 right-3 z-20 bg-purple-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow">
+                    📝 DRAFT
+                </div>
+            @endif
+
+            {{-- Image & Delete Action --}}
+            <div class="h-40 overflow-hidden relative bg-gray-100 group">
+                 <img src="{{ $item->thumbnail_url ?? asset('images/placeholder.png') }}" class="w-full h-full object-cover opacity-95 group-hover:scale-105 transition duration-500">
+                 
+                 {{-- Delete Button (Visible on Hover/Always) --}}
+                 <form action="{{ route('news.destroy', $item->id) }}" method="POST" onsubmit="return confirm('আপনি কি নিশ্চিত এই নিউজটি মুছে ফেলতে চান?');" class="absolute top-2 left-2 z-20">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="bg-black/40 hover:bg-red-600 text-white p-1.5 rounded-full transition backdrop-blur-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path></svg>
+                    </button>
+                </form>
             </div>
-        @else
-            <div class="p-10 text-center text-gray-400">
-                <p class="text-4xl mb-2">📭</p>
-                <p>কোনো ড্রাফট পাওয়া যায়নি।</p>
-                <a href="{{ route('news.index') }}" class="text-indigo-500 text-sm hover:underline mt-2 inline-block">নতুন নিউজ প্রসেস করুন</a>
+           
+            {{-- Content Section --}}
+            <div class="p-4 flex flex-col flex-1">
+                {{-- Source Badge --}}
+                <div class="mb-2">
+                    <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border border-blue-100">
+                        {{ $item->website->name ?? 'Unknown Source' }}
+                    </span>
+                </div>
+
+                <h3 class="text-base font-bold leading-snug mb-2 text-gray-800 font-bangla line-clamp-2" title="{{ $item->ai_title ?? $item->title }}">
+                    {{ $item->ai_title ?? $item->title }}
+                </h3>
+                
+                <p class="text-xs text-gray-500 mb-3 line-clamp-3 font-bangla leading-relaxed">
+                    {{ Str::limit(strip_tags($item->ai_content ?? $item->content), 100) }}
+                </p>
+
+                <div class="mt-auto pt-3 border-t border-gray-50">
+                    @if($item->status == 'published')
+                        {{-- 🔥 PUBLISHED LINK VIEW --}}
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
+                            <p class="text-xs text-green-700 font-bold mb-1">সফলভাবে পোস্ট করা হয়েছে</p>
+                            @if($item->wp_post_id && optional($settings)->wp_url)
+                                <a href="{{ rtrim($settings->wp_url, '/') }}/?p={{ $item->wp_post_id }}" target="_blank" class="text-indigo-600 underline text-sm font-bold flex items-center justify-center gap-1 hover:text-indigo-800">
+                                    🔗 লাইভ দেখুন
+                                </a>
+                            @else
+                               <span class="text-xs text-gray-400">(Link unavailable)</span>
+                            @endif
+                        </div>
+
+                    @elseif($item->status == 'processing' || $item->status == 'publishing')
+                        {{-- Processing State --}}
+                        <button disabled class="w-full bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold cursor-wait flex items-center justify-center gap-2">
+                            <svg class="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            কাজ চলছে...
+                        </button>
+
+                    @else
+                        {{-- Draft State: Edit & Publish Button --}}
+                        <button type="button" 
+                            onclick="openPublishModal({{ $item->id }}, '{{ addslashes($item->ai_title ?? $item->title) }}', `{{ base64_encode($item->ai_content ?? $item->content) }}`)"
+                            class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2 rounded-lg hover:shadow-lg hover:from-purple-700 hover:to-indigo-700 transition text-sm font-bold flex items-center justify-center gap-2">
+                            ✏️ Edit & Publish
+                        </button>
+                    @endif
+                </div>
             </div>
-        @endif
+        </div>
+        @endforeach
+    </div>
+
+    {{-- Empty State --}}
+    @if($drafts->count() == 0)
+        <div class="p-10 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+            <p class="text-4xl mb-2">📭</p>
+            <p class="font-bangla text-lg">কোনো ড্রাফট পাওয়া যায়নি।</p>
+            <a href="{{ route('news.index') }}" class="text-indigo-500 text-sm hover:underline mt-2 inline-block font-bold">নতুন নিউজ প্রসেস করুন</a>
+        </div>
+    @endif
+
+    <div class="mt-8">
+        {{ $drafts->links() }}
     </div>
 </div>
 
-{{-- PUBLISH MODAL --}}
-<div id="rewriteModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
-        <div class="bg-green-600 px-6 py-4 flex justify-between items-center text-white">
-            <h3 class="font-bold text-lg">🚀 Final Review & Publish</h3>
-            <button onclick="closeRewriteModal()" class="text-white hover:text-gray-200 text-2xl">&times;</button>
+{{-- PUBLISH MODAL (Integrated from Code 2) --}}
+<div id="rewriteModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh] transform transition-all scale-100">
+        {{-- Modal Header --}}
+        <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex justify-between items-center text-white">
+            <h3 class="font-bold text-lg flex items-center gap-2">🚀 Final Review & Publish</h3>
+            <button onclick="closeRewriteModal()" class="text-white/80 hover:text-white text-2xl font-bold leading-none">&times;</button>
         </div>
 
-        <div class="p-6 overflow-y-auto flex-1">
+        {{-- Modal Body --}}
+        <div class="p-6 overflow-y-auto flex-1 bg-gray-50">
             <input type="hidden" id="previewNewsId">
             
-            <div class="mb-4">
-                <label class="block text-sm font-bold text-gray-700 mb-1">Title</label>
-                <input type="text" id="previewTitle" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-green-500 font-bangla text-lg text-gray-900">
+            <div class="mb-5">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Title</label>
+                <input type="text" id="previewTitle" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 font-bangla text-lg text-gray-900 shadow-sm transition">
             </div>
 
-            <div class="mb-4">
-                <label class="block text-sm font-bold text-gray-700 mb-1">Content</label>
-                <textarea id="previewContent" rows="8" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-green-500 font-bangla text-sm text-gray-900"></textarea>
+            <div class="mb-5">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Content</label>
+                <textarea id="previewContent" rows="10" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 font-bangla text-sm text-gray-900 shadow-sm leading-relaxed transition"></textarea>
             </div>
             
-            <div class="mb-4">
-                <label class="block text-sm font-bold text-gray-700 mb-1">Category ID</label>
-                <input type="number" id="previewCategory" class="w-full border border-gray-300 rounded-lg p-2.5 text-gray-900" placeholder="Optional">
+            <div class="mb-2">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Category ID <span class="text-gray-400 font-normal text-xs">(Optional)</span></label>
+                <input type="number" id="previewCategory" class="w-full border border-gray-300 rounded-lg p-2.5 text-gray-900 shadow-sm focus:ring-green-500 focus:border-green-500" placeholder="e.g. 5">
             </div>
         </div>
 
-        <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3">
-            <button onclick="closeRewriteModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300">Cancel</button>
-            <button onclick="publishDraft()" id="btnPublish" class="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow flex items-center gap-2">
+        {{-- Modal Footer --}}
+        <div class="bg-white px-6 py-4 border-t flex justify-end gap-3">
+            <button onclick="closeRewriteModal()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition">Cancel</button>
+            <button onclick="publishDraft()" id="btnPublish" class="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg hover:shadow-xl flex items-center gap-2 transition transform active:scale-95">
                 🚀 Publish Now
             </button>
         </div>
@@ -100,26 +169,37 @@
 </div>
 
 <script>
+    // Open Modal Logic
     function openPublishModal(id, title, encodedContent) {
-        // Base64 Decode to handle special chars and newlines
         let content = "";
         try {
-            content = atob(encodedContent); // Decode base64
-            // বাংলা ক্যারেক্টার ঠিক করার জন্য
-            content = decodeURIComponent(escape(content));
+            // Decode base64 string to handle special characters and new lines safely
+            content = atob(encodedContent);
+            
+            // Fix Bangla character encoding issues
+            try {
+                content = decodeURIComponent(escape(content));
+            } catch (e) {
+                // If decodeURIComponent fails, use raw atob result (fallback)
+                console.log("Encoding fallback used");
+            }
         } catch (e) {
             console.error("Decoding error", e);
             content = "Error loading content.";
         }
         
+        // Set values to Modal Inputs
         document.getElementById('previewNewsId').value = id;
         document.getElementById('previewTitle').value = title;
         document.getElementById('previewContent').value = content;
         
-        document.getElementById('rewriteModal').classList.remove('hidden');
-        document.getElementById('rewriteModal').classList.add('flex');
+        // Show Modal
+        const modal = document.getElementById('rewriteModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
     }
 
+    // Publish Logic
     function publishDraft() {
         const id = document.getElementById('previewNewsId').value;
         const title = document.getElementById('previewTitle').value;
@@ -127,10 +207,12 @@
         const category = document.getElementById('previewCategory').value;
         const btn = document.getElementById('btnPublish');
 
+        // Loading State
         btn.innerText = "Publishing...";
         btn.disabled = true;
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
 
-        // ড্রাফট পাবলিশ রাউটে হিট করা
+        // Fetch API Request
         fetch(`/news/${id}/publish-draft`, {
             method: 'POST',
             headers: {
@@ -142,24 +224,44 @@
         .then(res => res.json())
         .then(data => {
             if(data.success) {
+                // Success
                 alert("✅ " + data.message);
-                window.location.href = "{{ route('news.index') }}"; // সাকসেস হলে নিউজ ফিডে নিয়ে যাবে
+                window.location.href = "{{ route('news.index') }}"; // Redirect on success
             } else {
+                // Server Error Message
                 alert("❌ Failed: " + data.message);
-                btn.innerText = "🚀 Publish Now";
-                btn.disabled = false;
+                resetButton();
             }
         })
         .catch(err => {
-            alert("Network Error");
-            btn.innerText = "🚀 Publish Now";
-            btn.disabled = false;
+            // Network Error
+            console.error(err);
+            alert("⚠️ Network Error. Please try again.");
+            resetButton();
         });
     }
 
+    // Reset Button State
+    function resetButton() {
+        const btn = document.getElementById('btnPublish');
+        btn.innerText = "🚀 Publish Now";
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
+
+    // Close Modal Logic
     function closeRewriteModal() {
-        document.getElementById('rewriteModal').classList.add('hidden');
-        document.getElementById('rewriteModal').classList.remove('flex');
+        const modal = document.getElementById('rewriteModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    
+    // Close Modal on clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('rewriteModal');
+        if (event.target == modal) {
+            closeRewriteModal();
+        }
     }
 </script>
 @endsection

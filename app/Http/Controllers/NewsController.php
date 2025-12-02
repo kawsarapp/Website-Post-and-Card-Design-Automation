@@ -32,19 +32,38 @@ class NewsController extends Controller
         $this->telegram = $telegram;
     }
 
-    public function index()
-    {
-        $user = Auth::user();
-        $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
-        
-        $newsItems = NewsItem::with(['website' => function ($query) {
-            $query->withoutGlobalScopes(); 
-        }])
-        ->orderBy('published_at', 'desc')
-        ->paginate(20);
-        
-        return view('news.index', compact('newsItems', 'settings'));
-    }
+	
+	
+	
+	
+	public function index()
+{
+    $user = Auth::user();
+    $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
+    
+    // সব নিউজ দেখানোর জন্য কোড:
+    $newsItems = NewsItem::with(['website' => function ($query) {
+        $query->withoutGlobalScopes(); 
+    }])
+    // এখান থেকে আমি where এবং whereNotIn এর শর্তগুলো ফেলে দিয়েছি
+    ->orderBy('published_at', 'desc')
+    ->paginate(20);
+    
+    return view('news.index', compact('newsItems', 'settings'));
+}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 
     public function studio($id)
     {
@@ -181,20 +200,20 @@ class NewsController extends Controller
 
     // ২. ড্রাফট পেজ (Missing Method Fixed ✅)
     public function drafts()
-    {
-        $user = Auth::user();
-        $settings = $user->settings;
+{
+    $user = Auth::user();
+    $settings = $user->settings;
 
-        // শুধু ড্রাফট স্ট্যাটাসের নিউজ ফেচ করা
-        $drafts = NewsItem::with(['website' => function ($query) {
-            $query->withoutGlobalScopes(); 
-        }])
-        ->where('status', 'draft')
-        ->orderBy('updated_at', 'desc')
-        ->paginate(20);
+    $drafts = NewsItem::with(['website' => function ($query) {
+        $query->withoutGlobalScopes();
+    }])
+    ->whereIn('status', ['draft', 'processing', 'publishing', 'published'])
+    ->orderBy('updated_at', 'desc')
+    ->paginate(20);
 
-        return view('news.drafts', compact('drafts', 'settings'));
-    }
+    return view('news.drafts', compact('drafts', 'settings'));
+}
+
 
     // ৩. ড্রাফট কন্টেন্ট লোড করা (মডালের জন্য)
     public function getDraftContent($id)
@@ -305,4 +324,141 @@ class NewsController extends Controller
 
         return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! (WP, FB, TG & WhatsApp) ⏳');
     }
+	
+	
+	
+		public function destroy($id)
+		{
+			$news = NewsItem::findOrFail($id);
+			
+			// পারমিশন চেক (অপশনাল)
+			if (auth()->user()->role !== 'super_admin' && $news->user_id !== auth()->id()) {
+				return back()->with('error', 'আপনার অনুমতি নেই।');
+			}
+
+			$news->delete();
+			return back()->with('success', 'নিউজটি সফলভাবে মুছে ফেলা হয়েছে।');
+		}
+		
+	
+			// ফর্ম দেখানোর জন্য
+		public function create()
+		{
+			return view('news.create');
+		}
+
+		
+		
+	
+	
+	
+
+public function storeCustom(Request $request)
+{
+    // ১. রিকোয়েস্ট আসার সাথে সাথে লগ রাখা
+    Log::info('StoreCustom: New request received', [
+        'user_id' => auth()->id(),
+        'title'   => $request->title,
+        'has_ai'  => $request->has('process_ai'),
+        'has_file'=> $request->hasFile('image_file') // ফাইলের লগ
+    ]);
+
+    // ভ্যালিডেশন আপডেট করা হয়েছে যেন ফাইল এবং ইউআরএল দুটোই সাপোর্ট করে
+    $request->validate([
+        'title'      => 'required|max:255',
+        'content'    => 'required',
+        'image_file' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // ম্যাক্স ৫MB
+        'image_url'  => 'nullable|url'
+    ]);
+
+    try {
+        // --- ইমেজ আপলোড লজিক শুরু ---
+        $finalImage = null;
+
+        if ($request->hasFile('image_file')) {
+            // ১. যদি ফাইল আপলোড করা হয়
+            $file = $request->file('image_file');
+            // 'public' ডিস্কের 'news-uploads' ফোল্ডারে সেভ হবে
+            $path = $file->store('news-uploads', 'public'); 
+            // স্টোরেজ লিংক দিয়ে ইউআরএল তৈরি
+            $finalImage = asset('storage/' . $path); 
+        } 
+        elseif ($request->filled('image_url')) {
+            // ২. যদি ফাইলের বদলে লিংক দেওয়া হয়
+            $finalImage = $request->image_url;
+        }
+        // --- ইমেজ আপলোড লজিক শেষ ---
+
+        // ২. নিউজ আইটেম তৈরি করা
+        $news = NewsItem::create([
+            'user_id'       => auth()->id(),
+            'website_id'    => null,
+            'title'         => $request->title,
+            'content'       => $request->content,
+            
+            'thumbnail_url' => $finalImage, // এখানে $request->image এর বদলে $finalImage বসবে
+            
+            // 🔥 FIX: প্রতিবার ইউনিক লিংক তৈরি হবে
+            'original_link' => '#custom-' . uniqid(), 
+            
+            'status'        => 'draft', 
+            'published_at'  => now(),
+            'is_posted'     => false
+        ]);
+
+        // ৩. ডেটাবেসে সফলভাবে সেভ হওয়ার লগ
+        Log::info('StoreCustom: News created successfully', [
+            'news_id' => $news->id,
+            'image'   => $finalImage // কোন ইমেজটি সেভ হলো তা লগ করা হলো
+        ]);
+
+        if ($request->has('process_ai')) {
+            // ৪. AI প্রসেসিং শুরু হওয়ার লগ
+            Log::info('StoreCustom: AI Processing requested', ['news_id' => $news->id]);
+
+            $news->update(['status' => 'processing']);
+            
+            GenerateAIContent::dispatch($news->id, auth()->id());
+
+            // ৫. জব ডিসপ্যাচ হওয়ার লগ
+            Log::info('StoreCustom: GenerateAIContent Job Dispatched', [
+                'news_id' => $news->id,
+                'user_id' => auth()->id()
+            ]);
+
+            return redirect()->route('news.drafts')
+                ->with('success', 'নিউজ অ্যাড হয়েছে এবং AI প্রসেসিং শুরু হয়েছে!');
+        }
+
+        // ৬. ম্যানুয়ালি সেভ হওয়ার লগ
+        Log::info('StoreCustom: News saved manually (No AI)', ['news_id' => $news->id]);
+
+        return redirect()->route('news.drafts')
+            ->with('success', 'নিউজ ম্যানুয়ালি ড্রাফটে অ্যাড হয়েছে!');
+
+    } catch (\Exception $e) {
+        // ৭. যদি কোনো এরর হয়, তাহলে এরর লগ
+        Log::error('StoreCustom: Error creating news', [
+            'user_id' => auth()->id(),
+            'error'   => $e->getMessage(),
+            'trace'   => $e->getTraceAsString()
+        ]);
+
+        return back()->with('error', 'নিউজ সেভ করতে সমস্যা হয়েছে। লগ চেক করুন।')->withInput();
+    }
+}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 }

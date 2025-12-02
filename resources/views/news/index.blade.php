@@ -104,6 +104,15 @@
                 <a href="{{ $item->original_link }}" target="_blank" class="col-span-2 text-xs text-center text-gray-400 hover:text-indigo-500 mt-1">
                     🔗 মূল খবর
                 </a>
+				
+				<form action="{{ route('news.destroy', $item->id) }}" method="POST" onsubmit="return confirm('Are you sure?');" class="inline-block">
+					@csrf
+					@method('DELETE')
+					<button type="submit" class="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition">
+						🗑️ Delete
+					</button>
+				</form>
+				
             </div>
         </div>
     </div>
