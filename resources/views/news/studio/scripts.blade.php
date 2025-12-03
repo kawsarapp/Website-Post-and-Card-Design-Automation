@@ -187,136 +187,215 @@
     }
 
     window.applyAdminTemplate = function(imageUrl, layoutName, isRestore = false) {
-        console.log("🚀 Applying Template:", imageUrl, "Layout:", layoutName);
+    console.log("🚀 Applying Template with Fixed Image & Zoom:", layoutName);
 
-        if (!isRestore) {
-            window.userSettings.titlePos = null;
-            window.userSettings.datePos = null;
-        }
-
-        currentLayout = layoutName;
-        userSettings.frameUrl = imageUrl;
-
-        const objects = canvas.getObjects();
-        let titleObj = objects.find(obj => obj.isHeadline);
-        let dateObj = objects.find(obj => obj.isDate);
-        let mainImgObj = objects.find(obj => obj.isMainImage);
-
-        for (let i = objects.length - 1; i >= 0; i--) {
-            let obj = objects[i];
-            if (obj.isMainImage || obj.isHeadline || obj.isDate) continue;
-            canvas.remove(obj);
-        }
-
-        if(!titleObj) {
-            titleObj = new fabric.Textbox(newsData.title || "Headline Here", {
-                left: 50, top: 800, width: 980, fontSize: 60, fill: '#ffffff',
-                fontFamily: 'Hind Siliguri', fontWeight: 'bold', textAlign: 'center', isHeadline: true
-            });
-            canvas.add(titleObj);
-        }
-
-        fabric.Image.fromURL(imageUrl, function(img) {
-            img.set({ 
-                left: 0, top: 0, scaleX: canvas.width / img.width, scaleY: canvas.height / img.height, 
-                selectable: false, evented: false, isFrame: true 
-            });
-            
-            window.frameObj = img;
-            canvas.add(img);
-
-            if(mainImgObj) canvas.sendToBack(mainImgObj);
-            canvas.sendToBack(img);
-            if(mainImgObj) canvas.bringForward(img);
-            if(titleObj) canvas.bringToFront(titleObj);
-            if(dateObj) canvas.bringToFront(dateObj);
-
-            const commonDefaults = {
-                fontFamily: "'Hind Siliguri', sans-serif",
-                fill: '#000000',
-                backgroundColor: '',
-                fontSize: 60
-            };
-
-            const layouts = {
-                'ntv': { 
-                    title: { ...commonDefaults, top: 705, left: 555, originX: 'center', textAlign: 'center', width: 900, fill: '#000000', fontSize: 50 }, 
-                    date:  { ...commonDefaults, top: 633, left: 240, originX: 'right', fill: '#000000', fontSize: 30 } 
-                },
-                'rtv': { 
-                    title: { 
-                        ...commonDefaults, 
-                        top: 603, left: 540, originX: 'center', textAlign: 'center', width: 950, 
-                        fill: '#d90429', fontFamily: "'Baloo Da 2', cursive", fontSize: 45 
-                    },
-                    date: { ...commonDefaults, top: 43, left: 500, originX: 'left', fill: '#d90429', fontSize: 30 } 
-                },
-                'dhakapost': { 
-                    title: { ...commonDefaults, top: 772, left: 545, originX: 'center', textAlign: 'center', width: 980, fill: '#ffffff' }, 
-                    date:  { ...commonDefaults, top: 20, left: 975, originX: 'center', fill: '#ffffff', fontSize: 25 } 
-                },
-                'dhakapost_new': { 
-                    title: { ...commonDefaults, top: 780, left: 540, originX: 'center', textAlign: 'center', width: 950, fill: '#ffffff' }, 
-                    date:  { ...commonDefaults, top: 730, left: 540, originX: 'center', fill: '#ffffff', fontSize: 25 } 
-                },
-                'todayevents': { 
-                    title: { ...commonDefaults, top: 750, left: 540, originX: 'center', textAlign: 'center', width: 900, fill: '#000000' }, 
-                    date:  { ...commonDefaults, top: 30, left: 1050, originX: 'right', fill: '#000000' } 
-                },
-                'bottom': { 
-                    title: { ...commonDefaults, top: 800, left: 540, width: 980, textAlign: 'center', originX: 'center', fill: '#ffffff' }, 
-                    date: { ...commonDefaults, top: 50, left: 50, originX: 'left' } 
-                }
-            };
-
-            const defaultLayout = layouts['bottom'];
-            const targetLayout = layouts[layoutName] || defaultLayout;
-
-            if(titleObj) {
-                if (isRestore && window.userSettings?.titlePos) {
-                    titleObj.set(window.userSettings.titlePos);
-                } else {
-                    const config = targetLayout.title;
-                    titleObj.set({
-                        top: config.top, left: config.left, width: config.width,
-                        textAlign: config.textAlign, originX: config.originX,
-                        fontSize: config.fontSize, backgroundColor: config.backgroundColor,
-                        fill: config.fill, fontFamily: config.fontFamily
-                    });
-                    
-                    if(!config.fontFamily.includes('📂')) {
-                        let cleanFont = config.fontFamily.replace(/'/g, "").split(',')[0].trim();
-                        WebFont.load({ google: { families: [cleanFont] } });
-                    }
-
-                    updateUI(config.fontSize, config.fill, config.fontFamily);
-                    
-                    userSettings.color = config.fill;
-                    userSettings.font = config.fontFamily;
-                    userSettings.size = config.fontSize;
-                    userSettings.bg = config.backgroundColor;
-                }
-                titleObj.setCoords(); 
-            }
-
-            if(dateObj) {
-                if (isRestore && window.userSettings?.datePos) {
-                    dateObj.set(window.userSettings.datePos);
-                } else {
-                    const dConfig = targetLayout.date;
-                    dateObj.set({
-                        top: dConfig.top, left: dConfig.left, originX: dConfig.originX,
-                        fontSize: dConfig.fontSize, fill: dConfig.fill, backgroundColor: dConfig.backgroundColor
-                    });
-                }
-                dateObj.setCoords();
-            }
-
-            canvas.requestRenderAll();
-            saveHistory();
-
-        }, { crossOrigin: 'anonymous' });
+    // ১. সেটিংস রিসেট
+    if (!isRestore) {
+        window.userSettings.titlePos = null;
+        window.userSettings.datePos = null;
     }
+
+    currentLayout = layoutName;
+    userSettings.frameUrl = imageUrl;
+
+    // ২. ক্লিনআপ
+    const objects = canvas.getObjects();
+    let titleObj = objects.find(obj => obj.isHeadline);
+    let dateObj = objects.find(obj => obj.isDate);
+    let mainImgObj = objects.find(obj => obj.isMainImage);
+
+    // মেইন অবজেক্ট বাদে বাকি সব রিমুভ
+    for (let i = objects.length - 1; i >= 0; i--) {
+        let obj = objects[i];
+        if (obj.isMainImage || obj.isHeadline || obj.isDate) continue;
+        canvas.remove(obj);
+    }
+
+    // ৩. টাইটেল না থাকলে তৈরি করা
+    if(!titleObj) {
+        titleObj = new fabric.Textbox(newsData.title || "Headline Here", {
+            left: 50, top: 800, width: 980, fontSize: 60, fill: '#ffffff',
+            fontFamily: 'Hind Siliguri', fontWeight: 'bold', textAlign: 'center', isHeadline: true
+        });
+        canvas.add(titleObj);
+    }
+
+    // ৪. ফ্রেম লোড
+    fabric.Image.fromURL(imageUrl, function(img) {
+        img.set({ 
+            left: 0, top: 0, scaleX: canvas.width / img.width, scaleY: canvas.height / img.height, 
+            selectable: false, evented: false, isFrame: true 
+        });
+        
+        window.frameObj = img;
+        canvas.add(img);
+
+        // ৫. লেয়ার অর্ডারিং
+        if(mainImgObj) canvas.sendToBack(mainImgObj); // ইমেজ সবার নিচে
+        canvas.sendToBack(img); // ফ্রেম তার উপরে (কিন্তু ইমেজের নিচে না, লজিক্যালি ফ্রেম ইমেজের উপরে থাকা উচিত যদি ট্রান্সপারেন্ট হয়)
+        if(mainImgObj) canvas.bringForward(img); // ফ্রেম ইমেজের উপরে
+        if(titleObj) canvas.bringToFront(titleObj);
+        if(dateObj) canvas.bringToFront(dateObj);
+
+        // ডিফল্ট ফন্ট সেটিংস
+        const commonDefaults = {
+            fontFamily: "'Hind Siliguri', sans-serif",
+            fill: '#000000',
+            backgroundColor: '',
+            fontSize: 60
+        };
+
+
+        const layouts = {
+            'ntv': { 
+                title: { ...commonDefaults, top: 705, left: 555, originX: 'center', textAlign: 'center', width: 1000, fill: '#000000', fontSize: 50 }, 
+                date:  { ...commonDefaults, top: 633, left: 240, originX: 'right', fill: '#000000', fontSize: 30 },
+                image: { ...commonDefaults, left: 17, top: 62, width: 1080, height: 520, zoom: 1.0 }
+            },
+            'rtv': { 
+                title: { 
+                    ...commonDefaults, 
+                    top: 603, left: 540, originX: 'center', textAlign: 'center', width: 950, 
+                    fill: '#d90429', fontSize: 45 
+                },
+                date: { ...commonDefaults, top: 43, left: 500, originX: 'left', fill: '#d90429', fontSize: 30 },
+                image: { ...commonDefaults, left: 40, top: 115, width: 1000, height: 430, zoom: 0.9 }
+            },
+            'dhakapost': { 
+                title: { ...commonDefaults, top: 772, left: 545, originX: 'center', textAlign: 'center', width: 980, fill: '#ffffff' }, 
+                date:  { ...commonDefaults, top: 20, left: 975, originX: 'center', fill: '#000', fontSize: 30 },
+                image: { ...commonDefaults, left: 40, top: 130, width: 1000, height: 430, zoom: 1.3 }
+            },
+            'todayevents': { 
+                title: { ...commonDefaults, top: 710, left: 540, originX: 'center', textAlign: 'center', width: 1000, fill: '#000000' }, 
+                date:  { ...commonDefaults, top: 1015, left: 1050, originX: 'right', fill: '#000000', fontSize: 26 },
+                image: { ...commonDefaults, left: 40, top: 120, width: 1000, height: 430, zoom: 1.1 }
+            },
+            'bottom': { 
+                title: { ...commonDefaults, top: 800, left: 540, width: 980, textAlign: 'center', originX: 'center', fill: '#ffffff' }, 
+                date: { ...commonDefaults, top: 50, left: 50, originX: 'left' },
+                image: { ...commonDefaults, left: 0, top: 0, width: 1080, height: 1080, zoom: 1.0 }
+            },
+			'BanglaLiveNews': { 
+				title: { ...commonDefaults, top: 685, left: 540, width: 980, textAlign: 'center', originX: 'center', fill: '#ffffff', fontSize: 60, fontFamily: "'Hind Siliguri', sans-serif" },
+				date:  { ...commonDefaults, top: 43, left: 850, originX: 'left', fill: '#000000', fontSize: 30 },
+				image: { ...commonDefaults, left: 50, top: 150, width: 980, height: 550, zoom: 1.0 }
+			},
+
+			'Jaijaidin1': { 
+				title: { ...commonDefaults, top: 750, left: 540, width: 950, textAlign: 'center', originX: 'center', fill: '#ffffff', fontSize: 55, fontFamily: "'Hind Siliguri', sans-serif" },
+				date:  { ...commonDefaults, top: 38, left: 1042, originX: 'right', fill: '#000', fontSize: 28 },
+				image: { ...commonDefaults, left: 40, top: 160, width: 1000, height: 450, zoom: 1.1 } // একটু জুম আউট
+			},
+
+			'Jaijaidin2': { 
+				title: { ...commonDefaults, top: 720, left: 540, width: 950, textAlign: 'center', originX: 'center', fill: '#ffffff' },
+				date:  { ...commonDefaults, top: 640, left: 28, originX: 'left', fill: '#000', fontSize: 32 },
+				image: { ...commonDefaults, left: 40, top: 160, width: 1000, height: 450, zoom: 1.1 }
+			},
+
+			'Jaijaidin3': { 
+				title: { ...commonDefaults, top: 800, left: 540, width: 900, textAlign: 'center', originX: 'center', fill: '#ffffff' },
+				date:  { ...commonDefaults, top: 50, left: 50, originX: 'left', fill: '#ffffff' },
+				image: { ...commonDefaults, left: 40, top: 160, width: 1000, height: 450, zoom: 1.1 }
+			},
+
+			'Jaijaidin4': { 
+				title: { ...commonDefaults, top: 600, left: 540, width: 900, textAlign: 'center', originX: 'center', fill: '#000000' },
+				date:  { ...commonDefaults, top: 900, left: 540, originX: 'center', fill: '#000000' },
+				image: { ...commonDefaults, left: 40, top: 160, width: 1000, height: 450, zoom: 1.1 }
+			},
+			'ShotterKhoje': { 
+				title: { ...commonDefaults, top: 730, left: 540, width: 900, textAlign: 'center', originX: 'center', fill: '#ffffff' },
+				date:  { ...commonDefaults, top: 15, left: 460, originX: 'left', fill: '#ffffff', fontSize: 28 },
+				image: { ...commonDefaults, left: 40, top: 80, width: 980, height: 520, zoom: 1.2 }
+			}
+
+			
+			
+        };
+
+        const defaultLayout = layouts['bottom'];
+        const targetLayout = layouts[layoutName] || defaultLayout;
+
+        // ==========================================
+        // 🔥 ৭. মেইন ইমেজ পজিশনিং ও জুম লজিক
+        // ==========================================
+        if (mainImgObj && targetLayout.image) {
+            const imgConfig = targetLayout.image;
+            console.log("📐 Processing Image Zoom:", imgConfig.zoom);
+
+            // ১. স্কেল বের করা
+            const scaleX = imgConfig.width / mainImgObj.width;
+            const scaleY = imgConfig.height / mainImgObj.height;
+            
+            // ২. বেসিক স্কেল (Cover Mode)
+            let finalScale = Math.max(scaleX, scaleY);
+
+            // ৩. ম্যানুয়াল জুম অ্যাপ্লাই করা
+            const customZoom = (imgConfig.zoom !== undefined) ? imgConfig.zoom : 1.0;
+            finalScale = finalScale * customZoom;
+
+            // ৪. ইমেজে সেট করা
+            mainImgObj.set({
+                scaleX: finalScale,
+                scaleY: finalScale,
+                left: imgConfig.left + (imgConfig.width / 2), 
+                top: imgConfig.top + (imgConfig.height / 2),
+                originX: 'center',
+                originY: 'center',
+                clipPath: null 
+            });
+            mainImgObj.setCoords();
+        }
+
+        // ৮. টাইটেল পজিশনিং
+        if(titleObj) {
+            if (isRestore && window.userSettings?.titlePos) {
+                titleObj.set(window.userSettings.titlePos);
+            } else {
+                const config = targetLayout.title;
+                titleObj.set({
+                    top: config.top, left: config.left, width: config.width,
+                    textAlign: config.textAlign, originX: config.originX,
+                    fontSize: config.fontSize, backgroundColor: config.backgroundColor,
+                    fill: config.fill, fontFamily: config.fontFamily
+                });
+                
+                if(!config.fontFamily.includes('📂')) {
+                    let cleanFont = config.fontFamily.replace(/'/g, "").split(',')[0].trim();
+                    WebFont.load({ google: { families: [cleanFont] } });
+                }
+
+                updateUI(config.fontSize, config.fill, config.fontFamily);
+                
+                userSettings.color = config.fill;
+                userSettings.font = config.fontFamily;
+                userSettings.size = config.fontSize;
+                userSettings.bg = config.backgroundColor;
+            }
+            titleObj.setCoords(); 
+        }
+
+        // ৯. ডেট পজিশনিং
+        if(dateObj) {
+            if (isRestore && window.userSettings?.datePos) {
+                dateObj.set(window.userSettings.datePos);
+            } else {
+                const dConfig = targetLayout.date;
+                dateObj.set({
+                    top: dConfig.top, left: dConfig.left, originX: dConfig.originX,
+                    fontSize: dConfig.fontSize, fill: dConfig.fill, backgroundColor: dConfig.backgroundColor
+                });
+            }
+            dateObj.setCoords();
+        }
+
+        canvas.requestRenderAll();
+        saveHistory();
+
+    }, { crossOrigin: 'anonymous' });
+};
 
     function updateUI(size, color, font) {
         if(document.getElementById('val-size')) document.getElementById('val-size').innerText = size;
