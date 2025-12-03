@@ -51,10 +51,13 @@ class UserSetting extends Model
         'ntv'           => '🟩 NTV News',
         'rtv'           => '🟥 RTV News',
         'dhakapost'     => '🟦 Dhaka Post',
-        'dhakapost_new' => '⬛ Dhaka Post (Dark)',
         'todayevents'   => '🟪 Today Events',
-        'modern_left'   => '🔵 Modern Left',
-        'top_heavy'     => '🏏 Sports/Top',
+		'BanglaLiveNews' => 'Bangla Live News',
+		'Jaijaidin1' => 'Jaijaidin 1',
+		'Jaijaidin2' => 'Jaijaidin 2',
+		'Jaijaidin3' => 'Jaijaidin 3',
+		'Jaijaidin4' => 'Jaijaidin 4',
+		'ShotterKhoje' => 'Shotter Khoje',
     ];
 
     public function user()
