@@ -53,6 +53,7 @@ class UserSetting extends Model
         'dhakapost'     => '🟦 Dhaka Post',
         'todayevents'   => '🟪 Today Events',
 		'BanglaLiveNews' => 'Bangla Live News',
+		'BanglaLiveNews1' => 'Bangla Live News 1',
 		'Jaijaidin1' => 'Jaijaidin 1',
 		'Jaijaidin2' => 'Jaijaidin 2',
 		'Jaijaidin3' => 'Jaijaidin 3',

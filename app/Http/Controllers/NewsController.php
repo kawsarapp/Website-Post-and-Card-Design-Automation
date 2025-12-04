@@ -81,6 +81,7 @@ class NewsController extends Controller
             ['key' => 'dhakapost_new', 'name' => 'Dhaka Post Dark', 'image' => 'templates/dhakapost-new.png', 'layout' => 'dhakapost_new'],
             ['key' => 'todayevents', 'name' => 'Today Events', 'image' => 'templates/todayevents.png', 'layout' => 'todayevents'],
             ['key' => 'BanglaLiveNews', 'name' => 'Bangla Live News', 'image' => 'templates/BanglaLiveNews.png', 'layout' => 'BanglaLiveNews'],
+            ['key' => 'BanglaLiveNews1', 'name' => 'Bangla Live News 1', 'image' => 'templates/BanglaLiveNews1.png', 'layout' => 'BanglaLiveNews1'],
             ['key' => 'ShotterKhoje', 'name' => 'Shotter Khoje', 'image' => 'templates/ShotterKhoje.png', 'layout' => 'ShotterKhoje'],
             ['key' => 'Jaijaidin1', 'name' => 'Jaijaidin 1', 'image' => 'templates/Jaijaidin1.png', 'layout' => 'Jaijaidin1'],
             ['key' => 'Jaijaidin2', 'name' => 'Jaijaidin 2', 'image' => 'templates/Jaijaidin2.png', 'layout' => 'Jaijaidin2'],
@@ -156,6 +157,7 @@ class NewsController extends Controller
             'content' => 'required',
             'category' => 'nullable'
         ]);
+		
 
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
@@ -179,27 +181,36 @@ class NewsController extends Controller
     // 🔥 NEW: AI FLOW & DRAFTS
     // ==========================================
 
-    // ১. নিউজকে AI প্রসেসিং কিউতে পাঠানো
     public function sendToAiQueue($id)
     {
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
-        if ($user->role !== 'super_admin' && $user->credits <= 0) {
-            return back()->with('error', 'আপনার ক্রেডিট শেষ!');
+        if ($user->role !== 'super_admin') {
+             if($user->credits <= 0) {
+                return back()->with('error', 'আপনার ক্রেডিট শেষ!');
+             }
+             
+             // 🔥 ফিক্স: ক্রেডিট কাটা + হিস্ট্রি সেভ
+             $user->decrement('credits', 1);
+
+             \App\Models\CreditHistory::create([
+                 'user_id' => $user->id,
+                 'action_type' => 'auto_post', 
+                 'description' => 'AI Processing: ' . \Illuminate\Support\Str::limit($news->title, 40),
+                 'credits_change' => -1,
+                 'balance_after' => $user->credits
+             ]);
         }
 
         if ($news->status === 'processing') {
             return back()->with('error', 'এটি ইতিমধ্যেই প্রসেসিং হচ্ছে...');
         }
 
-        // স্ট্যাটাস আপডেট
         $news->update(['status' => 'processing']);
-
-        // জব ডিসপ্যাচ
         GenerateAIContent::dispatch($news->id, $user->id);
 
-        return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে! পেজ রিফ্রেশ করে স্ট্যাটাস দেখুন।');
+        return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে! পেজ রিফ্রেশ করে স্ট্যাটাস দেখুন।');
     }
 
     // ২. ড্রাফট পেজ (Missing Method Fixed ✅)
@@ -249,12 +260,22 @@ class NewsController extends Controller
 
         if ($user->role !== 'super_admin') {
             if ($user->credits <= 0) {
-                return response()->json(['success' => false, 'message' => '❌ আপনার ক্রেডিট শেষ! দয়া করে ক্রেডিট রিচার্জ করুন।']);
+                return response()->json(['success' => false, 'message' => '❌ আপনার ক্রেডিট শেষ!']);
             }
 
             if (!$user->hasDailyLimitRemaining()) {
-                return response()->json(['success' => false, 'message' => "❌ আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!"]);
+                return response()->json(['success' => false, 'message' => "❌ আজকের ডেইলি লিমিট শেষ!"]);
             }
+
+            $user->decrement('credits', 1);
+
+            \App\Models\CreditHistory::create([
+                'user_id' => $user->id,
+                'action_type' => 'manual_post',
+                'description' => 'Published Draft: ' . \Illuminate\Support\Str::limit($request->title, 40),
+                'credits_change' => -1,
+                'balance_after' => $user->credits
+            ]);
         }
 
         $news = NewsItem::findOrFail($id);
@@ -269,7 +290,7 @@ class NewsController extends Controller
 
         ProcessNewsPost::dispatch($news->id, $user->id, $customData);
 
-        return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
+        return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
     }
 
     // ==========================================
@@ -282,20 +303,11 @@ class NewsController extends Controller
         $settings = $user->settings;
 
         if ($settings && $settings->is_auto_posting) {
-            return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
+            return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
         }
         
         if (!$settings || !$settings->wp_url || !$settings->wp_username) {
-            return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
-        }
-        
-        if ($user->role !== 'super_admin') {
-            if ($user->credits <= 0) {
-                return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ!');
-            }
-            if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
-                return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
-            }
+            return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
         }
 
         $news = NewsItem::with(['website' => function ($query) {
@@ -303,7 +315,28 @@ class NewsController extends Controller
         }])->findOrFail($id);
 
         if ($news->is_posted) {
-            return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
+            return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
+        }
+
+        if ($user->role !== 'super_admin') {
+            if ($user->credits <= 0) {
+                return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ!');
+            }
+            
+            if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
+            }
+
+            // 🔥 ফিক্স: ক্রেডিট কাটা + হিস্ট্রি সেভ
+            $user->decrement('credits', 1);
+            
+            \App\Models\CreditHistory::create([
+                'user_id' => $user->id,
+                'action_type' => 'manual_post',
+                'description' => 'Direct Post: ' . \Illuminate\Support\Str::limit($news->title, 40),
+                'credits_change' => -1,
+                'balance_after' => $user->credits // আপডেটেড ব্যালেন্স
+            ]);
         }
 
         $cardImageUrl = $news->thumbnail_url;
@@ -323,10 +356,9 @@ class NewsController extends Controller
             Log::error("Social Post Error: " . $e->getMessage());
         }
 
-        // ওয়ার্ডপ্রেসে পোস্ট
         ProcessNewsPost::dispatch($news->id, $user->id, []);
 
-        return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! (WP, FB, TG & WhatsApp) ⏳');
+        return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! (WP, FB, TG & WhatsApp) ⏳');
     }
 	
 	
@@ -421,6 +453,16 @@ public function storeCustom(Request $request)
             Log::info('StoreCustom: AI Processing requested', ['news_id' => $news->id]);
 
             $news->update(['status' => 'processing']);
+			
+			if (auth()->user()->role !== 'super_admin') {
+                    \App\Models\CreditHistory::create([
+                        'user_id' => auth()->id(),
+                        'action_type' => 'auto_post', 
+                        'description' => 'AI Processing (Free): ' . \Illuminate\Support\Str::limit($news->title, 40),
+                        'credits_change' => 0, 
+                        'balance_after' => auth()->user()->credits
+                    ]);
+                }
             
             GenerateAIContent::dispatch($news->id, auth()->id());
 

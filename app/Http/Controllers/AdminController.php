@@ -61,6 +61,14 @@ class AdminController extends Controller
         $user->increment('credits', $request->amount);
         $user->increment('total_credits_limit', $request->amount);
 
+        \App\Models\CreditHistory::create([
+            'user_id' => $user->id,
+            'action_type' => 'admin_add',
+            'description' => 'Admin added credits',
+            'credits_change' => $request->amount,
+            'balance_after' => $user->credits
+        ]);
+
         return back()->with('success', "{$request->amount} ক্রেডিট সফলভাবে যোগ করা হয়েছে।");
     }
 	

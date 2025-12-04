@@ -309,6 +309,11 @@
 				title: { ...commonDefaults, top: 730, left: 540, width: 900, textAlign: 'center', originX: 'center', fill: '#ffffff' },
 				date:  { ...commonDefaults, top: 15, left: 460, originX: 'left', fill: '#ffffff', fontSize: 28 },
 				image: { ...commonDefaults, left: 40, top: 80, width: 980, height: 520, zoom: 1.2 }
+			},
+			'BanglaLiveNews1': { 
+				title: { ...commonDefaults, top: 712, left: 545, width: 1050, textAlign: 'center', originX: 'center', fill: '#ffffff' },
+				date:  { ...commonDefaults, top: 635, left: 130, originX: 'center', fill: '#000000', fontSize: 30 },
+				image: { ...commonDefaults, left: 40, top: 160, width: 1000, height: 450, zoom: 1.1 }
 			}
 
 			
