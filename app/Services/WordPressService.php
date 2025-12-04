@@ -7,64 +7,41 @@ use Illuminate\Support\Facades\Log;
 
 class WordPressService
 {
-    /**
-     * 🔥 Main Function: Orchestrates Image Upload & Post Publishing
-     */
-    public function createPost($news, $user, $customTitle = null, $customContent = null, $customCategory = null)
+    
+	
+	public function createPost($news, $user, $customTitle = null, $customContent = null, $customCategory = null, $customImage = null)
     {
-        // ১. ওয়েবসাইট ক্রেডেনশিয়ালস বের করা
-        $website = $news->website;
-
-        if (!$website) {
-            return [
-                'success' => false, 
-                'message' => 'No website connected to this news source.'
-            ];
-        }
-
-        // ইউজার সেটিংস থেকে ক্রেডেনশিয়াল নেওয়া (যদি ওয়েবসাইট টেবিলে না থাকে)
-        // অথবা ওয়েবসাইট টেবিল থেকে নেওয়া (আপনার লজিক অনুযায়ী)
-        // এখানে ধরে নিচ্ছি ওয়েবসাইটের নিজস্ব ক্রেডেনশিয়াল আছে, অথবা ইউজারের গ্লোবাল সেটিংস ব্যবহার হবে
-        
+        // ১. সেটিংস লোড করা
         $settings = $user->settings;
-        
-        // এখানে লজিক: নিউজ সোর্স ওয়েবসাইটের ক্রেডেনশিয়াল নাকি ইউজারের নিজের ওয়ার্ডপ্রেস?
-        // আমাদের সিস্টেমে পোস্ট হবে ইউজারের ওয়ার্ডপ্রেসে। তাই $user->settings থেকে নিতে হবে।
+
+        if (!$settings) {
+             return ['success' => false, 'message' => 'User settings not found.'];
+        }
         
         $domain = $settings->wp_url;
         $username = $settings->wp_username;
         $appPassword = $settings->wp_app_password; 
 
         if (!$domain || !$username || !$appPassword) {
-            return [
-                'success' => false,
-                'message' => 'User WordPress credentials not set.'
-            ];
+            return ['success' => false, 'message' => 'User WordPress credentials not set.'];
         }
 
-        // ২. টাইটেল ও কন্টেন্ট সেট করা (কাস্টম > AI > অরিজিনাল)
-        $postTitle = $customTitle ?? $news->title;
-        $postContent = $customContent ?? $news->content;
+        // ২. টাইটেল ও কন্টেন্ট সেট করা 
+        $postTitle = $customTitle ?? $news->ai_title ?? $news->title;
+        $postContent = $customContent ?? $news->ai_content ?? $news->content;
 
-        // ৩. ক্যাটাগরি সেট করা (ডিফল্ট ১ = Uncategorized)
-        // যদি কাস্টম ক্যাটাগরি না থাকে, তবে সেটিংসের ম্যাপিং চেক করবে
-        $categoryId = $customCategory;
-        
-        if (!$categoryId && !empty($settings->category_mapping)) {
-            // যদি নিউজের অরিজিনাল ক্যাটাগরি থাকে, সেটা ম্যাপ করা
-            // আপাতত ডিফল্ট ১ দিচ্ছি
-            $categoryId = 1; 
-        }
-        $categoryId = $categoryId ?? 1;
+        // ৩. ক্যাটাগরি সেট করা (ডিফল্ট ১)
+        $categoryId = $customCategory ?? 1;
 
-        // ৪. ইমেজ আপলোড প্রসেস (যদি ইমেজ থাকে)
+        // ৪. ইমেজ আপলোড (কাস্টম ইমেজ বা থাম্বনেইল)
+        $imageUrlToUpload = $customImage ?? $news->thumbnail_url;
         $featuredMediaId = null;
-        if (!empty($news->thumbnail_url)) {
-            $uploadResult = $this->uploadImage($news->thumbnail_url, $postTitle, $domain, $username, $appPassword);
+
+        if (!empty($imageUrlToUpload)) {
+            // ইমেজ আপলোড করার চেষ্টা
+            $uploadResult = $this->uploadImage($imageUrlToUpload, $postTitle, $domain, $username, $appPassword);
             if ($uploadResult['success']) {
                 $featuredMediaId = $uploadResult['id'];
-            } else {
-                Log::warning("Image upload failed for News ID: {$news->id}");
             }
         }
 

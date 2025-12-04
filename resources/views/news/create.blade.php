@@ -49,14 +49,23 @@
 
             {{-- Actions --}}
             <div class="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-100">
+                
+                {{-- ১. ড্রাফট বাটন --}}
                 <button type="submit" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-200 transition">
                     💾 ড্রাফটে সেভ করুন
                 </button>
 
+                {{-- ২. AI বাটন (এটি আগের মতোই থাক) --}}
                 <button type="submit" name="process_ai" value="1" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition flex justify-center items-center gap-2">
-                    🤖 সেভ করুন + AI রিরাইট
+                    🤖 সেভ + AI রিরাইট
+                </button>
+
+                {{-- 🔥 ৩. নতুন ডাইরেক্ট পাবলিশ বাটন --}}
+                <button type="submit" name="direct_publish" value="1" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-md transition flex justify-center items-center gap-2">
+                    🚀 সরাসরি পাবলিশ
                 </button>
             </div>
+			
         </form>
     </div>
 </div>

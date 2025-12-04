@@ -14,16 +14,16 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Jobs\ProcessNewsPost;
-use App\Jobs\GenerateAIContent; 
+use App\Jobs\GenerateAIContent;
 
 class NewsController extends Controller
 {
     private $scraper, $aiWriter, $wpService, $telegram;
 
     public function __construct(
-        NewsScraperService $scraper, 
-        AIWriterService $aiWriter, 
-        WordPressService $wpService, 
+        NewsScraperService $scraper,
+        AIWriterService $aiWriter,
+        WordPressService $wpService,
         TelegramService $telegram
     ) {
         $this->scraper = $scraper;
@@ -32,43 +32,25 @@ class NewsController extends Controller
         $this->telegram = $telegram;
     }
 
-	
-	
-	
-	
-	public function index()
-{
-    $user = Auth::user();
-    $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
-    
-    // সব নিউজ দেখানোর জন্য কোড:
-    $newsItems = NewsItem::with(['website' => function ($query) {
-        $query->withoutGlobalScopes(); 
-    }])
-    // এখান থেকে আমি where এবং whereNotIn এর শর্তগুলো ফেলে দিয়েছি
-    ->orderBy('published_at', 'desc')
-    ->paginate(20);
-    
-    return view('news.index', compact('newsItems', 'settings'));
-}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+    public function index()
+    {
+        $user = Auth::user();
+        $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
+        
+        // সব নিউজ দেখানোর জন্য কোড:
+        $newsItems = NewsItem::with(['website' => function ($query) {
+            $query->withoutGlobalScopes();
+        }])
+        ->orderBy('published_at', 'desc')
+        ->paginate(20);
+        
+        return view('news.index', compact('newsItems', 'settings'));
+    }
 
     public function studio($id)
     {
         $newsItem = NewsItem::with(['website' => function ($query) {
-            $query->withoutGlobalScopes(); 
+            $query->withoutGlobalScopes();
         }])->findOrFail($id);
 
         $user = Auth::user();
@@ -89,7 +71,7 @@ class NewsController extends Controller
             ['key' => 'Jaijaidin4', 'name' => 'Jaijaidin 4', 'image' => 'templates/Jaijaidin4.png', 'layout' => 'Jaijaidin4'],
         ];
 
-        $allowed = $settings->allowed_templates ?? []; 
+        $allowed = $settings->allowed_templates ?? [];
         $availableTemplates = [];
 
         if ($user->role === 'super_admin' || $user->role === 'admin') {
@@ -118,10 +100,10 @@ class NewsController extends Controller
     public function toggleQueue($id)
     {
         $news = NewsItem::findOrFail($id);
-        if ($news->is_posted) return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
+        if ($news->is_posted) return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
         $news->is_queued = !$news->is_queued;
         $news->save();
-        return back()->with('success', $news->is_queued ? '📌 অটো-পোস্ট লিস্টে যুক্ত হয়েছে' : 'লিস্ট থেকে সরানো হয়েছে');
+        return back()->with('success', $news->is_queued ? '📌 অটো-পোস্ট লিস্টে যুক্ত হয়েছে' : 'লিস্ট থেকে সরানো হয়েছে');
     }
 
     public function toggleAutomation(Request $request)
@@ -134,7 +116,7 @@ class NewsController extends Controller
         if ($settings->is_auto_posting) $settings->last_auto_post_at = now();
         $settings->save();
         $status = $settings->is_auto_posting ? "চালু" : 'বন্ধ';
-        return back()->with('success', "অটোমেশন {$status} করা হয়েছে।");
+        return back()->with('success', "অটোমেশন {$status} করা হয়েছে।");
     }
     
     public function checkAutoPostStatus()
@@ -147,9 +129,8 @@ class NewsController extends Controller
         $nextPost = $lastPost->addMinutes($intervalMinutes);
         return response()->json(['status' => 'on', 'next_post_time' => $nextPost->format('Y-m-d H:i:s')]);
     }
-	
-	
-	// 3. Final Publish (From Draft)
+    
+    // 3. Final Publish (From Draft)
     public function publishDraft(Request $request, $id)
     {
         $request->validate([
@@ -157,8 +138,7 @@ class NewsController extends Controller
             'content' => 'required',
             'category' => 'nullable'
         ]);
-		
-
+        
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
@@ -174,7 +154,7 @@ class NewsController extends Controller
         // Dispatch Job for Final Posting
         ProcessNewsPost::dispatch($news->id, $user->id, $customData);
 
-        return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে! (Publishing Started)']);
+        return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে! (Publishing Started)']);
     }
 
     // ==========================================
@@ -186,22 +166,26 @@ class NewsController extends Controller
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
+        
         if ($user->role !== 'super_admin') {
              if($user->credits <= 0) {
                 return back()->with('error', 'আপনার ক্রেডিট শেষ!');
              }
              
              // 🔥 ফিক্স: ক্রেডিট কাটা + হিস্ট্রি সেভ
-             $user->decrement('credits', 1);
+             //$user->decrement('credits', 0);
+             //$user->decrement('credits', 1);
 
              \App\Models\CreditHistory::create([
                  'user_id' => $user->id,
-                 'action_type' => 'auto_post', 
+                 'action_type' => 'auto_post',
                  'description' => 'AI Processing: ' . \Illuminate\Support\Str::limit($news->title, 40),
                  'credits_change' => -1,
                  'balance_after' => $user->credits
              ]);
         }
+		
+        
 
         if ($news->status === 'processing') {
             return back()->with('error', 'এটি ইতিমধ্যেই প্রসেসিং হচ্ছে...');
@@ -213,22 +197,21 @@ class NewsController extends Controller
         return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে! পেজ রিফ্রেশ করে স্ট্যাটাস দেখুন।');
     }
 
-    // ২. ড্রাফট পেজ (Missing Method Fixed ✅)
+    // ২. ড্রাফট পেজ
     public function drafts()
-{
-    $user = Auth::user();
-    $settings = $user->settings;
+    {
+        $user = Auth::user();
+        $settings = $user->settings;
 
-    $drafts = NewsItem::with(['website' => function ($query) {
-        $query->withoutGlobalScopes();
-    }])
-    ->whereIn('status', ['draft', 'processing', 'publishing', 'published'])
-    ->orderBy('updated_at', 'desc')
-    ->paginate(20);
+        $drafts = NewsItem::with(['website' => function ($query) {
+            $query->withoutGlobalScopes();
+        }])
+        ->whereIn('status', ['draft', 'processing', 'publishing', 'published', 'failed'])
+        ->orderBy('updated_at', 'desc')
+        ->paginate(20);
 
-    return view('news.drafts', compact('drafts', 'settings'));
-}
-
+        return view('news.drafts', compact('drafts', 'settings'));
+    }
 
     // ৩. ড্রাফট কন্টেন্ট লোড করা (মডালের জন্য)
     public function getDraftContent($id)
@@ -242,9 +225,9 @@ class NewsController extends Controller
 
         return response()->json([
             'success' => true,
-            'title'   => $title,
+            'title'    => $title,
             'content' => $content,
-            'categories' => $user->settings->category_mapping ?? [] 
+            'categories' => $user->settings->category_mapping ?? []
         ]);
     }
 
@@ -258,6 +241,7 @@ class NewsController extends Controller
 
         $user = Auth::user();
 
+        /*
         if ($user->role !== 'super_admin') {
             if ($user->credits <= 0) {
                 return response()->json(['success' => false, 'message' => '❌ আপনার ক্রেডিট শেষ!']);
@@ -277,6 +261,7 @@ class NewsController extends Controller
                 'balance_after' => $user->credits
             ]);
         }
+        */
 
         $news = NewsItem::findOrFail($id);
 
@@ -311,13 +296,14 @@ class NewsController extends Controller
         }
 
         $news = NewsItem::with(['website' => function ($query) {
-            $query->withoutGlobalScopes(); 
+            $query->withoutGlobalScopes();
         }])->findOrFail($id);
 
         if ($news->is_posted) {
             return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
         }
 
+        
         if ($user->role !== 'super_admin') {
             if ($user->credits <= 0) {
                 return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ!');
@@ -327,7 +313,6 @@ class NewsController extends Controller
                 return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
             }
 
-            // 🔥 ফিক্স: ক্রেডিট কাটা + হিস্ট্রি সেভ
             $user->decrement('credits', 1);
             
             \App\Models\CreditHistory::create([
@@ -338,9 +323,10 @@ class NewsController extends Controller
                 'balance_after' => $user->credits // আপডেটেড ব্যালেন্স
             ]);
         }
+       
 
         $cardImageUrl = $news->thumbnail_url;
-        $newsLink = $news->source_url; 
+        $newsLink = $news->source_url;
 
         try {
             if ($settings->post_to_fb && !empty($settings->fb_page_id)) {
@@ -360,151 +346,123 @@ class NewsController extends Controller
 
         return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! (WP, FB, TG & WhatsApp) ⏳');
     }
-	
-	
-	
-		public function destroy($id)
-		{
-			$news = NewsItem::findOrFail($id);
-			
-			// পারমিশন চেক (অপশনাল)
-			if (auth()->user()->role !== 'super_admin' && $news->user_id !== auth()->id()) {
-				return back()->with('error', 'আপনার অনুমতি নেই।');
-			}
-
-			$news->delete();
-			return back()->with('success', 'নিউজটি সফলভাবে মুছে ফেলা হয়েছে।');
-		}
-		
-	
-			// ফর্ম দেখানোর জন্য
-		public function create()
-		{
-			return view('news.create');
-		}
-
-		
-		
-	
-	
-	
-
-public function storeCustom(Request $request)
-{
-    // ১. রিকোয়েস্ট আসার সাথে সাথে লগ রাখা
-    Log::info('StoreCustom: New request received', [
-        'user_id' => auth()->id(),
-        'title'   => $request->title,
-        'has_ai'  => $request->has('process_ai'),
-        'has_file'=> $request->hasFile('image_file') // ফাইলের লগ
-    ]);
-
-    // ভ্যালিডেশন আপডেট করা হয়েছে যেন ফাইল এবং ইউআরএল দুটোই সাপোর্ট করে
-    $request->validate([
-        'title'      => 'required|max:255',
-        'content'    => 'required',
-        'image_file' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // ম্যাক্স ৫MB
-        'image_url'  => 'nullable|url'
-    ]);
-
-    try {
-        // --- ইমেজ আপলোড লজিক শুরু ---
-        $finalImage = null;
-
-        if ($request->hasFile('image_file')) {
-            // ১. যদি ফাইল আপলোড করা হয়
-            $file = $request->file('image_file');
-            // 'public' ডিস্কের 'news-uploads' ফোল্ডারে সেভ হবে
-            $path = $file->store('news-uploads', 'public'); 
-            // স্টোরেজ লিংক দিয়ে ইউআরএল তৈরি
-            $finalImage = asset('storage/' . $path); 
-        } 
-        elseif ($request->filled('image_url')) {
-            // ২. যদি ফাইলের বদলে লিংক দেওয়া হয়
-            $finalImage = $request->image_url;
+    
+    public function destroy($id)
+    {
+        $news = NewsItem::findOrFail($id);
+        
+        // পারমিশন চেক (অপশনাল)
+        if (auth()->user()->role !== 'super_admin' && $news->user_id !== auth()->id()) {
+            return back()->with('error', 'আপনার অনুমতি নেই।');
         }
-        // --- ইমেজ আপলোড লজিক শেষ ---
 
-        // ২. নিউজ আইটেম তৈরি করা
-        $news = NewsItem::create([
-            'user_id'       => auth()->id(),
-            'website_id'    => null,
-            'title'         => $request->title,
-            'content'       => $request->content,
-            
-            'thumbnail_url' => $finalImage, // এখানে $request->image এর বদলে $finalImage বসবে
-            
-            // 🔥 FIX: প্রতিবার ইউনিক লিংক তৈরি হবে
-            'original_link' => '#custom-' . uniqid(), 
-            
-            'status'        => 'draft', 
-            'published_at'  => now(),
-            'is_posted'     => false
+        $news->delete();
+        return back()->with('success', 'নিউজটি সফলভাবে মুছে ফেলা হয়েছে।');
+    }
+
+    // ফর্ম দেখানোর জন্য
+    public function create()
+    {
+        return view('news.create');
+    }
+
+    public function storeCustom(Request $request)
+    {
+        // ১. রিকোয়েস্ট আসার সাথে সাথে লগ রাখা
+        Log::info('StoreCustom: New request received', [
+            'user_id' => auth()->id(),
+            'title'    => $request->title,
+            'has_ai'   => $request->has('process_ai'),
+            'has_direct' => $request->has('direct_publish'),
+            'has_file' => $request->hasFile('image_file')
         ]);
 
-        // ৩. ডেটাবেসে সফলভাবে সেভ হওয়ার লগ
-        Log::info('StoreCustom: News created successfully', [
-            'news_id' => $news->id,
-            'image'   => $finalImage // কোন ইমেজটি সেভ হলো তা লগ করা হলো
+        // ভ্যালিডেশন
+        $request->validate([
+            'title'       => 'required|max:255',
+            'content'     => 'required',
+            'image_file'  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'image_url'   => 'nullable|url'
         ]);
 
-        if ($request->has('process_ai')) {
-            // ৪. AI প্রসেসিং শুরু হওয়ার লগ
-            Log::info('StoreCustom: AI Processing requested', ['news_id' => $news->id]);
+        try {
+            // --- ইমেজ আপলোড লজিক শুরু ---
+            $finalImage = null;
 
-            $news->update(['status' => 'processing']);
-			
-			if (auth()->user()->role !== 'super_admin') {
-                    \App\Models\CreditHistory::create([
-                        'user_id' => auth()->id(),
-                        'action_type' => 'auto_post', 
-                        'description' => 'AI Processing (Free): ' . \Illuminate\Support\Str::limit($news->title, 40),
-                        'credits_change' => 0, 
-                        'balance_after' => auth()->user()->credits
-                    ]);
-                }
-            
-            GenerateAIContent::dispatch($news->id, auth()->id());
+            if ($request->hasFile('image_file')) {
+                $file = $request->file('image_file');
+                $path = $file->store('news-uploads', 'public');
+                $finalImage = asset('storage/' . $path);
+            } 
+            elseif ($request->filled('image_url')) {
+                $finalImage = $request->image_url;
+            }
+            // --- ইমেজ আপলোড লজিক শেষ ---
 
-            // ৫. জব ডিসপ্যাচ হওয়ার লগ
-            Log::info('StoreCustom: GenerateAIContent Job Dispatched', [
-                'news_id' => $news->id,
-                'user_id' => auth()->id()
+            // ২. নিউজ আইটেম তৈরি করা
+            $news = NewsItem::create([
+                'user_id'        => auth()->id(),
+                'website_id'     => null,
+                'title'          => $request->title,
+                'content'        => $request->content,
+                'thumbnail_url'  => $finalImage,
+                'original_link'  => '#custom-' . uniqid(),
+                'status'         => 'draft',
+                'published_at'   => now(),
+                'is_posted'      => false
             ]);
 
+            // ৩. ডেটাবেসে সফলভাবে সেভ হওয়ার লগ
+            Log::info('StoreCustom: News created successfully', [
+                'news_id' => $news->id,
+                'image'   => $finalImage
+            ]);
+
+            // ====================================================
+            // 🔥 নতুন লজিক: বাটন অনুযায়ী অ্যাকশন
+            // ====================================================
+
+            // ১. যদি AI বাটনে ক্লিক করা হয়
+            if ($request->has('process_ai')) {
+                Log::info('StoreCustom: AI Processing requested', ['news_id' => $news->id]);
+                
+                $news->update(['status' => 'processing']);
+                
+                GenerateAIContent::dispatch($news->id, auth()->id());
+
+                return redirect()->route('news.drafts')
+                    ->with('success', 'AI প্রসেসিং শুরু হয়েছে!');
+            }
+
+            // ২. 🔥 যদি Direct Publish বাটনে ক্লিক করা হয়
+            if ($request->has('direct_publish')) {
+                Log::info('StoreCustom: Direct Publish requested', ['news_id' => $news->id]);
+
+                // স্ট্যাটাস আপডেট
+                $news->update(['status' => 'publishing']);
+
+                // সরাসরি পাবলিশ জব কল করা (ক্রেডিট চেক স্কিপ করার জন্য true পাঠানো হলো)
+                ProcessNewsPost::dispatch($news->id, auth()->id(), [], true);
+
+                return redirect()->route('news.index') 
+                    ->with('success', '🚀 পাবলিশিং শুরু হয়েছে! কিছুক্ষণের মধ্যে লাইভ হবে।');
+            }
+
+            // ৩. যদি শুধু সেভ বাটনে ক্লিক করা হয় (ডিফল্ট)
+            Log::info('StoreCustom: News saved manually (Draft)', ['news_id' => $news->id]);
+            
             return redirect()->route('news.drafts')
-                ->with('success', 'নিউজ অ্যাড হয়েছে এবং AI প্রসেসিং শুরু হয়েছে!');
+                ->with('success', 'নিউজ ড্রাফটে সেভ হয়েছে!');
+
+        } catch (\Exception $e) {
+            // ৪. এরর লগ
+            Log::error('StoreCustom: Error creating news', [
+                'user_id' => auth()->id(),
+                'error'    => $e->getMessage(),
+                'trace'    => $e->getTraceAsString()
+            ]);
+
+            return back()->with('error', 'নিউজ সেভ করতে সমস্যা হয়েছে। লগ চেক করুন।')->withInput();
         }
-
-        // ৬. ম্যানুয়ালি সেভ হওয়ার লগ
-        Log::info('StoreCustom: News saved manually (No AI)', ['news_id' => $news->id]);
-
-        return redirect()->route('news.drafts')
-            ->with('success', 'নিউজ ম্যানুয়ালি ড্রাফটে অ্যাড হয়েছে!');
-
-    } catch (\Exception $e) {
-        // ৭. যদি কোনো এরর হয়, তাহলে এরর লগ
-        Log::error('StoreCustom: Error creating news', [
-            'user_id' => auth()->id(),
-            'error'   => $e->getMessage(),
-            'trace'   => $e->getTraceAsString()
-        ]);
-
-        return back()->with('error', 'নিউজ সেভ করতে সমস্যা হয়েছে। লগ চেক করুন।')->withInput();
     }
-}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 }

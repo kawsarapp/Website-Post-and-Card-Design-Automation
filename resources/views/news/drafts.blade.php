@@ -40,6 +40,11 @@
                  <div class="absolute top-3 right-3 z-20 bg-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow animate-pulse">
                     ⏳ AI WRITING...
                 </div>
+            {{-- 🔥 নতুন: ফেইল স্ট্যাটাস যোগ করা হলো --}}
+            @elseif($item->status == 'failed')
+                 <div class="absolute top-3 right-3 z-20 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow flex items-center gap-1">
+                    ❌ FAILED
+                </div>
             @else
                 <div class="absolute top-3 right-3 z-20 bg-purple-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow">
                     📝 DRAFT
@@ -63,7 +68,7 @@
             <div class="p-4 flex flex-col flex-1">
                 <div class="mb-2">
                     <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border border-blue-100">
-                        {{ $item->website->name ?? 'Unknown Source' }}
+                        {{ $item->website->name ?? '📌 Custom Post' }}
                     </span>
                 </div>
 
