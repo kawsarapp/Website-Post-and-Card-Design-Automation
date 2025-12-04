@@ -131,30 +131,67 @@ class NewsController extends Controller
     }
     
     // 3. Final Publish (From Draft)
-    public function publishDraft(Request $request, $id)
+    
+	public function publishDraft(Request $request, $id)
     {
+        // ১. ভ্যালিডেশন
         $request->validate([
             'title' => 'required',
             'content' => 'required',
-            'category' => 'nullable'
+            'category' => 'nullable',
+            'image_file' => 'nullable|image|max:5120', // ৫MB পর্যন্ত ফাইল সাপোর্ট
+            'image_url' => 'nullable|url'
         ]);
-        
+
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
+        // ২. ক্রেডিট চেক (ম্যানুয়াল পোস্টের নিয়ম অনুযায়ী)
+        /*
+        if ($user->role !== 'super_admin') {
+            if ($user->credits <= 0) {
+                return response()->json(['success' => false, 'message' => '❌ আপনার ক্রেডিট শেষ!']);
+            }
+            // এখানে ডেইলি লিমিট চেক রাখতে পারেন...
+            
+            $user->decrement('credits', 1);
+            // ক্রেডিট হিস্ট্রি লগ...
+        }
+        */
+
+        // ৩. ইমেজ হ্যান্ডলিং লজিক (নতুন)
+        $finalImage = $news->thumbnail_url; // ডিফল্ট: আগের ইমেজ থাকবে
+
+        // ক. যদি ফাইল আপলোড করা হয়
+        if ($request->hasFile('image_file')) {
+            $path = $request->file('image_file')->store('news-uploads', 'public');
+            $finalImage = asset('storage/' . $path);
+        }
+        // খ. যদি ফাইলের বদলে লিংক দেওয়া হয়
+        elseif ($request->filled('image_url')) {
+            $finalImage = $request->image_url;
+        }
+
+        // ৪. ডাটাবেস আপডেট (ইমেজ সহ)
+        $news->update([
+            'status' => 'publishing',
+            'thumbnail_url' => $finalImage, // ডাটাবেসে পারমানেন্টলি আপডেট
+            'title' => $request->title,     // টাইটেলও আপডেট করে দিলাম
+            'content' => $request->content
+        ]);
+
+        // ৫. জবের জন্য ডাটা প্রস্তুত করা
         $customData = [
             'title' => $request->title,
             'content' => $request->content,
-            'category_id' => $request->category
+            'category_id' => $request->category,
+            'featured_image' => $finalImage // জবে নতুন ইমেজ পাঠানো
         ];
 
-        // Status Update
-        $news->update(['status' => 'publishing']);
+        // ৬. জব ডিসপ্যাচ (true পাঠানো হয়েছে যাতে ডাবল ক্রেডিট না কাটে)
+        \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
 
-        // Dispatch Job for Final Posting
-        ProcessNewsPost::dispatch($news->id, $user->id, $customData);
-
-        return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে! (Publishing Started)']);
+        return response()->json(['success' => true, 'message' => 'আপডেট এবং পাবলিশিং শুরু হয়েছে!']);
     }
 
     // ==========================================
