@@ -90,7 +90,16 @@
             </p>
 
             {{-- Footer Actions --}}
-            <div class="mt-auto pt-4 border-t border-gray-100">
+            <div class="mt-auto pt-4 border-t border-gray-100 space-y-2">
+                
+                {{-- 🔥 STUDIO BUTTON --}}
+                @if($item->status != 'processing' && $item->status != 'publishing')
+                <a href="{{ route('news.studio', $item->id) }}" 
+                   class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 rounded-lg text-xs font-bold hover:shadow-lg transition flex items-center justify-center gap-2 mb-2">
+                    🎨 ডিজাইন করুন
+                </a>
+                @endif
+
                 @if($item->status == 'published')
                     {{-- Published View --}}
                     <div class="flex items-center justify-between bg-emerald-50/50 rounded-lg p-2 border border-emerald-100">
@@ -121,7 +130,7 @@
                     {{-- Edit & Publish Button --}}
                     <button type="button" 
                         onclick="openPublishModal({{ $item->id }}, '{{ addslashes($item->ai_title ?? $item->title) }}', `{{ base64_encode($item->ai_content ?? $item->content) }}`, '{{ $item->thumbnail_url }}')"
-                        class="w-full group/btn relative flex items-center justify-center gap-2 bg-slate-900 hover:bg-indigo-600 text-white py-2.5 rounded-lg transition-all duration-300 text-xs font-bold shadow-md hover:shadow-lg hover:shadow-indigo-500/30 overflow-hidden">
+                        class="w-full group/btn relative flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg transition-all duration-300 text-xs font-bold shadow-md hover:shadow-lg hover:shadow-indigo-500/30 overflow-hidden">
                         
                         <span class="relative z-10 flex items-center gap-2">
                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -148,12 +157,12 @@
     </div>
 </div>
 
+
 {{-- PUBLISH MODAL --}}
 <div id="rewriteModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh] transform transition-all scale-100">
         
-		
-	      {{-- 🔥 IMAGE UPDATE SECTION --}}
+        {{-- 🔥 IMAGE UPDATE SECTION --}}
             <div class="mb-5 bg-white p-3 rounded-lg border border-gray-200">
                 <label class="block text-sm font-bold text-gray-700 mb-2">Feature Image</label>
                 
@@ -177,10 +186,7 @@
                 </div>
             </div>
 
-		
-		
-		
-		{{-- Modal Header --}}
+        {{-- Modal Header --}}
         <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex justify-between items-center text-white">
             <h3 class="font-bold text-lg flex items-center gap-2">🚀 Final Review & Publish</h3>
             <button onclick="closeRewriteModal()" class="text-white/80 hover:text-white text-2xl font-bold leading-none">&times;</button>
@@ -207,10 +213,8 @@
                 <select id="previewCategory" class="w-full border border-gray-300 rounded-lg p-2.5 text-gray-900 shadow-sm focus:ring-green-500 focus:border-green-500 bg-white">
                     <option value="">-- ক্যাটাগরি সিলেক্ট করুন --</option>
                     
-                    {{-- সেটিংস থেকে ক্যাটাগরি পপুলেট করা হচ্ছে --}}
                     @if(isset($settings->category_mapping) && is_array($settings->category_mapping))
                         @foreach($settings->category_mapping as $aiCat => $wpId)
-                            {{-- যদি WP ID সেট করা থাকে তবেই অপশন দেখাবে --}}
                             @if(!empty($wpId))
                                 <option value="{{ $wpId }}">{{ $aiCat }} (ID: {{ $wpId }})</option>
                             @endif
@@ -242,21 +246,17 @@
             content = "Error loading content.";
         }
         
-        // আইডি সেট করা
         document.getElementById('previewNewsId').value = id;
         document.getElementById('previewTitle').value = title;
         document.getElementById('previewContent').value = content;
         
-        // ইমেজ প্রিভিউ সেট করা
         const imgDisplay = document.getElementById('previewImageDisplay');
         imgDisplay.src = imageUrl ? imageUrl : 'https://via.placeholder.com/150?text=No+Image';
         
-        // ইনপুট রিসেট করা
         document.getElementById('newImageFile').value = ""; 
         document.getElementById('newImageUrl').value = ""; 
         document.getElementById('previewCategory').value = ""; 
 
-        // মডাল ওপেন
         const modal = document.getElementById('rewriteModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -267,25 +267,21 @@
         const id = document.getElementById('previewNewsId').value;
         const btn = document.getElementById('btnPublish');
 
-        // 🔥 FormData তৈরি (ফাইল পাঠানোর জন্য জরুরি)
         let formData = new FormData();
         formData.append('title', document.getElementById('previewTitle').value);
         formData.append('content', document.getElementById('previewContent').value);
         formData.append('category', document.getElementById('previewCategory').value);
 
-        // ফাইল সিলেক্ট করা থাকলে সেটা পাঠাবো
         const fileInput = document.getElementById('newImageFile');
         if (fileInput.files[0]) {
             formData.append('image_file', fileInput.files[0]);
         }
         
-        // অথবা ইউআরএল দেওয়া থাকলে সেটা পাঠাবো
         const urlInput = document.getElementById('newImageUrl');
         if (urlInput.value) {
             formData.append('image_url', urlInput.value);
         }
 
-        // বাটন লোডিং স্ট্যাটাস
         btn.innerText = "Publishing...";
         btn.disabled = true;
         btn.classList.add('opacity-75', 'cursor-not-allowed');
@@ -294,9 +290,8 @@
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                // নোট: FormData ব্যবহার করলে 'Content-Type': 'application/json' দেওয়া যাবে না!
             },
-            body: formData // JSON.stringify এর বদলে formData
+            body: formData
         })
         .then(res => res.json())
         .then(data => {

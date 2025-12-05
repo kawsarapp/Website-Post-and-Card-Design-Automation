@@ -30,8 +30,9 @@
         layout: savedPrefs.layout || dbPrefs?.layout || 'bottom'
     };
     
+    // 🔥 UPDATED LOGIC HERE: Use ai_title if exists, else title
     var newsData = {
-        title: {!! json_encode($newsItem->title) !!},
+        title: {!! json_encode(!empty($newsItem->ai_title) ? $newsItem->ai_title : $newsItem->title) !!},
         image: "{{ $newsItem->thumbnail_url ? route('proxy.image', ['url' => $newsItem->thumbnail_url]) : '' }}"
     };
 
