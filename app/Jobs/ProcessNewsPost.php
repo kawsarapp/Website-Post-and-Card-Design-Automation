@@ -34,84 +34,131 @@ class ProcessNewsPost implements ShouldQueue
     }
 
     public function handle(WordPressService $wpService)
-    {
-        try {
-            Log::info("🚀 Publishing Job Started for News ID: {$this->newsId}");
+{
+    try {
+        Log::info("🚀 Publishing Job Started for News ID: {$this->newsId}");
 
-            // 🔥 ১. Global Scope বাইপাস করা (জরুরি)
-            // যেহেতু Queue Worker এর সময় কোনো User লগইন থাকে না, তাই withoutGlobalScopes() দিতেই হবে
-            $news = NewsItem::withoutGlobalScopes()
-                ->with(['website' => function ($query) {
-                    $query->withoutGlobalScopes(); 
-                }])->find($this->newsId);
+        // 🔥 ১. Global Scope বাইপাস করা (জরুরি)
+        $news = NewsItem::withoutGlobalScopes()
+            ->with(['website' => function ($query) {
+                $query->withoutGlobalScopes(); 
+            }])->find($this->newsId);
 
-            $user = User::find($this->userId);
+        $user = User::find($this->userId);
 
-            if (!$news || !$user) {
-                Log::error("Job Failed: News or User not found. ID: {$this->newsId}");
-                return;
-            }
+        if (!$news || !$user) {
+            Log::error("Job Failed: News or User not found. ID: {$this->newsId}");
+            return;
+        }
 
-            // প্রায়োরিটি লজিক (Custom > AI > Original)
-            $finalTitle = $this->customData['title'] ?? $news->ai_title ?? $news->title;
-            $finalContent = $this->customData['content'] ?? $news->ai_content ?? $news->content;
-            
-            // 🔥 ২. ইমেজ সিলেকশন (আপনার মডেলে thumbnail_url আছে, তাই সেটি ব্যবহার করছি)
-            $finalImage = $this->customData['featured_image'] ?? $news->thumbnail_url; 
+        // সেটিংস লোড করা
+        $settings = $user->settings;
 
-            // 🔥 ৩. '/og/' ফোল্ডার রিমুভ করার লজিক (Kaler Kantho fix)
-            // এটি চেক করবে লিংকে '/og/' আছে কিনা, থাকলে রিমুভ করে দিবে
-            if (!empty($finalImage) && strpos($finalImage, '/og/') !== false) {
-                $finalImage = str_replace('/og/', '/', $finalImage);
-                Log::info("✅ Image URL Cleaned: " . $finalImage);
-            }
-            
-            $categoryId = $this->customData['category_id'] ?? null;
+        // প্রায়োরিটি লজিক (Custom > AI > Original)
+        $finalTitle = $this->customData['title'] ?? $news->ai_title ?? $news->title;
+        $finalContent = $this->customData['content'] ?? $news->ai_content ?? $news->content;
+        $finalImage = $this->customData['featured_image'] ?? $news->thumbnail_url;
+        $categoryId = $this->customData['category_id'] ?? null;
 
-            // ৪. ওয়ার্ডপ্রেসে পোস্ট করা (ক্লিন ইমেজ সহ)
-            $postResult = $wpService->createPost($news, $user, $finalTitle, $finalContent, $categoryId, $finalImage);
+        // 🔥 ৩. '/og/' ফোল্ডার রিমুভ করার লজিক
+        if (!empty($finalImage) && strpos($finalImage, '/og/') !== false) {
+            $finalImage = str_replace('/og/', '/', $finalImage);
+            Log::info("✅ Image URL Cleaned: " . $finalImage);
+        }
+
+        // স্ট্যাটাস ট্র্যাকার
+        $wpSuccess = false;
+        $laravelSuccess = false;
+        $wpPostId = null;
+
+        // ==========================
+        // 🌍 1. WORDPRESS POSTING
+        // ==========================
+        if ($settings && $settings->wp_url && $settings->wp_username) {
+
+            $postResult = $wpService->createPost(
+                $news,
+                $user,
+                $finalTitle,
+                $finalContent,
+                $categoryId,
+                $finalImage
+            );
 
             if ($postResult['success']) {
-                
-                // ৫. ডাটাবেস ট্রানজেকশন (নিরাপদ আপডেট)
-                DB::transaction(function () use ($news, $user, $postResult, $finalImage) {
-                    
-                    // নিউজ স্ট্যাটাস এবং ক্লিন ইমেজ আপডেট
-                    $news->update([
-                        'is_posted' => true,
-                        'wp_post_id' => $postResult['post_id'],
-                        'posted_at' => now(),
-                        'status' => 'published',
-                        'thumbnail_url' => $finalImage // 🔥 ক্লিন করা ইমেজটি ডাটাবেসে সেভ করে দিচ্ছি
-                    ]);
+                $wpSuccess = true;
+                $wpPostId = $postResult['post_id'];
+                Log::info("✅ WP Post Success: ID {$wpPostId}");
+            } else {
+                Log::error("❌ WP Post Failed: " . ($postResult['message'] ?? 'Unknown'));
+            }
+        }
 
-                    // ৬. ক্রেডিট কাটা (যদি সুপার এডমিন না হয়)
-                    if ($user->role !== 'super_admin') {
-                        $user->decrement('credits');
-                        Log::info("✅ Credit deducted for User ID: {$user->id}");
-                    }
-                });
+        // ==========================
+        // 🚀 2. LARAVEL POSTING
+        // ==========================
+        if ($settings && $settings->post_to_laravel && $settings->laravel_site_url) {
+            try {
+                $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/external-news-post';
 
-                Log::info("✅ Post Published Successfully (WP ID: {$postResult['post_id']})");
+                $response = \Illuminate\Support\Facades\Http::post($apiUrl, [
+                    'token' => $settings->laravel_api_token,
+                    'title' => $finalTitle,
+                    'content' => $finalContent,
+                    'image_url' => $finalImage,
+                    'category_name' => $news->category ?? 'General',
+                    'original_link' => $news->original_link
+                ]);
 
-                // ৭. নোটিফিকেশন পাঠানো
-                try {
-                    $user->notify(new PostPublishedNotification($finalTitle));
-                } catch (\Exception $e) {
-                    Log::error("Notification Error: " . $e->getMessage());
+                if ($response->successful()) {
+                    $laravelSuccess = true;
+                    Log::info("✅ Laravel Post Success: " . $response->body());
+                } else {
+                    Log::error("❌ Laravel Post Failed: " . $response->status() . ' - ' . $response->body());
                 }
 
-            } else {
-                // WP ফেইল করলে
-                Log::error("WP Post Failed for News ID {$news->id}: " . json_encode($postResult));
-                throw new \Exception("WordPress Posting Failed: " . ($postResult['message'] ?? 'Unknown Error'));
+            } catch (\Exception $e) {
+                Log::error("❌ Laravel Connection Error: " . $e->getMessage());
+            }
+        }
+
+        // ==========================
+        // 🏁 3. FINAL UPDATE
+        // ==========================
+        if ($wpSuccess || $laravelSuccess) {
+
+            DB::transaction(function () use ($news, $user, $wpPostId, $finalImage) {
+
+                $news->update([
+                    'is_posted' => true,
+                    'wp_post_id' => $wpPostId,
+                    'posted_at' => now(),
+                    'status' => 'published',
+                    'thumbnail_url' => $finalImage
+                ]);
+
+                if ($user->role !== 'super_admin') {
+                    $user->decrement('credits');
+                    Log::info("✅ Credit deducted for User ID: {$user->id}");
+                }
+            });
+
+            try {
+                $user->notify(new PostPublishedNotification($finalTitle));
+            } catch (\Exception $e) {
+                Log::error("Notification Error: " . $e->getMessage());
             }
 
-        } catch (\Exception $e) {
-            Log::error("ProcessNewsPost Job Exception: " . $e->getMessage());
-            throw $e; 
+        } else {
+            throw new \Exception("Posting failed on both WordPress and Laravel endpoints.");
         }
+
+    } catch (\Exception $e) {
+        Log::error("ProcessNewsPost Job Exception: " . $e->getMessage());
+        $this->fail($e);
     }
+}
+
 
     /**
      * জব ফেইল হলে (৩ বার চেষ্টার পর)

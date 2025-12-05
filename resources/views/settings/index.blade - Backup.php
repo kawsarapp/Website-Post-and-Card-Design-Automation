@@ -135,58 +135,6 @@
 		
 		
 		
-		
-		{{-- 🔥 LARAVEL CONNECTION SECTION --}}
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mt-6 relative overflow-hidden">
-            <div class="absolute top-0 right-0 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">Laravel API</div>
-            <h2 class="text-xl font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
-                🚀 Laravel Website কানেকশন
-            </h2>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="col-span-1 md:col-span-2">
-                    <label class="block text-sm font-bold text-gray-700 mb-1">ওয়েবসাইট লিংক (API URL)</label>
-                    <input type="url" name="laravel_site_url" value="{{ old('laravel_site_url', $settings->laravel_site_url ?? '') }}" 
-                           placeholder="https://mylaravelnews.com" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
-                    <p class="text-xs text-gray-500 mt-1">শুধুমাত্র ডোমেইন লিংক দিন। আমরা অটোমেটিক <code>/api/external-news-post</code> এ হিট করব।</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">API Token (Secret Key)</label>
-                    <input type="text" name="laravel_api_token" value="{{ old('laravel_api_token', $settings->laravel_api_token ?? '') }}" 
-                           class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="যেকোনো গোপন পাসওয়ার্ড দিন">
-                </div>
-                
-                <div class="flex items-end">
-                    <label class="flex items-center gap-2 cursor-pointer bg-gray-50 px-4 py-2 rounded border border-gray-200 w-full">
-                        <input type="hidden" name="post_to_laravel" value="0">
-                        <input type="checkbox" name="post_to_laravel" value="1" {{ ($settings->post_to_laravel ?? false) ? 'checked' : '' }} class="toggle-checkbox w-5 h-5 text-indigo-600 rounded">
-                        <span class="font-bold text-gray-700">Enable Posting to Laravel</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
 			
 			<div class="bg-white p-5 rounded-lg shadow border border-blue-100">

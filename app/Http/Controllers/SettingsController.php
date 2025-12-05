@@ -34,12 +34,19 @@ class SettingsController extends Controller
             'logo_url' => 'nullable|url',
             'telegram_channel_id' => 'nullable|string',
             'default_theme_color' => 'nullable|string',
+			'laravel_site_url' => 'nullable|url',
+			'laravel_api_token' => 'nullable|string',
+			'post_to_laravel' => 'nullable|boolean',
         ]);
 
         $user = Auth::user();
 
         // সেটিংস খুঁজে বের করা অথবা নতুন তৈরি করা
         $settings = UserSetting::firstOrNew(['user_id' => $user->id]);
+		
+		$settings->laravel_site_url = $request->laravel_site_url;
+		$settings->laravel_api_token = $request->laravel_api_token;
+		$settings->post_to_laravel = $request->has('post_to_laravel') ? true : false;
 
         $settings->brand_name = $request->brand_name;
         $settings->default_theme_color = $request->default_theme_color ?? 'red';

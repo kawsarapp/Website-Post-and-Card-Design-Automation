@@ -32,6 +32,9 @@ class UserSetting extends Model
 		'telegram_channel_id',
 		'post_to_fb',
         'post_to_telegram',
+		'laravel_site_url',   // লারাভেল সাইটের লিংক
+		'laravel_api_token',  // সিকিউরিটি টোকেন
+		'post_to_laravel',    // লারাভেলে পোস্ট হবে কি না (Toggle)
 
     ];
 
@@ -44,6 +47,7 @@ class UserSetting extends Model
 		'design_preferences' => 'array',
 		'post_to_fb' => 'boolean',
         'post_to_telegram' => 'boolean',
+		'post_to_laravel' => 'boolean',
     ];
 
     // ✅ টেমপ্লেট লিস্ট (Master List)
