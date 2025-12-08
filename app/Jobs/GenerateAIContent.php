@@ -19,6 +19,9 @@ class GenerateAIContent implements ShouldQueue
     protected $newsId;
     protected $userId;
 
+    public $tries = 2;        // সর্বোচ্চ ২ বার চেষ্টা করবে
+    public $timeout = 120;    // ১২০ সেকেন্ড বা ২ মিনিট সময় পাবে
+
     public function __construct($newsId, $userId)
     {
         $this->newsId = $newsId;
@@ -29,7 +32,8 @@ class GenerateAIContent implements ShouldQueue
     {
         Log::info("🚀 AI Job Started for News ID: {$this->newsId}");
 
-        $news = NewsItem::find($this->newsId);
+        $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
+
         if (!$news) {
             Log::error("❌ News not found ID: {$this->newsId}");
             return;
@@ -38,21 +42,14 @@ class GenerateAIContent implements ShouldQueue
         $news->update(['status' => 'processing']);
 
         try {
-            // ==================================================
-            // 🔥 SMART CONTENT MERGING (যাতে নিউজ বড় হয়)
-            // ==================================================
-            
-            // ১. সব সোর্স থেকে তথ্য নেওয়া
+
             $title = $news->title ?? '';
             $desc = $news->description ?? $news->summary ?? '';
             $body = $news->content ?? '';
 
-            // ২. HTML ট্যাগ ক্লিন করা
             $cleanBody = trim(strip_tags($body));
             $cleanDesc = trim(strip_tags($desc));
 
-            // ৩. AI-কে পাঠানোর জন্য পূর্ণাঙ্গ তথ্য তৈরি করা
-            // আমরা টাইটেল + ডেসক্রিপশন + বডি সব একসাথে জোড়া দিচ্ছি
             $fullContext = "Headline: " . $title . "\n\n";
             
             if (!empty($cleanDesc)) {
@@ -62,30 +59,45 @@ class GenerateAIContent implements ShouldQueue
             if (!empty($cleanBody)) {
                 $fullContext .= "Details: " . $cleanBody;
             } else {
-                // যদি বডি না থাকে, তবে ডেসক্রিপশন দুইবার রিপিট করা হচ্ছে না, 
-                // বরং AI কে বলা হবে এর ওপর ভিত্তি করে লিখতে।
-                $fullContext .= "Details: (Not available, please expand based on Headline and Summary)";
+                // যদি বডি না থাকে
+                $fullContext .= "Details: (Full body missing, please verify facts and write a complete report based on the Headline and Summary provided above)";
             }
 
             // ==================================================
 
-            // ৪. AI কল করা (বড় কনটেক্সট পাঠানো হচ্ছে)
+            // ৪. AI কল করা
             $aiResponse = $aiWriter->rewrite($fullContext, $title);
 
-            // ৫. ডাটাবেসে সেভ করা
-            $finalContent = $aiResponse['content'] ?? $news->content ?? 'Content generation failed.';
+            if (empty($aiResponse) || empty($aiResponse['content'])) {
+                throw new \Exception("AI Service returned empty content.");
+            }
 
             $news->update([
                 'ai_title' => $aiResponse['title'] ?? $news->title,
-                'ai_content' => $finalContent,
-                'status' => 'draft'
+                'ai_content' => $aiResponse['content'],
+                'status' => 'draft',
+                'is_rewritten' => true
             ]);
 
             Log::info("✅ AI Job Completed. ID: {$this->newsId}");
 
         } catch (\Exception $e) {
-            Log::error("🔥 AI Job Failed for ID {$this->newsId}: " . $e->getMessage());
-            $news->update(['status' => 'failed']);
+            Log::error("🔥 AI Job Exception for ID {$this->newsId}: " . $e->getMessage());
+            $this->fail($e); 
+        }
+    }
+
+
+    public function failed(\Throwable $exception)
+    {
+        $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
+        
+        if ($news) {
+            $news->update([
+                'status' => 'Rewrite failed'
+            ]);
+            
+            Log::error("❌ AI Job Officially Failed for News ID: {$this->newsId}. Status set to 'failed'.");
         }
     }
 }

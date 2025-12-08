@@ -316,36 +316,107 @@ class NewsScraperService
 
     // --- Python & Node.js Runners ---
     
+    /**
+     * Run the Hardcore Python Scraper (Universal Path Support)
+     */
     public function runPythonScraper($url)
     {
         $scriptPath = base_path("scraper.py"); 
-        if (!file_exists($scriptPath)) return null;
+        
+        if (!file_exists($scriptPath)) {
+            Log::error("Python script not found at: $scriptPath");
+            return null;
+        }
 
-        $pythonCmd = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'python' : 'python3';
-        if (file_exists(base_path('venv/bin/python'))) $pythonCmd = base_path('venv/bin/python');
+        // 🔥 আপডেট: স্মার্ট OS ডিটেকশন ও পাথ সিলেকশন
+        $pythonCmd = 'python'; // ডিফল্ট
 
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // উইন্ডোজ (Localhost/Laragon)
+            $pythonCmd = 'python'; 
+        } else {
+            // লিনাক্স (VPS) - সাধারণত এই পাথে থাকে
+            if (file_exists('/usr/bin/python3')) {
+                $pythonCmd = '/usr/bin/python3';
+            } else {
+                $pythonCmd = 'python3'; // ফলব্যাক
+            }
+        }
+
+        // ভার্চুয়াল এনভায়রনমেন্ট চেক (যদি থাকে)
+        if (file_exists(base_path('venv/bin/python'))) {
+            $pythonCmd = base_path('venv/bin/python');
+        }
+
+        // কমান্ড রান করা
         $command = "$pythonCmd " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " 2>&1";
         $output = shell_exec($command);
         
+        // রেজাল্ট প্রসেসিং
         $data = json_decode($output, true);
-        return (json_last_error() === JSON_ERROR_NONE && !empty($data['body'])) ? $data : null;
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            // ডিবাগিং এর জন্য লগ রাখা (প্রয়োজন হলে আন-কমেন্ট করুন)
+            // Log::warning("Python Raw Output: " . substr($output, 0, 500));
+            return null;
+        }
+
+        return (isset($data['body']) && !empty($data['body'])) ? $data : null;
     }
 
+    /**
+     * Run the Hardcore Node.js Scraper (Universal Path Support)
+     */
     public function runPuppeteer($url)
     {
         $tempFile = storage_path("app/public/temp_" . time() . "_" . rand(100,999) . ".html");
         $scriptPath = base_path("scraper-engine.js");
         
-        if (!file_exists($scriptPath)) return null;
+        if (!file_exists($scriptPath)) {
+            Log::error("Node script not found at: $scriptPath");
+            return null;
+        }
 
-        $command = "node " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " " . escapeshellarg($tempFile) . " 2>&1";
+        // 🔥 আপডেট: স্মার্ট Node পাথ ডিটেকশন
+        $nodeCmd = 'node'; // ডিফল্ট
+
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // উইন্ডোজ
+            $nodeCmd = 'node'; 
+        } else {
+            // লিনাক্স: সঠিক পাথ খুঁজে বের করার চেষ্টা
+            $detectedNode = shell_exec('which node');
+            if ($detectedNode && !empty(trim($detectedNode))) {
+                $nodeCmd = trim($detectedNode); // যেমন: /usr/bin/node
+            } elseif (file_exists('/usr/bin/node')) {
+                $nodeCmd = '/usr/bin/node';
+            } elseif (file_exists('/usr/local/bin/node')) {
+                $nodeCmd = '/usr/local/bin/node';
+            }
+        }
+
+        $command = "$nodeCmd " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " " . escapeshellarg($tempFile) . " 2>&1";
+        
         shell_exec($command);
         
         if (file_exists($tempFile)) {
             $htmlContent = file_get_contents($tempFile);
-            unlink($tempFile);
+            unlink($tempFile); // টেম্প ফাইল ডিলিট
             return (strlen($htmlContent) > 500) ? $htmlContent : null;
         }
+        
         return null;
     }
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 }
