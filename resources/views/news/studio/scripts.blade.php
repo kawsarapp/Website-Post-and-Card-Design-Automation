@@ -296,9 +296,9 @@
 			},
 
 			'Jaijaidin3': { 
-				title: { ...commonDefaults, top: 800, left: 540, width: 900, textAlign: 'center', originX: 'center', fill: '#ffffff' },
-				date:  { ...commonDefaults, top: 50, left: 50, originX: 'left', fill: '#ffffff' },
-				image: { ...commonDefaults, left: 40, top: 160, width: 1000, height: 450, zoom: 1.1 }
+				title: { ...commonDefaults, top: 750, left: 540, width: 900, textAlign: 'center', originX: 'center', fill: '#ffffff' },
+				date:  { ...commonDefaults, top: 40, left: 860, originX: 'left', fill: '#000000',fontSize: 32 },
+				image: { ...commonDefaults, left: 1, top: 200, width: 1080, height: 450, zoom: 1.0, originX: 'center' }
 			},
 
 			'Jaijaidin4': { 
@@ -315,7 +315,14 @@
 				title: { ...commonDefaults, top: 712, left: 545, width: 1050, textAlign: 'center', originX: 'center', fill: '#ffffff' },
 				date:  { ...commonDefaults, top: 635, left: 130, originX: 'center', fill: '#000000', fontSize: 30 },
 				image: { ...commonDefaults, left: 40, top: 160, width: 1000, height: 450, zoom: 1.1 }
+			},
+			'jonomot': { 
+				title: { ...commonDefaults, top: 770, left: 545, width: 1050, textAlign: 'center', originX: 'center', fill: '#ffffff' },
+				date:  { ...commonDefaults, top: 45, left: 120, originX: 'center', fill: '#000000', fontSize: 30 },
+				image: { ...commonDefaults, left: 1, top: 160, width: 1080, height: 540, zoom: 1.0 }
 			}
+			
+			
 
 			
 			

@@ -63,6 +63,7 @@ class UserSetting extends Model
 		'Jaijaidin3' => 'Jaijaidin 3',
 		'Jaijaidin4' => 'Jaijaidin 4',
 		'ShotterKhoje' => 'Shotter Khoje',
+		'jonomot' => 'jonomot',
     ];
 
     public function user()

@@ -12,8 +12,18 @@ class WebsiteController extends Controller
     public function index()
     {
         if (auth()->user()->role === 'super_admin') {
-            $websites = Website::withoutGlobalScopes()->get();
+            //$websites = Website::withoutGlobalScopes()->get();
+			$websites = \App\Models\Website::withoutGlobalScopes()->get();
         } else {
+			
+			/*$websites = \App\Models\Website::withoutGlobalScopes()
+                       ->where(function($q) {
+                            $q->where('user_id', auth()->id()) // নিজের তৈরি
+                              ->orWhere('is_public', true);    // অথবা পাবলিক (যদি এমন কলাম থাকে)
+                        })
+                        ->get();
+						*/
+						
             $websites = auth()->user()->accessibleWebsites()
                         ->withoutGlobalScope(\App\Models\Scopes\UserScope::class)
                         ->get();
@@ -43,23 +53,40 @@ class WebsiteController extends Controller
     }
 
     public function scrape($id)
-    {
-        // ১. ওয়েবসাইট ভ্যালিডেশন
-        if (auth()->user()->role === 'super_admin') {
-            $website = Website::withoutGlobalScopes()->findOrFail($id);
-        } else {
-            $website = auth()->user()->accessibleWebsites()
-                ->withoutGlobalScope(\App\Models\Scopes\UserScope::class)
-                ->where('websites.id', $id)
-                ->firstOrFail();
-        }
-
-        // ✅ FIX: Redis::rpush এর বদলে সরাসরি Laravel Job ডিসপ্যাচ করা হচ্ছে
-        // এটি আপনার রানিং 'queue:work' প্রসেস ব্যবহার করবে
-        ScrapeWebsite::dispatch($website->id, auth()->id());
-
-        return back()->with('success', '⏳ স্ক্র্যাপিং ব্যাকগ্রাউন্ডে শুরু হয়েছে! ১-২ মিনিট পর পেজ রিফ্রেশ দিন।');
+{
+    // ১. ওয়েবসাইট ভ্যালিডেশন / লোড
+    if (auth()->user()->role === 'super_admin') {
+        $website = Website::withoutGlobalScopes()->findOrFail($id);
+    } else {
+        $website = auth()->user()->accessibleWebsites()
+            ->withoutGlobalScope(\App\Models\Scopes\UserScope::class)
+            ->where('websites.id', $id)
+            ->firstOrFail();
     }
+
+    // ২. 🔥 ৫ মিনিটের চেকিং লজিক (Cool-down Check)
+    if ($website->last_scraped_at) {
+        $lastScraped = \Carbon\Carbon::parse($website->last_scraped_at);
+        $diffInSeconds = now()->diffInSeconds($lastScraped);
+        $cooldownSeconds = 300; // ৫ মিনিট = ৩০০ সেকেন্ড
+
+        if ($diffInSeconds < $cooldownSeconds) {
+            $wait = $cooldownSeconds - $diffInSeconds;
+            $minutes = floor($wait / 60);
+            $seconds = $wait % 60;
+            return back()->with('error', "অনুগ্রহ করে অপেক্ষা করুন: {$minutes} মিনিট {$seconds} সেকেন্ড পর আবার চেষ্টা করুন।");
+        }
+    }
+
+    // ৩. টাইমস্ট্যাম্প আপডেট করা
+    $website->update(['last_scraped_at' => now()]);
+
+    // ৪. জব ডিসপ্যাচ (Redis::rpush এর বদলে সরাসরি Laravel Job ব্যবহার)
+    ScrapeWebsite::dispatch($website->id, auth()->id());
+
+    return back()->with('success', '⏳ স্ক্র্যাপিং ব্যাকগ্রাউন্ডে শুরু হয়েছে! বাটনটি ৫ মিনিটের জন্য লক করা হলো। ১-২ মিনিট পর রিফ্রেশ দিন।');
+}
+
 
     // Update Method (Optional)
     public function update(Request $request, $id)
