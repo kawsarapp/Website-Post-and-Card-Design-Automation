@@ -32,6 +32,13 @@ Route::middleware('guest')->group(function () {
 
 // --- Authenticated User Routes ---
 Route::middleware(['auth'])->group(function () {
+	
+	Route::get('/news/check-scrape-status', [App\Http\Controllers\NewsController::class, 'checkScrapeStatus'])->name('news.check-status');
+	
+	Route::get('/notifications/read', function () {
+    auth()->user()->unreadNotifications->markAsRead();
+    return back();
+	})->name('notifications.read');
 
     // Design Save
     Route::post('/settings/save-design', [SettingsController::class, 'saveDesign'])->name('settings.save-design');

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Jobs\ProcessNewsPost;
 use App\Jobs\GenerateAIContent;
+use Illuminate\Support\Facades\DB;
 
 class NewsController extends Controller
 {
@@ -46,9 +47,8 @@ class NewsController extends Controller
 		
 		$newsItems = $query->orderBy('published_at', 'desc')->paginate(20);
         
-
-        
-        return view('news.index', compact('newsItems', 'settings'));
+		$isScraping = \Illuminate\Support\Facades\Cache::has('scraping_user_' . $user->id);
+        return view('news.index', compact('newsItems', 'settings', 'isScraping'));
     }
 
     public function studio($id)
@@ -139,7 +139,6 @@ class NewsController extends Controller
     
 	public function publishDraft(Request $request, $id)
     {
-        // ১. ভ্যালিডেশন
         $request->validate([
             'title' => 'required',
             'content' => 'required',
@@ -152,43 +151,35 @@ class NewsController extends Controller
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
-        // ২. ইমেজ হ্যান্ডলিং (খুব গুরুত্বপূর্ণ)
-        // ডিফল্ট হিসেবে আগের ইমেজ থাকবে
+        // ইমেজ হ্যান্ডলিং
         $finalImage = $news->thumbnail_url; 
-
-        // ক. যদি ইউজার নতুন ফাইল আপলোড করে
         if ($request->hasFile('image_file')) {
             $path = $request->file('image_file')->store('news-uploads', 'public');
             $finalImage = asset('storage/' . $path);
-        } 
-        // খ. অথবা যদি ইউজার নতুন কোনো ইমেজের লিংক দেয়
-        elseif ($request->filled('image_url')) {
+        } elseif ($request->filled('image_url')) {
             $finalImage = $request->image_url;
         }
 
-        // ৩. 🔥 ডাটাবেস আপডেট (User Edits Save)
-        // এখানে ইউজারের এডিট করা টাইটেল, কন্টেন্ট এবং ইমেজ ডাটাবেসে পার্মানেন্টলি সেভ হবে
+        // ডাটাবেস আপডেট
         $news->update([
-            'status'        => 'publishing', // স্ট্যাটাস চেঞ্জ
-            'title'         => $request->title,   // এডিট করা টাইটেল
-            'content'       => $request->content, // এডিট করা কন্টেন্ট
-            'thumbnail_url' => $finalImage,       // এডিট করা ইমেজ
+            'status'        => 'publishing',
+            'title'         => $request->title,
+            'content'       => $request->content,
+            'thumbnail_url' => $finalImage,
+            'error_message' => null, // এরর রিসেট
             'updated_at'    => now()
         ]);
 
-        // ৪. ক্যাটাগরি প্রসেসিং
+        // ক্যাটাগরি প্রসেসিং
         $categories = [];
-        if ($request->filled('category')) {
-            $categories[] = $request->category;
-        }
+        if ($request->filled('category')) $categories[] = $request->category;
         if ($request->filled('extra_categories') && is_array($request->extra_categories)) {
             $categories = array_merge($categories, $request->extra_categories);
         }
         $categories = array_values(array_unique($categories));
-        
         if(empty($categories)) $categories = [1];
 
-        // ৫. জবের জন্য ডাটা প্রস্তুত (এখানেও এডিট করা ডাটা যাবে)
+        // জবের জন্য কাস্টম ডাটা
         $customData = [
             'title'          => $request->title,
             'content'        => $request->content,
@@ -196,7 +187,7 @@ class NewsController extends Controller
             'featured_image' => $finalImage
         ];
 
-        // ৬. জব ডিসপ্যাচ
+        // জব ডিসপ্যাচ (ক্রেডিট ডিডাকশন স্কিপ হবে কারণ ড্রাফট পাবলিশ ফ্রি)
         \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
 
         return response()->json(['success' => true, 'message' => 'পরিবর্তন সেভ করা হয়েছে এবং পাবলিশিং শুরু হয়েছে!']);
@@ -210,29 +201,42 @@ class NewsController extends Controller
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
-        // ১. ক্রেডিট চেক ও ডিডাকশন
+        // ১. ক্রেডিট ও লিমিট চেক (ট্রানজেকশন সহ)
         if ($user->role !== 'super_admin') {
              if($user->credits <= 0) {
                 return back()->with('error', 'আপনার ক্রেডিট শেষ!');
              }
-             
-             // 🔥 ফিক্স: আগে এটি কমেন্ট করা ছিল, এখন আন-কমেন্ট করা হলো
-             $user->decrement('credits', 1);
 
-             \App\Models\CreditHistory::create([
-                 'user_id' => $user->id,
-                 'action_type' => 'ai_rewrite', // টাইপ ঠিক করা হলো
-                 'description' => 'AI Processing: ' . \Illuminate\Support\Str::limit($news->title, 40),
-                 'credits_change' => -1,
-                 'balance_after' => $user->credits // আপডেটেড ব্যালেন্স
-             ]);
+             // ডেইলি লিমিট চেক
+             if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                 return back()->with('error', 'আজকের ডেইলি লিমিট শেষ! আগামীকাল আবার চেষ্টা করুন।');
+             }
+             
+             // 🔥 নিরাপদ ক্রেডিট ডিডাকশন
+             try {
+                 DB::transaction(function () use ($user, $news) {
+                     $user->decrement('credits', 1);
+
+                     \App\Models\CreditHistory::create([
+                         'user_id' => $user->id,
+                         'action_type' => 'ai_rewrite',
+                         'description' => 'AI Processing: ' . \Illuminate\Support\Str::limit($news->title, 40),
+                         'credits_change' => -1,
+                         'balance_after' => $user->credits
+                     ]);
+                 });
+             } catch (\Exception $e) {
+                 Log::error("Credit Deduction Failed: " . $e->getMessage());
+                 return back()->with('error', 'সিস্টেম এরর! ক্রেডিট কাটা সম্ভব হয়নি।');
+             }
         }
 
         if ($news->status === 'processing') {
             return back()->with('error', 'এটি ইতিমধ্যেই প্রসেসিং হচ্ছে...');
         }
 
-        $news->update(['status' => 'processing']);
+        // স্ট্যাটাস আপডেট ও জব ডিসপ্যাচ
+        $news->update(['status' => 'processing', 'error_message' => null]);
         GenerateAIContent::dispatch($news->id, $user->id);
 
         return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে!');
@@ -330,80 +334,75 @@ class NewsController extends Controller
     // ==========================================
 
 	public function postToWordPress($id, SocialPostService $socialPoster)
-{
-    $user = Auth::user();
-    $settings = $user->settings;
+    {
+        $user = Auth::user();
+        $settings = $user->settings;
 
-    // অটোমেশন চালু থাকলে ম্যানুয়াল পোস্ট ব্লক
-    if ($settings && $settings->is_auto_posting) {
-        return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
-    }
-
-    // ওয়ার্ডপ্রেস কানেকশন চেক
-    if (!$settings || !$settings->wp_url || !$settings->wp_username) {
-        return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
-    }
-
-    // নিউজ আইডি লোড
-    $news = NewsItem::with(['website' => function ($query) {
-        $query->withoutGlobalScopes();
-    }])->findOrFail($id);
-
-    // ইতিমধ্যে পোস্ট হয়েছে কিনা
-    if ($news->is_posted) {
-        return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
-    }
-
-    // 🔥 ক্রেডিট কাটা + ডেইলি লিমিট (দুই ফাইল merge)
-    if ($user->role !== 'super_admin') {
-
-        if ($user->credits <= 0) {
-            return back()->with('error', 'আপনার রিরাইট ক্রেডিট শেষ!');
+        if ($settings && $settings->is_auto_posting) {
+            return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
         }
 
-        if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
-            return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
+        if (!$settings || !$settings->wp_url || !$settings->wp_username) {
+            return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
         }
 
-        // ক্রেডিট ১ কমানো
-        $user->decrement('credits', 1);
+        $news = NewsItem::with(['website' => function ($query) {
+            $query->withoutGlobalScopes();
+        }])->findOrFail($id);
 
-        // ক্রেডিট হিস্টরি তৈরি
-        \App\Models\CreditHistory::create([
-            'user_id' => $user->id,
-            'action_type' => 'manual_post',
-            'description' => 'Manual Post: ' . \Illuminate\Support\Str::limit($news->title, 40),
-            'credits_change' => -1,
-            'balance_after' => $user->credits
-        ]);
+        if ($news->is_posted) {
+            return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
+        }
+
+        // 🔥 ক্রেডিট ও ডেইলি লিমিট চেক (SECURE)
+        if ($user->role !== 'super_admin') {
+            if ($user->credits <= 0) {
+                return back()->with('error', 'আপনার ক্রেডিট শেষ!');
+            }
+            if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
+            }
+
+            try {
+                DB::transaction(function () use ($user, $news) {
+                    $user->decrement('credits', 1);
+                    \App\Models\CreditHistory::create([
+                        'user_id' => $user->id,
+                        'action_type' => 'manual_post',
+                        'description' => 'Manual Post: ' . \Illuminate\Support\Str::limit($news->title, 40),
+                        'credits_change' => -1,
+                        'balance_after' => $user->credits
+                    ]);
+                });
+            } catch (\Exception $e) {
+                return back()->with('error', 'ক্রেডিট সিস্টেমে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+            }
+        }
+
+        // সোশ্যাল পোস্টিং (FB, TG, WhatsApp)
+        $cardImageUrl = $news->thumbnail_url;
+        $newsLink     = $news->source_url;
+
+        try {
+            if ($settings->post_to_fb && !empty($settings->fb_page_id)) {
+                $socialPoster->postToFacebook($settings, $news->title, $cardImageUrl, $newsLink);
+            }
+            if ($settings->post_to_telegram && !empty($settings->telegram_channel_id)) {
+                $socialPoster->postToTelegram($settings, $news->title, $cardImageUrl, $newsLink);
+            }
+            if ($settings->post_to_whatsapp && !empty($settings->whatsapp_number_id)) {
+                $socialPoster->postToWhatsApp($settings, $news->title, $cardImageUrl, $newsLink);
+            }
+        } catch (\Exception $e) {
+            Log::error("Social Post Error: " . $e->getMessage());
+        }
+
+        // জব ডিসপ্যাচ (ক্রেডিট আগেই কাটা হয়েছে তাই এখানে স্কিপ হবে)
+        $news->update(['status' => 'publishing']);
+        ProcessNewsPost::dispatch($news->id, $user->id, [], true);
+
+        return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! ⏳');
     }
-
-    // সোশ্যাল পোস্টিং
-    $cardImageUrl = $news->thumbnail_url;
-    $newsLink     = $news->source_url;
-
-    try {
-        if ($settings->post_to_fb && !empty($settings->fb_page_id)) {
-            $socialPoster->postToFacebook($settings, $news->title, $cardImageUrl, $newsLink);
-        }
-
-        if ($settings->post_to_telegram && !empty($settings->telegram_channel_id)) {
-            $socialPoster->postToTelegram($settings, $news->title, $cardImageUrl, $newsLink);
-        }
-
-        if ($settings->post_to_whatsapp && !empty($settings->whatsapp_number_id)) {
-            $socialPoster->postToWhatsApp($settings, $news->title, $cardImageUrl, $newsLink);
-        }
-    } catch (\Exception $e) {
-        Log::error("Social Post Error: " . $e->getMessage());
-    }
-
-    // 🔥_JOB DISPATCH with Skip Credit Flag = true_
-    // → যাতে জব আর ক্রেডিট না কাটে (কন্ট্রোলারে আগেই কাটা হয়েছে)
-    ProcessNewsPost::dispatch($news->id, $user->id, [], true);
-
-    return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! (WP, FB, TG & WhatsApp) ⏳');
-}
 
     
     
@@ -524,4 +523,24 @@ class NewsController extends Controller
             return back()->with('error', 'নিউজ সেভ করতে সমস্যা হয়েছে। লগ চেক করুন।')->withInput();
         }
     }
+	
+	
+	
+		// NewsController.php এর ভেতরে যেকোনো জায়গায় যোগ করুন
+
+		public function checkScrapeStatus()
+		{
+			$isScraping = \Illuminate\Support\Facades\Cache::has('scraping_user_' . auth()->id());
+			
+			if (!$isScraping && request()->query('force_wait') === 'true') {
+				sleep(2); // ২ সেকেন্ড ওয়েট
+				$isScraping = \Illuminate\Support\Facades\Cache::has('scraping_user_' . auth()->id());
+			}
+			
+			return response()->json([
+				'scraping' => $isScraping
+			]);
+		}
+	
+	
 }

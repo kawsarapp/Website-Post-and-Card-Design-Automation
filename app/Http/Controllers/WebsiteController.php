@@ -83,8 +83,11 @@ class WebsiteController extends Controller
 
     // ৪. জব ডিসপ্যাচ (Redis::rpush এর বদলে সরাসরি Laravel Job ব্যবহার)
     ScrapeWebsite::dispatch($website->id, auth()->id());
+	
+	return redirect()->route('news.index', ['scraping' => 'started'])
+        ->with('success', '⏳ স্ক্র্যাপিং শুরু হয়েছে! অনুগ্রহ করে অপেক্ষা করুন...');
 
-    return back()->with('success', '⏳ স্ক্র্যাপিং ব্যাকগ্রাউন্ডে শুরু হয়েছে! বাটনটি ৫ মিনিটের জন্য লক করা হলো। ১-২ মিনিট পর রিফ্রেশ দিন।');
+	
 }
 
 

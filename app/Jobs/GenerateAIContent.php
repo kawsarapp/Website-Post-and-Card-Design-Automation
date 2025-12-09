@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\NewsItem;
-use App\Models\User;
 use App\Services\AIWriterService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -11,6 +10,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use App\Models\User;
+use App\Notifications\AIRewriteCompletedNotification;
 
 class GenerateAIContent implements ShouldQueue
 {
@@ -19,8 +20,8 @@ class GenerateAIContent implements ShouldQueue
     protected $newsId;
     protected $userId;
 
-    public $tries = 2;        // সর্বোচ্চ ২ বার চেষ্টা করবে
-    public $timeout = 120;    // ১২০ সেকেন্ড বা ২ মিনিট সময় পাবে
+    public $tries = 2;        
+    public $timeout = 120;    
 
     public function __construct($newsId, $userId)
     {
@@ -42,7 +43,6 @@ class GenerateAIContent implements ShouldQueue
         $news->update(['status' => 'processing']);
 
         try {
-
             $title = $news->title ?? '';
             $desc = $news->description ?? $news->summary ?? '';
             $body = $news->content ?? '';
@@ -59,13 +59,10 @@ class GenerateAIContent implements ShouldQueue
             if (!empty($cleanBody)) {
                 $fullContext .= "Details: " . $cleanBody;
             } else {
-                // যদি বডি না থাকে
                 $fullContext .= "Details: (Full body missing, please verify facts and write a complete report based on the Headline and Summary provided above)";
             }
 
-            // ==================================================
-
-            // ৪. AI কল করা
+            // AI কল করা
             $aiResponse = $aiWriter->rewrite($fullContext, $title);
 
             if (empty($aiResponse) || empty($aiResponse['content'])) {
@@ -76,10 +73,24 @@ class GenerateAIContent implements ShouldQueue
                 'ai_title' => $aiResponse['title'] ?? $news->title,
                 'ai_content' => $aiResponse['content'],
                 'status' => 'draft',
-                'is_rewritten' => true
+                'is_rewritten' => true,
+                'error_message' => null 
             ]);
 
             Log::info("✅ AI Job Completed. ID: {$this->newsId}");
+
+            // 🔥 Notification Logic (Updated for UTF-8 Safety)
+            $user = \App\Models\User::find($this->userId);
+            if ($user) {
+                // ১. টাইটেল নির্ধারণ
+                $rawTitle = $news->ai_title ?? $news->title;
+                
+                // ২. বাংলা ক্যারেক্টার যাতে ভেঙে না যায়, তাই এনকোডিং ফিক্স করা
+                $safeTitle = mb_convert_encoding($rawTitle, 'UTF-8', 'UTF-8');
+
+                // ৩. নোটিফিকেশন পাঠানো
+                $user->notify(new \App\Notifications\AIRewriteCompletedNotification($safeTitle, $news->id));
+            }
 
         } catch (\Exception $e) {
             Log::error("🔥 AI Job Exception for ID {$this->newsId}: " . $e->getMessage());
@@ -87,17 +98,17 @@ class GenerateAIContent implements ShouldQueue
         }
     }
 
-
     public function failed(\Throwable $exception)
     {
         $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
         
         if ($news) {
             $news->update([
-                'status' => 'Rewrite failed'
+                'status' => 'failed',
+                'error_message' => 'AI Error: ' . $exception->getMessage()
             ]);
             
-            Log::error("❌ AI Job Officially Failed for News ID: {$this->newsId}. Status set to 'failed'.");
+            Log::error("❌ AI Job Officially Failed for News ID: {$this->newsId}. Error saved to DB.");
         }
     }
 }

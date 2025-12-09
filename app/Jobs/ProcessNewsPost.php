@@ -59,7 +59,7 @@ class ProcessNewsPost implements ShouldQueue
             $finalContent = $this->customData['content'] ?? $news->ai_content ?? $news->content;
             $finalImage = $this->customData['featured_image'] ?? $news->thumbnail_url;
             
-            // 🔥 ক্যাটাগরি ভেরিয়েবল সেটআপ (সঠিক নাম: $categories)
+            // ক্যাটাগরি সেটআপ
             $categories = $this->customData['category_ids'] ?? [];
             
             if (empty($categories) && isset($this->customData['category_id'])) {
@@ -79,7 +79,7 @@ class ProcessNewsPost implements ShouldQueue
             $laravelSuccess = false;
             $wpPostId = null;
 
-            // ১. ওয়ার্ডপ্রেস পোস্টিং (WordPress Posting)
+            // ১. ওয়ার্ডপ্রেস পোস্টিং
             if ($settings && $settings->wp_url && $settings->wp_username) {
                 
                 $postResult = $wpService->createPost(
@@ -96,12 +96,17 @@ class ProcessNewsPost implements ShouldQueue
                     $wpPostId = $postResult['post_id'];
                     Log::info("✅ WP Post Success: ID {$wpPostId}");
                 } else {
-                    Log::error("❌ WP Post Failed: " . ($postResult['message'] ?? 'Unknown'));
+                    // ওয়ার্ডপ্রেসের স্পেসিফিক এরর লগ করা
+                    $errorMsg = $postResult['message'] ?? 'Unknown WP Error';
+                    Log::error("❌ WP Post Failed: " . $errorMsg);
+                    // যদি লারাভেল পোস্টিং অফ থাকে, তবে এখনই এক্সেপশন থ্রো করা যাতে failed() মেথড কল হয়
+                    if (!$settings->post_to_laravel) {
+                        throw new \Exception("WP Failed: " . $errorMsg);
+                    }
                 }
             }
 
-            // ২. লারাভেল API পোস্টিং (Laravel API Posting)
-            // এটি তখনই চলবে যদি সেটিংসে post_to_laravel = 1 থাকে
+            // ২. লারাভেল API পোস্টিং
             if ($settings && $settings->post_to_laravel && $settings->laravel_site_url) {
                 try {
                     $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/external-news-post';
@@ -112,7 +117,6 @@ class ProcessNewsPost implements ShouldQueue
                         'content' => $finalContent,
                         'image_url' => $finalImage,
                         'category_name' => $news->category ?? 'General',
-                        // 🔥🔥 FIXED: এখানে $categories ব্যবহার করা হয়েছে (আগে ভুল ছিল)
                         'category_ids' => $categories, 
                         'original_link' => $news->original_link
                     ]);
@@ -121,7 +125,6 @@ class ProcessNewsPost implements ShouldQueue
                         $laravelSuccess = true;
                         Log::info("✅ Laravel Post Success.");
                     } else {
-                        // লারাভেল ফেইল করলেও যাতে জব বন্ধ না হয়, তাই শুধু লগ রাখা হলো
                         Log::error("❌ Laravel Post Failed: " . $response->body());
                     }
                 } catch (\Exception $e) {
@@ -129,7 +132,7 @@ class ProcessNewsPost implements ShouldQueue
                 }
             }
 
-            // ৩. ফাইনাল আপডেট (যেকোনো একটা সফল হলেই হবে)
+            // ৩. ফাইনাল আপডেট
             if ($wpSuccess || $laravelSuccess) {
 
                 DB::transaction(function () use ($news, $user, $wpPostId, $finalImage) {
@@ -139,13 +142,13 @@ class ProcessNewsPost implements ShouldQueue
                         'wp_post_id' => $wpPostId,
                         'posted_at' => now(),
                         'status' => 'published',
-                        'thumbnail_url' => $finalImage
+                        'thumbnail_url' => $finalImage,
+                        'error_message' => null // সফল হলে এরর মেসেজ ক্লিন করা
                     ]);
 
                     if (!$this->skipCreditDeduction && $user->role !== 'super_admin') {
                         if ($user->credits > 0) {
                             $user->decrement('credits');
-                            
                             \App\Models\CreditHistory::create([
                                 'user_id' => $user->id,
                                 'action_type' => 'auto_post',
@@ -153,8 +156,6 @@ class ProcessNewsPost implements ShouldQueue
                                 'credits_change' => -1,
                                 'balance_after' => $user->credits
                             ]);
-                            
-                            Log::info("✅ Credit deducted via Job for User ID: {$user->id}");
                         }
                     }
                 });
@@ -164,11 +165,10 @@ class ProcessNewsPost implements ShouldQueue
                 } catch (\Exception $e) {}
 
             } else {
-                // যদি দুটোই ফেইল করে বা কনফিগার করা না থাকে
                 if (!$settings->wp_url && !$settings->post_to_laravel) {
-                    Log::warning("⚠️ No destination configured (WP or Laravel). Job ending.");
+                    throw new \Exception("Settings Error: No WP or Laravel destination configured.");
                 } else {
-                    throw new \Exception("Posting failed on configured endpoints.");
+                    throw new \Exception("Posting failed on all configured endpoints.");
                 }
             }
 
@@ -178,12 +178,16 @@ class ProcessNewsPost implements ShouldQueue
         }
     }
 
+    // 🔥 গুরুত্বপূর্ণ আপডেট: ডাটাবেসে এরর সেভ করা
     public function failed(\Throwable $exception)
     {
         $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
         if ($news) {
-            $news->update(['status' => 'failed']);
-            Log::error("❌ Job Final Failure for News ID: {$this->newsId}");
+            $news->update([
+                'status' => 'failed',
+                'error_message' => 'Publish Error: ' . $exception->getMessage() // ইউজারকে দেখানোর জন্য
+            ]);
+            Log::error("❌ Job Final Failure for News ID: {$this->newsId}. Error saved to DB.");
         }
     }
 }

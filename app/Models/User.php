@@ -103,4 +103,17 @@ class User extends Authenticatable
         
         return $this->credits > 0;
     }
+	
+			// User.php এর ভেতরে
+		public function getTodaysPostCountAttribute()
+		{
+			return $this->newsItems() // অথবা creditHistories()
+				->where('is_posted', true)
+				->whereDate('posted_at', now())
+				->count();
+		}
+	
+	
+	
+	
 }

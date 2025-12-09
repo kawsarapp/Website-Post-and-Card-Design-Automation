@@ -13,6 +13,8 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
+use App\Models\User;
+use App\Notifications\NewsScrapedNotification;
 
 class ScrapeWebsite implements ShouldQueue
 {
@@ -30,6 +32,8 @@ class ScrapeWebsite implements ShouldQueue
 
     public function handle(NewsScraperService $scraper)
     {
+		
+		\Illuminate\Support\Facades\Cache::put('scraping_user_' . $this->userId, true, now()->addMinutes(5));
         try {
             $realId = is_array($this->websiteId) ? ($this->websiteId['id'] ?? null) : $this->websiteId;
             $website = Website::withoutGlobalScopes()->find($realId);
@@ -76,7 +80,6 @@ class ScrapeWebsite implements ShouldQueue
                 ];
             }
 
-            // ৩. জেনেরিক ফলব্যাক (Priority 3 - Last Resort)
             $strategies[] = [
 					'source'    => 'GENERIC (SMART)',
 					'container' => 'article a, .post a, .news a, h2 a, h3 a', // ✅ শুধু আর্টিকেলের লিংক খুঁজবে
@@ -87,7 +90,6 @@ class ScrapeWebsite implements ShouldQueue
             $activeTitleSelector = null;
             $foundItems = null;
 
-            // লুপ চালিয়ে চেক করবে কোনটি কাজ করে
             foreach ($strategies as $strat) {
                 $tempItems = $crawler->filter($strat['container']);
                 $count = $tempItems->count();
@@ -105,10 +107,6 @@ class ScrapeWebsite implements ShouldQueue
                 Log::error("❌ All strategies failed! Could not find any news items.");
                 return;
             }
-
-            // ==========================================
-            // 🔄 PROCESSING ITEMS (LIMIT 5)
-            // ==========================================
 
             $count = 0;
             $limit = 5; // 👈 শর্ত অনুযায়ী ৫টি লিমিট সেট করা হলো
@@ -226,9 +224,19 @@ class ScrapeWebsite implements ShouldQueue
             });
 
             Log::info("🏁 JOB FINISHED. Total Saved: {$count}");
+			\Illuminate\Support\Facades\Cache::forget('scraping_user_' . $this->userId);
+			
+			if ($count > 0) {
+				$user = \App\Models\User::find($this->userId);
+				if ($user) {
+					$user->notify(new \App\Notifications\NewsScrapedNotification($count));
+				}
+			}
 
         } catch (\Exception $e) {
-            Log::error("🔥 CRITICAL JOB ERROR: " . $e->getMessage());
+			
+			\Illuminate\Support\Facades\Cache::forget('scraping_user_' . $this->userId);
+			Log::error("🔥 CRITICAL JOB ERROR: " . $e->getMessage());
         }
     }
 

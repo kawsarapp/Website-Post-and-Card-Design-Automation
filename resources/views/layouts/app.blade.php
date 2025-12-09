@@ -66,23 +66,42 @@
                 <div class="flex items-center gap-4">
 
                     @auth
+                        {{-- Credits Badge --}}
                         <a href="/credits" class="hidden sm:flex items-center gap-1 bg-gradient-to-r from-yellow-100 to-amber-100 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm hover:shadow hover:scale-105 transition">
                             <span>🪙</span>
                             <span>Credits: {{ auth()->user()->credits ?? 0 }}</span>
                         </a>
 
-                        @php
-                            $unreadCount = auth()->user()->unreadNotifications ? auth()->user()->unreadNotifications->count() : 0;
-                        @endphp
+                        {{-- ✅ NEW: Daily Post Limit Display (Desktop) --}}
+                        @if(auth()->user()->role !== 'super_admin')
+                            @php
+                                $limit = auth()->user()->daily_post_limit ?? 20;
+                                // User Model এ 'getTodaysPostCountAttribute' থাকতে হবে
+                                $used = auth()->user()->todays_post_count ?? 0; 
+                                $isLimitReached = $used >= $limit;
+                            @endphp
+                            
+                            <div class="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm border transition cursor-help
+                                {{ $isLimitReached ? 'bg-red-50 border-red-200 text-red-700' : 'bg-blue-50 border-blue-200 text-blue-700' }}" 
+                                title="Today's Post Limit: {{ $used }} used out of {{ $limit }}">
+                                <span>📊</span>
+                                <span>Limit: {{ $used }} / {{ $limit }}</span>
+                            </div>
+                        @endif
 
-                        <div class="relative cursor-pointer group hover:scale-110 transition" title="Notifications">
-                            <span class="text-xl text-gray-600 group-hover:text-indigo-600">🔔</span>
-                            @if($unreadCount > 0)
-                                <span class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white animate-pulse">
-                                    {{ $unreadCount }}
-                                </span>
-                            @endif
-                        </div>
+                        {{-- নোটিফিকেশন আইকন আপডেট --}}
+							@php
+								$unreadCount = auth()->user()->unreadNotifications->count();
+							@endphp
+
+							<a href="{{ route('news.drafts') }}" onclick="markRead()" class="relative cursor-pointer group hover:scale-110 transition" title="Notifications">
+								<span class="text-xl text-gray-600 group-hover:text-indigo-600">🔔</span>
+								@if($unreadCount > 0)
+									<span class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white animate-pulse">
+										{{ $unreadCount }}
+									</span>
+								@endif
+							</a>
 
                         <div class="flex items-center gap-3 pl-2 border-l border-gray-200">
                             <span class="text-sm font-bold text-gray-700 hidden md:block">
@@ -110,6 +129,7 @@
     </nav>
 
     @auth
+        {{-- Mobile Bottom Navigation --}}
         <div class="sm:hidden fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 flex justify-around items-center p-3 text-[10px] font-bold z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <a href="{{ route('news.index') }}" class="flex flex-col items-center gap-1 text-gray-500 hover:text-indigo-600 {{ request()->routeIs('news.index') ? 'text-indigo-600' : '' }}">
                 <span class="text-lg">📰</span> News
@@ -122,6 +142,16 @@
                 <span class="text-lg">🪙</span> 
                 <span>{{ auth()->user()->credits ?? 0 }}</span>
             </a>
+
+            {{-- ✅ NEW: Daily Limit (Mobile) --}}
+            @if(auth()->user()->role !== 'super_admin')
+                <div class="flex flex-col items-center gap-1 text-blue-600">
+                    <span class="text-lg">📊</span>
+                    <span class="text-[9px]">
+                        {{ auth()->user()->todays_post_count ?? 0 }}/{{ auth()->user()->daily_post_limit ?? 20 }}
+                    </span>
+                </div>
+            @endif
 
             <a href="{{ route('settings.index') }}" class="flex flex-col items-center gap-1 text-gray-500 hover:text-indigo-600 {{ request()->routeIs('settings.*') ? 'text-indigo-600' : '' }}">
                 <span class="text-lg">⚙️</span> Settings
@@ -161,6 +191,13 @@
             </div>
         </div>
     </footer>
+	
+	
+	<script>
+    function markRead() {
+        fetch('{{ route("notifications.read") }}');
+    }
+</script>
 
 </body>
 </html>
