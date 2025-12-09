@@ -3,143 +3,153 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import crypto from 'crypto';
+import UserAgent from 'user-agents'; // র‍্যান্ডম ইউজার এজেন্টের জন্য
 
-// ১. প্লাগিন সেটআপ
+// 🔥 প্লাগিন সেটআপ (Cloudflare বাইপাস করার মূল চাবিকাঠি)
 puppeteer.use(StealthPlugin());
 puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 
-const url = process.argv[2];
+// ইনপুট আর্গুমেন্ট গ্রহণ
+const targetUrl = process.argv[2];
 const outputFile = process.argv[3];
-const cookiePath = path.resolve('scraper_cookies.json'); // কুকি সেভ করার ফাইল
 
-if (!url || !outputFile) {
-    console.error("Usage: node scraper-engine.js <url> <outputFile>");
+if (!targetUrl || !outputFile) {
+    console.error("❌ Usage: node scraper-engine.js <url> <outputFile>");
     process.exit(1);
 }
 
-// র‍্যান্ডম ফাংশন
+// 🔥 ইউনিক কুকি ফাইল লজিক (Concurrency Fix)
+// URL থেকে ডোমেইন বের করে আলাদা হ্যাশ তৈরি হবে।
+// ফলে প্রথম আলোর কুকি যুগান্তরে বা এক ইউজারের সেশন অন্য ইউজারে মিক্স হবে না।
+const domainHash = crypto.createHash('md5').update(targetUrl).digest('hex');
+const tempDir = os.tmpdir();
+const cookiePath = path.join(tempDir, `cookie_${domainHash}.json`);
+
+// হেল্পার ফাংশন: র‍্যান্ডম ডিলে (হিউম্যান বিহেভিয়ার)
 const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 (async () => {
     let browser;
     try {
+        // ১. ব্রাউজার লঞ্চ কনফিগারেশন (Ultimate VPS Optimization)
         browser = await puppeteer.launch({
-            headless: "new",
+            headless: "new", // নতুন ফাস্ট হেডলেস মোড
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
+                '--disable-dev-shm-usage', // VPS মেমোরি ক্রাশ ফিক্স
                 '--disable-accelerated-2d-canvas',
                 '--disable-gpu',
                 '--window-size=1920,1080',
-                '--disable-blink-features=AutomationControlled',
                 '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-infobars',
-                '--exclude-switches=enable-automation'
+                '--blink-settings=imagesEnabled=true', // ইমেজ লোড হবে (URL পাওয়ার জন্য), কিন্তু রেন্ডার কমাবে
             ],
-            ignoreDefaultArgs: ["--enable-automation"]
+            ignoreDefaultArgs: ["--enable-automation"],
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined // যদি সিস্টেমে ক্রোম থাকে
         });
 
         const page = await browser.newPage();
-        
-        // ২. ভিউপোর্ট এবং স্মার্ট হেডার
-        await page.setViewport({ width: 1920 + randomDelay(-50, 50), height: 1080 + randomDelay(-50, 50) });
-        
-        const userAgents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        ];
-        await page.setUserAgent(userAgents[Math.floor(Math.random() * userAgents.length)]);
 
-        // 🔥 ৩. কুকি লোড করা (যদি থাকে)
+        // ২. রিসোর্স অপটিমাইজেশন (Speed Boost 🚀)
+        // ফন্ট, মিডিয়া এবং স্টাইলশিট ব্লক করা হবে যাতে পেজ দ্রুত লোড হয়
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            const resourceType = req.resourceType();
+            if (['font', 'media', 'stylesheet', 'other'].includes(resourceType)) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
+        // ৩. র‍্যান্ডম ইউজার এজেন্ট এবং ভিউপোর্ট
+        const userAgent = new UserAgent({ deviceCategory: 'desktop' });
+        await page.setUserAgent(userAgent.toString());
+        await page.setViewport({
+            width: 1920 + randomDelay(-100, 100),
+            height: 1080 + randomDelay(-100, 100),
+            deviceScaleFactor: 1,
+            hasTouch: false,
+            isLandscape: true,
+            isMobile: false,
+        });
+
+        // ৪. কুকি রিস্টোর (আগের সেশন থাকলে ক্লাউডফ্লেয়ার বাইপাস সহজ হয়)
         if (fs.existsSync(cookiePath)) {
-            const cookiesString = fs.readFileSync(cookiePath);
-            const cookies = JSON.parse(cookiesString);
-            // বর্তমান ডোমেইনের সাথে মিল রেখে কুকি সেট করা
-            const domainCookies = cookies.filter(c => url.includes(c.domain.replace(/^\./, '')));
-            if (domainCookies.length > 0) {
-                await page.setCookie(...domainCookies);
-                console.log("🍪 Loaded saved cookies for faster access.");
+            try {
+                const cookiesString = fs.readFileSync(cookiePath);
+                const cookies = JSON.parse(cookiesString);
+                // ভ্যালিডেশন: শুধু বর্তমান ডোমেইনের কুকি সেট হবে
+                await page.setCookie(...cookies);
+            } catch (e) {
+                console.log("⚠️ Old cookie load failed, creating new session.");
             }
         }
 
-        // ৪. পেজ লোড
+        // ৫. পেজ লোড এবং নেভিগেশন
         try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.goto(targetUrl, { 
+                waitUntil: 'domcontentloaded', 
+                timeout: 60000 
+            });
         } catch (e) {
-            console.log("⚠️ Timeout, continuing...");
+            console.log("⚠️ Timeout hit, but proceeding to extract content...");
         }
 
-        // ৫. ক্লাউডফ্লেয়ার চ্যালেঞ্জ বাইপাস (স্মার্ট ওয়েট)
-        const title = await page.title();
-        if (title.includes("Just a moment") || title.includes("Cloudflare")) {
-            console.log("⚠️ Cloudflare Challenge Detected! Solving...");
+        // ৬. Cloudflare / Bot Check বাইপাস লজিক
+        const pageTitle = await page.title();
+        if (pageTitle.includes("Just a moment") || pageTitle.includes("Cloudflare") || pageTitle.includes("Security Check")) {
+            console.log("🛡️ Cloudflare detected! Waiting & Simulating Human...");
             
-            // হিউম্যান বিহেভিয়ার (মাউস মুভমেন্ট)
-            try {
-                await page.mouse.move(randomDelay(100, 500), randomDelay(100, 500));
-                await page.mouse.down();
-                await new Promise(r => setTimeout(r, randomDelay(200, 800)));
-                await page.mouse.up();
-                await page.mouse.move(randomDelay(100, 500), randomDelay(100, 500));
-            } catch(e) {}
-
-            // ১৫ সেকেন্ড পর্যন্ত অপেক্ষা
-            await new Promise(r => setTimeout(r, 15000));
+            // মাউস মুভমেন্ট সিমুলেশন
+            await page.mouse.move(100, 100);
+            await page.mouse.down();
+            await page.mouse.move(200, 200);
+            await page.mouse.up();
+            
+            await new Promise(r => setTimeout(r, 10000 + randomDelay(2000, 5000)));
         }
 
-        // 🔥 ৬. সফল হলে কুকি সেভ করা (ভবিষ্যতের জন্য)
-        const currentCookies = await page.cookies();
-        fs.writeFileSync(cookiePath, JSON.stringify(currentCookies, null, 2));
-        console.log("💾 Cookies updated/saved.");
-
-        // ৭. হার্ডকোর স্ক্রলিং
+        // ৭. স্মার্ট অটো স্ক্রল (Lazy Load ইমেজ ও কন্টেন্ট পাওয়ার জন্য)
         await page.evaluate(async () => {
             await new Promise((resolve) => {
                 let totalHeight = 0;
-                const distance = 200;
+                const distance = 300; // একটু বড় স্টেপ
                 const timer = setInterval(() => {
                     const scrollHeight = document.body.scrollHeight;
                     window.scrollBy(0, distance);
                     totalHeight += distance;
-                    if (totalHeight >= scrollHeight || totalHeight > 15000) {
+                    
+                    // ১০,০০০ পিক্সেল বা পেজ শেষ হলে থামা
+                    if (totalHeight >= scrollHeight || totalHeight > 10000) {
                         clearInterval(timer);
                         resolve();
                     }
-                }, 100);
+                }, 150); // দ্রুত স্ক্রলিং
             });
         });
 
+        // লোড হওয়ার পর সামান্য অপেক্ষা
         await new Promise(r => setTimeout(r, 2000));
 
-        // ৮. DOM ক্লিনিং ও ইমেজ ফিক্স
-        await page.evaluate(() => {
-            document.querySelectorAll('img').forEach(img => {
-                const possibleAttrs = ['data-src', 'data-original', 'data-lazy-src', 'data-full-url', 'src'];
-                let bestSrc = '';
-                for (const attr of possibleAttrs) {
-                    const val = img.getAttribute(attr);
-                    if (val && val.length > bestSrc.length && !val.startsWith('data:')) bestSrc = val;
-                }
-                if (bestSrc) {
-                    if (bestSrc.includes('?') && /\.(jpg|jpeg|png|webp)/i.test(bestSrc)) bestSrc = bestSrc.split('?')[0];
-                    img.setAttribute('src', bestSrc);
-                }
-            });
-            const junkSelectors = ['.advertisement', '.ads', '[class*="popup"]', 'iframe', 'header', 'footer'];
-            junkSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => el.remove()));
-        });
+        // ৮. নতুন কুকি সেভ (ভবিষ্যতের জন্য)
+        try {
+            const currentCookies = await page.cookies();
+            fs.writeFileSync(cookiePath, JSON.stringify(currentCookies, null, 2));
+        } catch (e) {}
 
-        // ৯. ফাইনাল সেভ
+        // ৯. ফাইনাল HTML এক্সট্রাকশন
         const html = await page.content();
         fs.writeFileSync(outputFile, html);
 
         await browser.close();
-        process.exit(0);
+        process.exit(0); // Success
 
     } catch (error) {
-        console.error('❌ Puppeteer Error:', error.message);
+        console.error("🔥 Critical Error:", error.message);
         if (browser) await browser.close();
-        process.exit(1);
+        process.exit(1); // Error code specifically for PHP to catch
     }
 })();

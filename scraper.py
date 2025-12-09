@@ -2,144 +2,171 @@ import sys
 import json
 import io
 import re
-import os
-import subprocess
-import tempfile
 from urllib.parse import urljoin
 import trafilatura
 from curl_cffi import requests
 from bs4 import BeautifulSoup
 
-# কনসোল এনকোডিং ফিক্স
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+# ==========================================
+# 🔥 UNIVERSAL ENCODING FIX (Windows/Linux)
+# ==========================================
+# Windows কনসোলে বাংলা টেক্সট প্রিন্ট করতে গেলে ক্রাশ করে, তাই এটা ফিক্স করা হলো।
+if sys.platform.startswith('win'):
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+else:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# ইনপুট চেক
+# ইনপুট আর্গুমেন্ট চেক
 try:
-    url = sys.argv[1]
+    target_url = sys.argv[1]
 except IndexError:
     print(json.dumps({"error": "No URL provided"}))
     sys.exit(1)
 
-# --- HELPER 1: FAST PYTHON REQUEST ---
-# --- HELPER 1: FAST PYTHON REQUEST ---
-def get_html_fast(target_url):
+# ==========================================
+# 🚀 FAST REQUEST (Browser Impersonation)
+# ==========================================
+def get_html(url):
     try:
+        # লেটেস্ট ক্রোম ব্রাউজারের মতো আচরণ করবে
         response = requests.get(
-            target_url, 
-            impersonate="chrome124", 
+            url,
+            impersonate="chrome120", 
             timeout=30,
-            follow_redirects=True, # 🔥 রিডাইরেক্ট ফলো করবে
             headers={
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'bn-BD,bn;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Accept-Encoding': 'gzip, deflate, br, zstd',
-                'Referer': 'https://www.google.com/',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-                'Sec-Ch-Ua-Mobile': '?0',
-                'Sec-Ch-Ua-Platform': '"Windows"',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'cross-site',
-                'Sec-Fetch-User': '?1'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         )
         if response.status_code == 200:
-            if response.encoding is None:
+            # এনকোডিং অটো-ডিটেক্ট করা
+            if response.encoding is None or response.encoding == 'ISO-8859-1':
                 response.encoding = response.apparent_encoding
             return response.text
     except Exception as e:
+        # সাইলেন্ট ফেইল, যাতে PHP পরের মেথড ট্রাই করতে পারে
         pass
     return None
 
-# --- HELPER 2: HARDCORE PUPPETEER FALLBACK ---
-def get_html_puppeteer(target_url):
-    try:
-        # টেম্প ফাইল তৈরি
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tmp:
-            output_path = tmp.name
+# ==========================================
+# 🧹 SMART CLEANER (Garbage Removal)
+# ==========================================
+def clean_html(soup):
+    # অপ্রয়োজনীয় ট্যাগ রিমুভ করা
+    for tag in soup(['script', 'style', 'iframe', 'nav', 'footer', 'header', 'form', 'svg', 'noscript']):
+        tag.decompose()
 
-        # বর্তমান ফোল্ডার থেকে JS ফাইল খুঁজবে
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraper-engine.js')
-        
-        if not os.path.exists(script_path):
-            return None
+    # কমন অ্যাডস এবং গার্বেজ ক্লাস রিমুভ করা
+    garbage_selectors = [
+        '.advertisement', '.ads', '.ad-container', '.social-share', 
+        '.share-buttons', '.related-news', '.read-more', '.tags', 
+        '.author-bio', '.sidebar', '.comments', '.meta-info', 
+        '[class*="taboola"]', '[id*="taboola"]', '[class*="popup"]'
+    ]
+    
+    for selector in garbage_selectors:
+        for tag in soup.select(selector):
+            tag.decompose()
+            
+    return soup
 
-        # Node.js কল করা
-        process = subprocess.run(
-            ['node', script_path, target_url, output_path],
-            capture_output=True, text=True
-        )
-
-        html_content = ""
-        if process.returncode == 0 and os.path.exists(output_path):
-            with open(output_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-
-        # ক্লিনআপ
-        if os.path.exists(output_path):
-            os.remove(output_path)
-
-        return html_content if len(html_content) > 500 else None
-    except Exception:
-        return None
-
-# --- HELPER 3: INTELLIGENT EXTRACTION ---
-def extract_content(html, base_url):
+# ==========================================
+# 🧠 INTELLIGENT EXTRACTION
+# ==========================================
+def extract_data(html, base_url):
     soup = BeautifulSoup(html, 'html.parser')
     
-    # ১. টাইটেল
+    # ১. টাইটেল এক্সট্রাকশন
     title = ""
     if soup.find('h1'):
         title = soup.find('h1').get_text(strip=True)
     elif soup.title:
         title = soup.title.string
-    
-    # ২. ইমেজ (Hardcore Logic)
+
+    # ২. JSON-LD (Schema.org) থেকে ডাটা বের করা (সবচেয়ে নির্ভুল)
     image = None
-    # JSON-LD চেক
+    schema_body = None
+    
     ld_json = soup.find_all('script', type='application/ld+json')
     for script in ld_json:
         try:
             data = json.loads(script.string)
+            # গ্রাফ ফরম্যাট হ্যান্ডেল করা
+            if '@graph' in data:
+                for item in data['@graph']:
+                    if item.get('@type') in ['NewsArticle', 'Article', 'BlogPosting']:
+                        data = item
+                        break
+            
+            # ইমেজ খোঁজা
             if 'image' in data:
-                img = data['image']
-                image = img['url'] if isinstance(img, dict) else (img[0] if isinstance(img, list) else img)
-                break
-        except: pass
-    
-    # যদি JSON-LD তে না থাকে, তবে বডি থেকে খুঁজবে
+                img_data = data['image']
+                if isinstance(img_data, dict):
+                    image = img_data.get('url')
+                elif isinstance(img_data, list):
+                    image = img_data[0]
+                elif isinstance(img_data, str):
+                    image = img_data
+            
+            # বডি খোঁজা
+            if 'articleBody' in data:
+                schema_body = data['articleBody']
+                
+        except:
+            pass
+
+    # ৩. ইমেজ ফলব্যাক (যদি JSON-LD তে না থাকে)
     if not image:
-        # মেইন কন্টেন্ট এরিয়া ডিটেক্ট করার চেষ্টা
-        main_area = soup.select_one('article, [itemprop="articleBody"], .post-content, .entry-content, #content')
-        target = main_area if main_area else soup
-        
-        images = target.find_all('img')
-        for img in images:
-            src = img.get('src')
-            # ছোট আইকন বা লোগো বাদ দেওয়ার লজিক
-            if src and 'logo' not in src.lower() and 'icon' not in src.lower() and len(src) > 20:
-                # উইডথ চেক (যদি থাকে)
-                width = img.get('width')
-                if width and width.isdigit() and int(width) < 300:
-                    continue 
-                image = urljoin(base_url, src)
-                break
+        # ওপেন গ্রাফ ইমেজ
+        og_image = soup.find('meta', property='og:image')
+        if og_image:
+            image = og_image.get('content')
+        else:
+            # মেইন কন্টেন্ট এরিয়া থেকে ইমেজ খোঁজা
+            main_area = soup.select_one('article, [itemprop="articleBody"], .post-content, #content, .details')
+            target = main_area if main_area else soup
+            
+            for img in target.find_all('img'):
+                src = img.get('src') or img.get('data-src')
+                # লোগো বা ছোট আইকন বাদ দেওয়া
+                if src and 'logo' not in src.lower() and 'icon' not in src.lower():
+                    # রিলেটিভ পাথ ঠিক করা
+                    image = urljoin(base_url, src)
+                    break
 
-    # ৩. বডি টেক্সট (Trafilatura - The Best Extractor)
-    body = trafilatura.extract(html, include_images=False, include_comments=False, favor_precision=True)
+    # ৪. বডি কন্টেন্ট এক্সট্রাকশন (Trafilatura - সেরা টেক্সট ক্লিনার)
+    # প্রথমে স্যুপ ক্লিন করা
+    clean_soup = clean_html(soup)
+    cleaned_html_str = str(clean_soup)
     
-    # Trafilatura ফেইল করলে ফলব্যাক
-    if not body:
-        paragraphs = soup.find_all('p')
-        body = "\n\n".join([p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 40])
+    body_text = trafilatura.extract(
+        cleaned_html_str, 
+        include_images=False, 
+        include_comments=False, 
+        favor_precision=True,
+        target_language='bn' # বাংলার জন্য অপটিমাইজড
+    )
+    
+    # Trafilatura ফেইল করলে ফলব্যাক (Schema Body অথবা সাধারণ প্যারাগ্রাফ)
+    if not body_text:
+        if schema_body:
+            body_text = schema_body
+        else:
+            # ম্যানুয়াল প্যারাগ্রাফ জয়েন
+            paragraphs = clean_soup.find_all('p')
+            body_text = "\n\n".join([p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 40])
 
-    # HTML ফরম্যাটিং
+    # ৫. HTML ফরম্যাটিং (Line break to <p>)
     formatted_body = ""
-    if body:
-        for para in body.split('\n'):
-            if len(para.strip()) > 20:
-                formatted_body += f"<p>{para.strip()}</p>"
+    if body_text:
+        # লাইন ব্রেক দিয়ে প্যারাগ্রাফ আলাদা করা
+        for para in body_text.split('\n'):
+            clean_para = para.strip()
+            if len(clean_para) > 10:
+                formatted_body += f"<p>{clean_para}</p>"
 
     return {
         "title": title,
@@ -148,28 +175,24 @@ def extract_content(html, base_url):
         "source_url": base_url
     }
 
-# --- MAIN EXECUTION ---
+# ==========================================
+# 🏁 MAIN EXECUTION
+# ==========================================
 try:
-    # ধাপ ১: ফাস্ট মেথড
-    html = get_html_fast(url)
-    data = None
+    html_content = get_html(target_url)
     
-    if html:
-        extracted = extract_content(html, url)
-        if extracted['body']:
-            data = extracted
-
-    # ধাপ ২: ফাস্ট মেথডে কাজ না হলে বা বডি না থাকলে -> Puppeteer
-    if not data or not data['body']:
-        html_js = get_html_puppeteer(url)
-        if html_js:
-            data = extract_content(html_js, url)
-
-    # ফাইনাল আউটপুট
-    if data:
-        print(json.dumps(data, ensure_ascii=False))
+    if html_content:
+        data = extract_data(html_content, target_url)
+        
+        # ভ্যালিডেশন: টাইটেল বা বডি না থাকলে এরর
+        if data['title'] and data['body']:
+            print(json.dumps(data, ensure_ascii=False))
+        else:
+            # ডাটা না পেলে এম্পটি জেসন, যাতে PHP পরবর্তী স্টেপে যায়
+            print(json.dumps({"error": "Content extraction failed"}))
     else:
-        print(json.dumps({"error": "Failed to extract content"}))
+        print(json.dumps({"error": "Failed to retrieve HTML"}))
 
 except Exception as e:
+    # যেকোন ক্রিটিক্যাল এররে JSON রিটার্ন
     print(json.dumps({"error": str(e)}))

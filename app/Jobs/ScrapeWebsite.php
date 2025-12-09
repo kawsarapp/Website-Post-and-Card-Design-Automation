@@ -78,10 +78,10 @@ class ScrapeWebsite implements ShouldQueue
 
             // ৩. জেনেরিক ফলব্যাক (Priority 3 - Last Resort)
             $strategies[] = [
-                'source'    => 'GENERIC (ALL LINKS)',
-                'container' => 'a',
-                'title'     => null
-            ];
+					'source'    => 'GENERIC (SMART)',
+					'container' => 'article a, .post a, .news a, h2 a, h3 a', // ✅ শুধু আর্টিকেলের লিংক খুঁজবে
+					'title'     => null
+				];
 
             $activeContainer = null;
             $activeTitleSelector = null;
