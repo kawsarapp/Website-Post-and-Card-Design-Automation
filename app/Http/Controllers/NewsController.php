@@ -139,6 +139,9 @@ class NewsController extends Controller
     
 	public function publishDraft(Request $request, $id)
     {
+		
+		
+		
         $request->validate([
             'title' => 'required',
             'content' => 'required',
@@ -150,8 +153,20 @@ class NewsController extends Controller
 
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
+		
+		
+		// 🔥🔥🔥 FIX: ডেইলি লিমিট চেক যোগ করা হলো
+        if ($user->role !== 'super_admin') {
+             // ১. ক্রেডিট চেক
+             if($user->credits <= 0) {
+                return response()->json(['success' => false, 'message' => '❌ আপনার ক্রেডিট শেষ!']);
+             }
 
-        // ইমেজ হ্যান্ডলিং
+             if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                 return response()->json(['success' => false, 'message' => '❌ আজকের ডেইলি পোস্ট লিমিট শেষ!']);
+             }
+        }
+
         $finalImage = $news->thumbnail_url; 
         if ($request->hasFile('image_file')) {
             $path = $request->file('image_file')->store('news-uploads', 'public');
@@ -207,7 +222,6 @@ class NewsController extends Controller
                 return back()->with('error', 'আপনার ক্রেডিট শেষ!');
              }
 
-             // ডেইলি লিমিট চেক
              if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
                  return back()->with('error', 'আজকের ডেইলি লিমিট শেষ! আগামীকাল আবার চেষ্টা করুন।');
              }
@@ -292,27 +306,12 @@ class NewsController extends Controller
 
         $user = Auth::user();
 
-        /*
         if ($user->role !== 'super_admin') {
-            if ($user->credits <= 0) {
-                return response()->json(['success' => false, 'message' => '❌ আপনার ক্রেডিট শেষ!']);
-            }
-
-            if (!$user->hasDailyLimitRemaining()) {
-                return response()->json(['success' => false, 'message' => "❌ আজকের ডেইলি লিমিট শেষ!"]);
-            }
-
-            $user->decrement('credits', 1);
-
-            \App\Models\CreditHistory::create([
-                'user_id' => $user->id,
-                'action_type' => 'manual_post',
-                'description' => 'Published Draft: ' . \Illuminate\Support\Str::limit($request->title, 40),
-                'credits_change' => -1,
-                'balance_after' => $user->credits
-            ]);
+             if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                 return response()->json(['success' => false, 'message' => '❌ আজকের ডেইলি পোস্ট লিমিট শেষ!']);
+             }
         }
-        */
+		
 
         $news = NewsItem::findOrFail($id);
 
