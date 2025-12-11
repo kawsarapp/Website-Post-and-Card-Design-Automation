@@ -2,54 +2,51 @@
 
 namespace App\Models;
 
-use App\Models\Scopes\UserScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Scopes\UserScope;
 
 class NewsItem extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-		'user_id',
         'user_id',
         'website_id',
         'title',
-        'thumbnail_url',
+        'ai_title',
         'content',
+        'ai_content',
         'original_link',
+        'thumbnail_url',
         'published_at',
-        'rewritten_content',
+        'status',        // draft, published, processing, failed
         'is_posted',
-		'is_queued',
         'wp_post_id',
-		'status',  
-		'ai_title',
-		'ai_content'
-		
+        'posted_at',
+        'error_message',
+        'is_rewritten'   // 🔥 এটি যোগ করা হয়েছে (যাতে ডাটাবেসে সেভ হয়)
     ];
 
-    // প্রথম কোড থেকে booted() যোগ করা হলো—একটুও পরিবর্তন করা হয়নি
+    protected $casts = [
+        'published_at' => 'datetime',
+        'posted_at' => 'datetime',
+        'is_posted' => 'boolean',
+        'is_rewritten' => 'boolean', // 🔥 কাস্টিং যোগ করা হয়েছে
+    ];
+
     protected static function booted()
     {
         static::addGlobalScope(new UserScope);
-
-        static::creating(function ($item) {
-            if (Auth::check()) {
-                $item->user_id = Auth::id();
-            }
-        });
-    }
-
-    // দুই কোডে থাকা রিলেশন—একদম 그대로 রাখা হয়েছে
-    public function website()
-    {
-        return $this->belongsTo(Website::class);
     }
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function website()
+    {
+        return $this->belongsTo(Website::class);
     }
 }
