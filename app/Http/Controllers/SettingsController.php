@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\WordPressService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http; // 🔥 এটি নতুন যোগ করা হয়েছে API কল করার জন্য
 use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
@@ -16,13 +17,12 @@ class SettingsController extends Controller
     public function index()
     {
         $user = Auth::user();
-        // যদি সেটিংস না থাকে, তবে নতুন ইনস্ট্যান্স তৈরি করবে (সেভ করবে না)
         $settings = $user->settings ?? new UserSetting(['user_id' => $user->id]);
         
         return view('settings.index', compact('settings'));
     }
 
-    // ২. সেটিংস আপডেট (WordPress Credentials ও Category Mapping সহ)
+    // ২. সেটিংস আপডেট
     public function update(Request $request)
     {
         $request->validate([
@@ -34,19 +34,21 @@ class SettingsController extends Controller
             'logo_url' => 'nullable|url',
             'telegram_channel_id' => 'nullable|string',
             'default_theme_color' => 'nullable|string',
-			'laravel_site_url' => 'nullable|url',
-			'laravel_api_token' => 'nullable|string',
-			'post_to_laravel' => 'nullable|boolean',
+            'laravel_site_url' => 'nullable|url',
+            'laravel_api_token' => 'nullable|string',
+            'post_to_laravel' => 'nullable|boolean',
         ]);
 
         $user = Auth::user();
 
         // সেটিংস খুঁজে বের করা অথবা নতুন তৈরি করা
         $settings = UserSetting::firstOrNew(['user_id' => $user->id]);
-		
-		$settings->laravel_site_url = $request->laravel_site_url;
-		$settings->laravel_api_token = $request->laravel_api_token;
-		$settings->post_to_laravel = $request->has('post_to_laravel') ? true : false;
+        
+        // লারাভেল সেটিংস আপডেট
+        $settings->laravel_site_url = $request->laravel_site_url;
+        $settings->laravel_api_token = $request->laravel_api_token;
+        // চেক বক্স টিক দেওয়া থাকলে true, না থাকলে false
+        $settings->post_to_laravel = $request->has('post_to_laravel') ? true : false;
 
         $settings->brand_name = $request->brand_name;
         $settings->default_theme_color = $request->default_theme_color ?? 'red';
@@ -68,30 +70,57 @@ class SettingsController extends Controller
         return back()->with('success', 'সেটিংস এবং ম্যাপিং সফলভাবে আপডেট হয়েছে!');
     }
 
+    // 🔥 ৩. ক্যাটাগরি ফেচ করার নতুন লজিক (Laravel + WordPress)
     public function fetchCategories(WordPressService $wpService)
     {
         $user = Auth::user();
         $settings = $user->settings;
 
-        if (!$settings || !$settings->wp_url || !$settings->wp_username || !$settings->wp_app_password) {
-            return response()->json(['error' => 'WordPress settings missing. Please save settings first.'], 400);
+        if (!$settings) {
+            return response()->json(['error' => 'Settings not found'], 400);
         }
 
-        try {
-            $categories = $wpService->getCategories(
-                $settings->wp_url,
-                $settings->wp_username,
-                $settings->wp_app_password
-            );
-            
-            if (empty($categories)) {
-                return response()->json(['error' => 'No categories found or connection failed.'], 404);
+        // --- PART A: যদি Laravel Posting অন থাকে, লারাভেল থেকে ক্যাটাগরি আনবো ---
+        if ($settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token) {
+            try {
+                // URL তৈরি করা (শেষে স্ল্যাশ থাকলে বাদ দেওয়া হচ্ছে)
+                $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/get-categories';
+                
+                // API কল পাঠানো
+                $response = Http::get($apiUrl, [
+                    'token' => $settings->laravel_api_token
+                ]);
+
+                if ($response->successful()) {
+                    return response()->json($response->json());
+                } else {
+                    return response()->json(['error' => 'Laravel API Error: ' . $response->status() . ' - ' . $response->body()], 400);
+                }
+            } catch (\Exception $e) {
+                return response()->json(['error' => 'Laravel Connection Failed: ' . $e->getMessage()], 500);
             }
-
-            return response()->json($categories);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to fetch categories: ' . $e->getMessage()], 500);
         }
+
+        // --- PART B: যদি Laravel অফ থাকে, তবে WordPress চেক করবো ---
+        if ($settings->wp_url && $settings->wp_username && $settings->wp_app_password) {
+            try {
+                $categories = $wpService->getCategories(
+                    $settings->wp_url,
+                    $settings->wp_username,
+                    $settings->wp_app_password
+                );
+                
+                if (empty($categories)) {
+                    return response()->json(['error' => 'No categories found in WordPress.'], 404);
+                }
+
+                return response()->json($categories);
+            } catch (\Exception $e) {
+                return response()->json(['error' => 'WordPress Error: ' . $e->getMessage()], 500);
+            }
+        }
+
+        return response()->json(['error' => 'No Valid Connection (WordPress or Laravel) configured. Please check settings.'], 400);
     }
 
     public function uploadLogo(Request $request)
@@ -128,36 +157,34 @@ class SettingsController extends Controller
         return view('settings.credits', compact('histories', 'user'));
     }
     
-    
-public function saveDesign(Request $request)
-{
-    Log::info('Save Design Request Started for User: ' . auth()->id());
-    Log::info('Incoming Data:', $request->all());
+    public function saveDesign(Request $request)
+    {
+        Log::info('Save Design Request Started for User: ' . auth()->id());
+        Log::info('Incoming Data:', $request->all());
 
-    try {
-        $request->validate([
-            'preferences' => 'required|array'
-        ]);
+        try {
+            $request->validate([
+                'preferences' => 'required|array'
+            ]);
 
-        $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
+            $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
 
-        $settings->design_preferences = $request->preferences;
-        $settings->save();
+            $settings->design_preferences = $request->preferences;
+            $settings->save();
 
-        Log::info('✅ DB Save Success. Saved Data:', $settings->design_preferences ?? []);
+            Log::info('✅ DB Save Success. Saved Data:', $settings->design_preferences ?? []);
 
-        return response()->json(['success' => true]);
+            return response()->json(['success' => true]);
 
-    } catch (\Exception $e) {
-        Log::error('❌ DB Save Error: ' . $e->getMessage());
-        return response()->json(['success' => false, 'error' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::error('❌ DB Save Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'error' => $e->getMessage()]);
+        }
     }
-}
-
 
     public function uploadFrame(Request $request)
     {
-        $request->validate(['frame' => 'required|image|mimes:png|max:2048']); // PNG হতে হবে
+        $request->validate(['frame' => 'required|image|mimes:png|max:2048']); 
         
         if ($request->hasFile('frame')) {
             $path = $request->file('frame')->store('frames', 'public');
@@ -165,8 +192,8 @@ public function saveDesign(Request $request)
         }
         return response()->json(['success' => false], 400);
     }
-	
-	public function updateProfile(Request $request)
+    
+    public function updateProfile(Request $request)
     {
         $user = Auth::user();
         $request->validate([

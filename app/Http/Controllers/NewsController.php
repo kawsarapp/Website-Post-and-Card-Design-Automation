@@ -180,6 +180,10 @@ class NewsController extends Controller
             'status'        => 'publishing',
             'title'         => $request->title,
             'content'       => $request->content,
+			
+			'ai_title'      => $request->title,
+            'ai_content'    => $request->content,
+			
             'thumbnail_url' => $finalImage,
             'error_message' => null, // এরর রিসেট
             'updated_at'    => now()
@@ -286,7 +290,8 @@ class NewsController extends Controller
 
         // ড্রাফট না থাকলে অরিজিনাল ডাটা
         $title = !empty($news->ai_title) ? $news->ai_title : $news->title;
-        $content = !empty($news->ai_content) ? $news->ai_content : strip_tags($news->content);
+		$content = !empty($news->ai_content) ? $news->ai_content : $news->content;
+        //$content = !empty($news->ai_content) ? $news->ai_content : strip_tags($news->content);
 
         return response()->json([
             'success' => true,
@@ -333,76 +338,79 @@ class NewsController extends Controller
     // ==========================================
 
 	public function postToWordPress($id, SocialPostService $socialPoster)
-    {
-        $user = Auth::user();
-        $settings = $user->settings;
+{
+    $user = Auth::user();
+    $settings = $user->settings;
 
-        if ($settings && $settings->is_auto_posting) {
-            return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
-        }
-
-        if (!$settings || !$settings->wp_url || !$settings->wp_username) {
-            return back()->with('error', 'দয়া করে সেটিংসে গিয়ে ওয়ার্ডপ্রেস কানেক্ট করুন।');
-        }
-
-        $news = NewsItem::with(['website' => function ($query) {
-            $query->withoutGlobalScopes();
-        }])->findOrFail($id);
-
-        if ($news->is_posted) {
-            return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
-        }
-
-        // 🔥 ক্রেডিট ও ডেইলি লিমিট চেক (SECURE)
-        if ($user->role !== 'super_admin') {
-            if ($user->credits <= 0) {
-                return back()->with('error', 'আপনার ক্রেডিট শেষ!');
-            }
-            if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
-                return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
-            }
-
-            try {
-                DB::transaction(function () use ($user, $news) {
-                    $user->decrement('credits', 1);
-                    \App\Models\CreditHistory::create([
-                        'user_id' => $user->id,
-                        'action_type' => 'manual_post',
-                        'description' => 'Manual Post: ' . \Illuminate\Support\Str::limit($news->title, 40),
-                        'credits_change' => -1,
-                        'balance_after' => $user->credits
-                    ]);
-                });
-            } catch (\Exception $e) {
-                return back()->with('error', 'ক্রেডিট সিস্টেমে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
-            }
-        }
-
-        // সোশ্যাল পোস্টিং (FB, TG, WhatsApp)
-        $cardImageUrl = $news->thumbnail_url;
-        $newsLink     = $news->source_url;
-
-        try {
-            if ($settings->post_to_fb && !empty($settings->fb_page_id)) {
-                $socialPoster->postToFacebook($settings, $news->title, $cardImageUrl, $newsLink);
-            }
-            if ($settings->post_to_telegram && !empty($settings->telegram_channel_id)) {
-                $socialPoster->postToTelegram($settings, $news->title, $cardImageUrl, $newsLink);
-            }
-            if ($settings->post_to_whatsapp && !empty($settings->whatsapp_number_id)) {
-                $socialPoster->postToWhatsApp($settings, $news->title, $cardImageUrl, $newsLink);
-            }
-        } catch (\Exception $e) {
-            Log::error("Social Post Error: " . $e->getMessage());
-        }
-
-        // জব ডিসপ্যাচ (ক্রেডিট আগেই কাটা হয়েছে তাই এখানে স্কিপ হবে)
-        $news->update(['status' => 'publishing']);
-        ProcessNewsPost::dispatch($news->id, $user->id, [], true);
-
-        return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! ⏳');
+    // ১. অটোমেশন চেক
+    if ($settings && $settings->is_auto_posting) {
+        return back()->with('error', 'অটোমেশন চালু আছে! ম্যানুয়াল পোস্ট করতে হলে আগে অটো পোস্ট OFF করুন।');
     }
 
+    // 🔥 ফিক্স: WP অথবা Laravel যেকোনো একটা থাকলেই হবে
+    $hasWP = $settings->wp_url && $settings->wp_username;
+    $hasLaravel = $settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token;
+
+    if (!$settings || (!$hasWP && !$hasLaravel)) {
+        return back()->with('error', 'দয়া করে সেটিংসে গিয়ে WordPress অথবা Laravel কানেক্ট করুন।');
+    }
+
+    $news = NewsItem::with(['website' => function ($query) {
+        $query->withoutGlobalScopes();
+    }])->findOrFail($id);
+
+    if ($news->is_posted) {
+        return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
+    }
+
+    // ২. ক্রেডিট ও লিমিট চেক (আপনার আগের লজিকই থাকছে)
+    if ($user->role !== 'super_admin') {
+        if ($user->credits <= 0) {
+            return back()->with('error', 'আপনার ক্রেডিট শেষ!');
+        }
+        if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+            return back()->with('error', "আজকের ডেইলি লিমিট ({$user->daily_post_limit}টি) শেষ!");
+        }
+
+        try {
+            DB::transaction(function () use ($user, $news) {
+                $user->decrement('credits', 1);
+                \App\Models\CreditHistory::create([
+                    'user_id' => $user->id,
+                    'action_type' => 'manual_post',
+                    'description' => 'Manual Post: ' . \Illuminate\Support\Str::limit($news->title, 40),
+                    'credits_change' => -1,
+                    'balance_after' => $user->credits
+                ]);
+            });
+        } catch (\Exception $e) {
+            return back()->with('error', 'ক্রেডিট সিস্টেমে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+        }
+    }
+
+    // ৩. সোশ্যাল মিডিয়া পোস্টিং
+    $cardImageUrl = $news->thumbnail_url;
+    $newsLink     = $news->source_url;
+
+    try {
+        if ($settings->post_to_fb && !empty($settings->fb_page_id)) {
+            $socialPoster->postToFacebook($settings, $news->title, $cardImageUrl, $newsLink);
+        }
+        if ($settings->post_to_telegram && !empty($settings->telegram_channel_id)) {
+            $socialPoster->postToTelegram($settings, $news->title, $cardImageUrl, $newsLink);
+        }
+    } catch (\Exception $e) {
+        Log::error("Social Post Error: " . $e->getMessage());
+    }
+
+    // ৪. জব ডিসপ্যাচ
+    $news->update(['status' => 'publishing']);
+    
+    // লজিক ঠিক আছে, জবের ভেতরেই WP/Laravel হ্যান্ডেল হবে
+    ProcessNewsPost::dispatch($news->id, $user->id, [], true);
+
+    return back()->with('success', 'পোস্ট প্রসেসিং শুরু হয়েছে! ⏳ (Laravel/WP)');
+}
     
     
     public function destroy($id)

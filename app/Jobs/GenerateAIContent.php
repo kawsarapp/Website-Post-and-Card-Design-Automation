@@ -20,7 +20,7 @@ class GenerateAIContent implements ShouldQueue
     protected $newsId;
     protected $userId;
 
-    public $tries = 2;        
+    public $tries = 1;
     public $timeout = 120;    
 
     public function __construct($newsId, $userId)
@@ -44,30 +44,14 @@ class GenerateAIContent implements ShouldQueue
 
         try {
             $title = $news->title ?? '';
-            $desc = $news->description ?? $news->summary ?? '';
             $body = $news->content ?? '';
 
-            $cleanBody = trim(strip_tags($body));
-            $cleanDesc = trim(strip_tags($desc));
-
-            $fullContext = "Headline: " . $title . "\n\n";
+            $textOnly = strip_tags(str_replace(['</p>', '<br>', '</div>'], ["\n\n", "\n", "\n"], $body));
+            $cleanBody = trim($textOnly);
             
-            if (!empty($cleanDesc)) {
-                $fullContext .= "Summary/Intro: " . $cleanDesc . "\n\n";
-            }
-            
-            if (!empty($cleanBody)) {
-                $fullContext .= "Details: " . $cleanBody;
-            } else {
-                $fullContext .= "Details: (Full body missing, please verify facts and write a complete report based on the Headline and Summary provided above)";
-            }
+            $fullContext = "Headline: " . $title . "\n\nDetails: " . $cleanBody;
 
-            // AI কল করা
             $aiResponse = $aiWriter->rewrite($fullContext, $title);
-
-            if (empty($aiResponse) || empty($aiResponse['content'])) {
-                throw new \Exception("AI Service returned empty content.");
-            }
 
             $news->update([
                 'ai_title' => $aiResponse['title'] ?? $news->title,
@@ -79,36 +63,49 @@ class GenerateAIContent implements ShouldQueue
 
             Log::info("✅ AI Job Completed. ID: {$this->newsId}");
 
-            // 🔥 Notification Logic (Updated for UTF-8 Safety)
-            $user = \App\Models\User::find($this->userId);
+            $user = User::find($this->userId);
             if ($user) {
-                // ১. টাইটেল নির্ধারণ
-                $rawTitle = $news->ai_title ?? $news->title;
-                
-                // ২. বাংলা ক্যারেক্টার যাতে ভেঙে না যায়, তাই এনকোডিং ফিক্স করা
-                $safeTitle = mb_convert_encoding($rawTitle, 'UTF-8', 'UTF-8');
-
-                // ৩. নোটিফিকেশন পাঠানো
-                $user->notify(new \App\Notifications\AIRewriteCompletedNotification($safeTitle, $news->id));
+                $safeTitle = mb_convert_encoding($news->ai_title, 'UTF-8', 'UTF-8');
+                $user->notify(new AIRewriteCompletedNotification($safeTitle, $news->id));
             }
 
         } catch (\Exception $e) {
-            Log::error("🔥 AI Job Exception for ID {$this->newsId}: " . $e->getMessage());
-            $this->fail($e); 
-        }
-    }
+            
+            $msg = $e->getMessage();
+            $userMessage = "Rewrite Failed. Try Again."; // ডিফল্ট মেসেজ
 
-    public function failed(\Throwable $exception)
-    {
-        $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
-        
-        if ($news) {
+            if ($msg === "SHORT_CONTENT") {
+                $userMessage = "News too short. Please scrape again.";
+            } 
+            elseif ($msg === "API_KEY_MISSING" || $msg === "API_KEY_INVALID") {
+                $userMessage = "System Error: API Key Missing/Invalid.";
+            }
+            elseif ($msg === "SERVER_BUSY" || $msg === "RATE_LIMIT_EXCEEDED") {
+                $userMessage = "AI Server Busy. Please try again in 5 mins.";
+            }
+
+            elseif ($msg === "SERVER_ERROR") {
+                $userMessage = "AI Provider Error. Try again later.";
+            }
+			
+            elseif ($msg === "INSUFFICIENT_BALANCE") {
+                $userMessage = "AI Credits Finished (Contact Admin).";
+            }
+			
+            elseif ($msg === "ALL_AI_FAILED") {
+                $userMessage = "All AI Services are currently down. Try again later.";
+            }
+
+
+            Log::error("🔥 AI Job Failed: $msg");
+
             $news->update([
                 'status' => 'failed',
-                'error_message' => 'AI Error: ' . $exception->getMessage()
+                'error_message' => $userMessage,
+                'ai_content' => null
             ]);
             
-            Log::error("❌ AI Job Officially Failed for News ID: {$this->newsId}. Error saved to DB.");
+            $this->fail($e);
         }
     }
 }

@@ -231,7 +231,7 @@
             // প্রথম ৩ বার (৬ সেকেন্ড) সার্ভার রেসপন্স যাই হোক, আমরা থামবো না (সেফটি)
             const forceWait = checkCount <= 3 ? 'true' : 'false';
 
-            fetch(`{{ route('news.check-status') }}?force_wait=${forceWait}`)
+			fetch(`{{ route('news.check-scrape-status') }}?force_wait=${forceWait}`)
                 .then(res => res.json())
                 .then(data => {
                     // যদি সার্ভার বলে scraping: false এবং আমাদের মিনিমাম চেক (৩ বার) শেষ হয়

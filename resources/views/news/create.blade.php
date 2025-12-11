@@ -1,6 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
+{{-- 🔥 ১. TinyMCE স্ক্রিপ্ট যুক্ত করা হলো --}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap');
+    .font-bangla { font-family: 'Hind Siliguri', sans-serif; }
+</style>
+
 <div class="max-w-3xl mx-auto">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold text-gray-800 font-bangla">✍️ নতুন খবর তৈরি করুন</h2>
@@ -27,7 +35,7 @@
                     <label class="block text-sm font-bold text-gray-700 mb-2">📷 ছবি আপলোড করুন</label>
                     <input type="file" name="image_file" accept="image/*"
                         class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                    <p class="text-xs text-gray-400 mt-1">ফরম্যাট: JPG, PNG, WEBP (Max: 2MB)</p>
+                    <p class="text-xs text-gray-400 mt-1">ফরম্যাট: JPG, PNG, WEBP (Max: 5MB)</p>
                 </div>
 
                 {{-- Option B: Image Link --}}
@@ -42,7 +50,9 @@
             {{-- Content --}}
             <div class="mb-6">
                 <label class="block text-sm font-bold text-gray-700 mb-2">বিস্তারিত খবর (Content)</label>
-                <textarea name="content" required rows="8"
+                
+                {{-- 🔥 ২. Textarea তে ID যোগ করা হয়েছে TinyMCE এর জন্য --}}
+                <textarea name="content" id="newsContent" rows="15"
                     class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 font-bangla"
                     placeholder="এখানে বিস্তারিত লিখুন..."></textarea>
             </div>
@@ -55,12 +65,12 @@
                     💾 ড্রাফটে সেভ করুন
                 </button>
 
-                {{-- ২. AI বাটন (এটি আগের মতোই থাক) --}}
+                {{-- ২. AI বাটন --}}
                 <button type="submit" name="process_ai" value="1" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition flex justify-center items-center gap-2">
                     🤖 সেভ + AI রিরাইট
                 </button>
 
-                {{-- 🔥 ৩. নতুন ডাইরেক্ট পাবলিশ বাটন --}}
+                {{-- ৩. ডাইরেক্ট পাবলিশ বাটন --}}
                 <button type="submit" name="direct_publish" value="1" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-md transition flex justify-center items-center gap-2">
                     🚀 সরাসরি পাবলিশ
                 </button>
@@ -69,4 +79,19 @@
         </form>
     </div>
 </div>
+
+{{-- 🔥 ৩. TinyMCE ইনিশিয়ালাইজেশন স্ক্রিপ্ট --}}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        tinymce.init({
+            selector: '#newsContent', // এই ID টি উপরের textarea তে দেওয়া হয়েছে
+            height: 400,
+            plugins: 'link lists code table preview wordcount',
+            toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright | bullist numlist | link table | code preview',
+            menubar: false,
+            statusbar: true,
+            branding: false
+        });
+    });
+</script>
 @endsection

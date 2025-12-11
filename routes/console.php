@@ -18,7 +18,7 @@ Artisan::command('news:autopost', function () {
         $q->where('is_auto_posting', true);
     })->where('is_active', true)->get();
 
-    $this->info("বোট: মোট " . $users->count() . " জন একটিভ ইউজার পাওয়া গেছে।");
+    $this->info("বোট: মোট " . $users->count() . " জন একটিভ ইউজার পাওয়া গেছে।");
 
     foreach ($users as $user) {
         $this->info("--- চেকিং ইউজার: {$user->name} ---");
@@ -31,13 +31,22 @@ Artisan::command('news:autopost', function () {
 
         $settings = $user->settings;
 
-        // ওয়ার্ডপ্রেস কানেকশন চেক
-        if (!$settings || !$settings->wp_url || !$settings->wp_username) {
-            $this->error("❌ সেটিংস নেই। স্কিপ করছি।");
+        // 🔥 সংশোধিত লজিক: WP অথবা Laravel কানেকশন চেক (লুপের ভেতরে)
+        if (!$settings) {
+            $this->error("❌ সেটিংস পাওয়া যায়নি। স্কিপ করছি।");
             continue;
         }
 
-        // ২. সময় চেক করা (Interval Check)
+        $hasWP = $settings->wp_url && $settings->wp_username;
+        $hasLaravel = $settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token;
+
+        // যদি দুটোর কোনোটিই না থাকে, তবে স্কিপ করবে
+        if (!$hasWP && !$hasLaravel) {
+            $this->error("❌ সেটিংস নেই (WP বা Laravel কোনোটিই সেট করা নেই)। স্কিপ করছি।");
+            continue;
+        }
+
+        // ২. সময় চেক করা (Interval Check)
         $lastPostTime = $settings->last_auto_post_at ? Carbon::parse($settings->last_auto_post_at) : null;
         $intervalMinutes = $settings->auto_post_interval ?? 10;
 
@@ -46,12 +55,12 @@ Artisan::command('news:autopost', function () {
             
             if ($diff < $intervalMinutes) {
                 $wait = $intervalMinutes - $diff;
-                $this->info("⏳ সময় হয়নি। আরও {$wait} মিনিট অপেক্ষা করতে হবে।");
+                $this->info("⏳ সময় হয়নি। আরও {$wait} মিনিট অপেক্ষা করতে হবে।");
                 continue; 
             }
         }
 
-        
+        // ৩. নিউজ খোঁজা
         $newsToPost = NewsItem::withoutGlobalScopes()
             ->where('user_id', $user->id)
             ->where('is_posted', false)
@@ -59,6 +68,7 @@ Artisan::command('news:autopost', function () {
             ->oldest()
             ->first();
 
+        // যদি Queue তে না থাকে, সাধারণ পেন্ডিং নিউজ নাও
         if (!$newsToPost) {
             $newsToPost = NewsItem::withoutGlobalScopes()
                 ->where('user_id', $user->id)
@@ -68,15 +78,17 @@ Artisan::command('news:autopost', function () {
         }
 
         if (!$newsToPost) {
-            $this->warn("⚠️ সকল নিউজ পোস্ট করা হয়েছে বা পেন্ডিং নিউজ নাই।");
+            $this->warn("⚠️ সকল নিউজ পোস্ট করা হয়েছে বা পেন্ডিং নিউজ নাই।");
             continue;
         }
 
-        $this->info("✅ নিউজ পাওয়া গেছে: {$newsToPost->title}");
+        $this->info("✅ নিউজ পাওয়া গেছে: {$newsToPost->title}");
 
         try {
+            // জব ডিসপ্যাচ করা
             ProcessNewsPost::dispatch($newsToPost->id, $user->id);
             
+            // সময় আপডেট করা
             $settings->last_auto_post_at = now();
             $settings->save();
 
@@ -91,6 +103,7 @@ Artisan::command('news:autopost', function () {
 })->purpose('Auto post news via Queue Job');
 
 
+// শিডিউল সেটআপ
 Schedule::command('news:autopost')->everyMinute();
 
 Schedule::call(function () {

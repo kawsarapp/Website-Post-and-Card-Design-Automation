@@ -10,31 +10,28 @@ class NewsScraperService
 {
     /**
      * Main Scrape Method
-     * এই মেথডটি ৩টি ধাপে ডাটা আনার চেষ্টা করবে।
      */
     public function scrape($url, $customSelectors = [])
     {
-        // --------------------------------------------------------
-        // 1️⃣ STEP 1: Python Scraper (Ultimate Fast & Stealthy)
-        // --------------------------------------------------------
-        // পাইথন স্ক্রিপ্ট এখন সরাসরি ক্লিন JSON ডাটা রিটার্ন করে।
+        // 1️⃣ STEP 1: Python Scraper
         $pythonData = $this->runPythonScraper($url);
 
         if ($pythonData && !empty($pythonData['body'])) {
             Log::info("✅ Python Scraper Successful: $url");
+            
+            // 🔥 FIX: cleanHtml ফাংশন এখন নিচে যোগ করা হয়েছে
+            // এবং ডুপ্লিকেট লাইন রিমুভ করা হয়েছে
             return [
                 'title'      => $pythonData['title'] ?? null,
                 'image'      => $pythonData['image'] ?? null,
-                'body'       => $pythonData['body'], // পাইথন নিজেই HTML ফরম্যাট করে দেয়
+                'body'       => $this->cleanHtml($pythonData['body']), 
                 'source_url' => $url
             ];
         }
 
         Log::info("⚠️ Python failed/blocked, trying PHP HTTP fallback...");
 
-        // --------------------------------------------------------
-        // 2️⃣ STEP 2: Direct PHP HTTP Request (Native)
-        // --------------------------------------------------------
+        // 2️⃣ STEP 2: PHP HTTP Request
         $htmlContent = null;
         try {
             $response = Http::withHeaders([
@@ -49,14 +46,9 @@ class NewsScraperService
             Log::warning("HTTP Scrape Failed: " . $e->getMessage());
         }
 
-        // --------------------------------------------------------
-        // 3️⃣ STEP 3: Puppeteer Node.js (Heavy & Powerful)
-        // --------------------------------------------------------
-        // যদি কন্টেন্ট কম থাকে বা ক্লাউডফ্লেয়ার (Just a moment) ডিটেক্ট হয়
+        // 3️⃣ STEP 3: Puppeteer Node.js
         if (empty($htmlContent) || str_contains($htmlContent, 'Just a moment') || strlen($htmlContent) < 600) {
-            Log::info("🔄 Switching to Puppeteer (Ultimate Mode) for: $url");
-
-            // ২ বার চেষ্টা করবে (Retry Logic)
+            Log::info("🔄 Switching to Puppeteer for: $url");
             for ($j = 0; $j < 2; $j++) {
                 $htmlContent = $this->runPuppeteer($url);
                 if ($htmlContent && strlen($htmlContent) > 1000) break;
@@ -64,65 +56,46 @@ class NewsScraperService
             }
         }
 
-        // --------------------------------------------------------
         // 4️⃣ FINAL CHECK
-        // --------------------------------------------------------
         if (!$htmlContent || strlen($htmlContent) < 500) {
             Log::error("❌ All scraping methods failed for: $url");
             return null;
         }
 
-        // --------------------------------------------------------
-        // 5️⃣ PROCESS HTML (Fallback Parser)
-        // --------------------------------------------------------
-        // যদি Python ফেইল করে এবং PHP/Node.js দিয়ে HTML আসে, তখন এটি প্রসেস করবে।
+        // 5️⃣ PROCESS HTML
         return $this->processHtml($htmlContent, $url, $customSelectors);
     }
 
-    /**
-     * 🔥 Run the Advanced Python Scraper
-     */
     public function runPythonScraper($url)
     {
         $scriptPath = base_path("scraper.py"); 
-        
         if (!file_exists($scriptPath)) return null;
 
-        // .env থেকে পাথ নিবে, না পেলে OS ডিটেক্ট করবে
         $pythonCmd = env('PYTHON_PATH'); 
-
         if (!$pythonCmd) {
             $pythonCmd = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'python' : 'python3';
         }
 
-        // 2>&1 দিয়ে এরর সহ ক্যাপচার করা হচ্ছে
         $command = "$pythonCmd " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " 2>&1";
         $output = shell_exec($command);
         
         $data = json_decode($output, true);
         
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            // Log::warning("Python JSON Error: " . substr($output, 0, 150)); // Debug only
-            return null;
-        }
+        if (json_last_error() !== JSON_ERROR_NONE) return null;
 
         return (isset($data['body']) && !empty($data['body'])) ? $data : null;
     }
 
-    /**
-     * 🔥 Run the Ultimate Node.js Scraper
-     */
     public function runPuppeteer($url)
     {
         $scriptPath = base_path("scraper-engine.js");
         if (!file_exists($scriptPath)) return null;
 
-        // ইউনিক টেম্প ফাইল (Windows/Linux Safe)
         $tempFile = storage_path("app/public/temp_" . uniqid() . "_" . rand(1000,9999) . ".html");
-
         $nodeCmd = env('NODE_PATH');
+        
         if (!$nodeCmd) {
-            $nodeCmd = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'node' : 'node'; // Linux এ সাধারণত /usr/bin/node লাগে
+            $nodeCmd = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'node' : 'node';
             if ($nodeCmd === 'node' && strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') {
                 $nodeCmd = trim(shell_exec('which node') ?: 'node');
             }
@@ -134,26 +107,19 @@ class NewsScraperService
         $htmlContent = null;
         if (file_exists($tempFile)) {
             $htmlContent = file_get_contents($tempFile);
-            unlink($tempFile); // কাজ শেষে ডিলিট
+            unlink($tempFile);
         }
         
         return (strlen($htmlContent) > 500) ? $htmlContent : null;
     }
 
-    /**
-     * 🧠 HTML Processor (The Brain of PHP Fallback)
-     */
     private function processHtml($html, $url, $customSelectors)
     {
-        // বাংলা ফন্ট যাতে না ভাঙ্গে (UTF-8 Force)
         if (!mb_detect_encoding($html, 'UTF-8', true)) {
             $html = mb_convert_encoding($html, 'UTF-8', 'auto');
         }
 
         $crawler = new Crawler($html);
-        $domain = parse_url($url, PHP_URL_HOST);
-
-        // ১. গার্বেজ ক্লিনিং (স্ক্রিপ্ট, স্টাইল, অ্যাডস)
         $this->cleanGarbage($crawler);
 
         $data = [
@@ -163,19 +129,17 @@ class NewsScraperService
             'source_url' => $url
         ];
 
-        // ২. JSON-LD চেক (গুগল নিউজের ফরম্যাট) - এটা সবচেয়ে নির্ভুল
         $jsonLdData = $this->extractFromJsonLD($crawler);
         if (!empty($jsonLdData['articleBody']) && strlen($jsonLdData['articleBody']) > 200) {
+            // JSON-LD ডাটাকেও ফরম্যাট করা হচ্ছে যাতে প্যারাগ্রাফ থাকে
             $data['body'] = $this->formatText($jsonLdData['articleBody']);
             
-            // JSON-LD তে ইমেজ থাকলে সেটা নিবে (High Priority)
             if (empty($data['image']) && !empty($jsonLdData['image'])) {
                 $img = $jsonLdData['image'];
                 $data['image'] = is_array($img) ? ($img['url'] ?? $img[0] ?? null) : $img;
             }
         }
 
-        // ৩. ম্যানুয়াল এক্সট্রাকশন (যদি JSON-LD ফেইল করে)
         if (empty($data['body'])) {
             $data['body'] = $this->extractBodyManually($crawler, $customSelectors);
         }
@@ -184,12 +148,20 @@ class NewsScraperService
     }
 
     // ==========================================
-    // 🛠️ HELPER FUNCTIONS (Logic Core)
+    // 🛠️ HELPER FUNCTIONS
     // ==========================================
+
+    /**
+     * 🔥 MISSING FUNCTION ADDED: cleanHtml
+     * এটি স্ক্রিপ্ট ট্যাগ রিমুভ করে কিন্তু প্যারাগ্রাফ ট্যাগ রাখে।
+     */
+    private function cleanHtml($html) {
+        // শুধুমাত্র নির্দিষ্ট ট্যাগগুলো রাখা হবে, বাকি সব রিমুভ (যেমন script, style, iframe)
+        return strip_tags($html, '<p><br><h3><h4><h5><h6><ul><li><b><strong><blockquote><img><a>');
+    }
 
     private function extractBodyManually(Crawler $crawler, $customSelectors)
     {
-        // কমন সিলেক্টর লিস্ট
         $selectors = [
             'div[itemprop="articleBody"]', '.article-details', '#details', '.details', 
             '.content-details', 'article', '#content', '.news-content', 
@@ -198,7 +170,6 @@ class NewsScraperService
             '.post-body', '.td-post-content', '.main-content'
         ];
 
-        // ইউজার যদি কাস্টম সিলেক্টর দেয়, সেটা সবার আগে চেক করবে
         if (!empty($customSelectors['content'])) {
             array_unshift($selectors, $customSelectors['content']);
         }
@@ -209,48 +180,36 @@ class NewsScraperService
         foreach ($selectors as $selector) {
             if ($crawler->filter($selector)->count() > 0) {
                 $container = $crawler->filter($selector);
-                
-                // কন্টেইনারের ভেতর থেকেও গার্বেজ রিমুভ
                 $this->removeJunkElements($container);
 
                 $text = "";
-                $stopProcessing = false;
-
-                $container->filter('p, h3, h4, h5, h6, ul li, blockquote')->each(function (Crawler $node) use (&$text, &$stopProcessing) {
-                    if ($stopProcessing) return;
-
+                // প্যারাগ্রাফ এবং হেডিং আলাদা করে ধরা
+                $container->filter('p, h3, h4, h5, h6, ul, blockquote')->each(function (Crawler $node) use (&$text) {
                     $tag = $node->nodeName();
-                    $rawText = trim($node->text());
+                    $rawHtml = trim($node->html());
+                    // ভেতরের বোল্ড বা লিংক ট্যাগ রাখা হচ্ছে
+                    $cleanText = strip_tags($rawHtml, '<b><strong><a><i><em>'); 
 
-                    // ছোট লাইন বা গার্বেজ টেক্সট বাদ
-                    if (strlen($rawText) < 5 || $this->isGarbageText($rawText)) return;
+                    if (strlen(strip_tags($cleanText)) < 5 || $this->isGarbageText(strip_tags($cleanText))) return;
 
-                    // নিউজ শেষ হওয়ার সিগন্যাল (যেমন: "আরো পড়ুন", "কপিরাইট")
-                    if ($this->isEndSignal($rawText)) {
-                        $stopProcessing = true;
-                        return;
-                    }
-
-                    // ফরম্যাটিং
                     if (in_array($tag, ['h3', 'h4', 'h5', 'h6'])) {
-                        $text .= "<h4>" . $rawText . "</h4>\n";
-                    } elseif ($tag === 'li') {
-                        $text .= "• " . $rawText . "<br>\n";
+                        $text .= "<h3>" . $cleanText . "</h3>\n";
+                    } elseif ($tag === 'ul') {
+                        $text .= "<ul>" . $cleanText . "</ul>\n";
                     } elseif ($tag === 'blockquote') {
-                        $text .= "<blockquote>" . $rawText . "</blockquote>\n";
+                        $text .= "<blockquote>" . $cleanText . "</blockquote>\n";
                     } else {
-                        $text .= "<p>" . $rawText . "</p>\n";
+                        $text .= "<p>" . $cleanText . "</p>\n";
                     }
                 });
 
-                // সবচেয়ে বড় কন্টেন্টটি সেভ রাখবে
-                if (strlen($text) > $maxLength && strlen($text) > 300) {
+                if (strlen($text) > $maxLength) {
                     $maxLength = strlen($text);
                     $bestContent = $text;
                 }
             }
         }
-        return !empty($bestContent) ? trim($bestContent) : null;
+        return !empty($bestContent) ? $bestContent : null;
     }
 
     private function removeJunkElements(Crawler $container)
@@ -275,7 +234,6 @@ class NewsScraperService
 
     private function cleanGarbage(Crawler $crawler)
     {
-        // সম্পূর্ণ পেজ থেকে বড় গার্বেজ রিমুভ
         $junkSelectors = ['script', 'style', 'iframe', 'nav', 'header', 'footer', 'form', '.advertisement', '.ads', '.share-buttons', '.meta', '.comments-area', '.sidebar'];
         $crawler->filter(implode(', ', $junkSelectors))->each(function (Crawler $node) {
             if ($node->getNode(0)->parentNode) {
@@ -295,14 +253,12 @@ class NewsScraperService
     {
         $imageUrl = null;
         $crawler->filter('img')->each(function (Crawler $node) use (&$imageUrl) {
-            if ($imageUrl) return; // ইতিমধ্যে ইমেজ পেলে আর লুপ ঘোরার দরকার নেই
+            if ($imageUrl) return; 
 
-            $src = $node->attr('data-original') 
-                ?? $node->attr('data-src') 
-                ?? $node->attr('src');
+            $src = $node->attr('data-original') ?? $node->attr('data-src') ?? $node->attr('src');
             
-            // ইমেজের সাইজ চেক (ছোট আইকন বাদ)
             $width = $node->attr('width');
+            // Check if width is a number before comparing
             if ($width && is_numeric($width) && $width < 300) return;
 
             if ($src && strlen($src) > 20 && !$this->isGarbageImage($src)) {
@@ -310,7 +266,6 @@ class NewsScraperService
             }
         });
 
-        // রিলেটিভ পাথ ফিক্স (যেমন: /images/news.jpg -> https://site.com/images/news.jpg)
         if ($imageUrl && !filter_var($imageUrl, FILTER_VALIDATE_URL)) {
             $parsedUrl = parse_url($url);
             $root = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
@@ -325,7 +280,6 @@ class NewsScraperService
             foreach ($scripts as $script) {
                 $json = json_decode($script->nodeValue, true);
                 if (isset($json['articleBody'])) return $json;
-                // গ্রাফ ফরম্যাট হ্যান্ডেলিং
                 if (isset($json['@graph'])) {
                     foreach ($json['@graph'] as $item) {
                         if (isset($item['articleBody'])) return $item;
@@ -336,23 +290,10 @@ class NewsScraperService
         return null;
     }
 
-    // গার্বেজ টেক্সট ফিল্টার (বাংলা ও ইংরেজি)
     private function isGarbageText($text) {
         $garbage = ['শেয়ার করুন', 'Advertisement', 'Subscribe', 'Follow us', 'Read more', 'বিজ্ঞাপন', 'আরো পড়ুন'];
         foreach ($garbage as $g) {
             if (stripos($text, $g) !== false && strlen($text) < 50) return true;
-        }
-        return false;
-    }
-
-    // নিউজের শেষ চিহ্নিত করা (যাতে কপিরাইট টেক্সট না আসে)
-    private function isEndSignal($text) {
-        $signals = [
-            'All rights reserved', 'Copyright', '©', 'সম্পাদক ও প্রকাশক', 
-            'Contact us', 'Email:', 'Phone:', 'আরো পড়ুন', 'Related News'
-        ];
-        foreach ($signals as $signal) {
-            if (stripos($text, $signal) === 0) return true; // লাইনের শুরুতে থাকলে
         }
         return false;
     }

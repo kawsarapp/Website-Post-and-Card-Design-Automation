@@ -659,15 +659,52 @@
     function setBackgroundImage(input) { if (input.files && input.files[0]) { const r = new FileReader(); r.onload = function (e) { fabric.Image.fromURL(e.target.result, function(img) { setupMainImage(img); saveHistory(); }); }; r.readAsDataURL(input.files[0]); } }
     function addCustomFrame(input) { if (input.files && input.files[0]) { const r = new FileReader(); r.onload = function (e) { applyAdminTemplate(e.target.result, 'bottom'); }; r.readAsDataURL(input.files[0]); } }
     function removeFrame() { if(frameObj) { canvas.remove(frameObj); frameObj = null; } userSettings.frameUrl = null; savePreference('frameUrl', null); saveHistory(); }
-    function loadFonts() { WebFont.load({ google: { families: ['Hind Siliguri:300,400,500,600,700', 'Noto Sans Bengali', 'Baloo Da 2', 'Galada', 'Anek Bangla', 'Tiro Bangla', 'Mina', 'Oswald', 'Roboto', 'Montserrat'] } }); }
-    function switchTab(tabName) { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); ['design', 'text', 'image', 'layers'].forEach(t => document.getElementById('tab-' + t).classList.add('hidden')); document.getElementById('tab-' + tabName).classList.remove('hidden'); }
+    //function loadFonts() { WebFont.load({ google: { families: ['Hind Siliguri:300,400,500,600,700', 'Noto Sans Bengali', 'Baloo Da 2', 'Galada', 'Anek Bangla', 'Tiro Bangla', 'Mina', 'Oswald', 'Roboto', 'Montserrat'] } }); }
+    
+	function loadFonts() {
+        WebFont.load({
+            google: { 
+                families: [
+                    'Hind Siliguri:300,400,500,600,700', 
+                    'Noto Sans Bengali:400,700', 
+                    'Baloo Da 2:400,500,600,700', 
+                    'Galada', 
+                    'Anek Bangla:400,600,800', 
+                    'Tiro Bangla', 
+                    'Mina', 
+                    'Noto Serif Bengali:400,700', 
+                    'Atma:300,400,500,600,700',
+                    'Eczar:400,600,800',
+                    'Kavivanar',
+                    'Bonbon',
+                    'Modak',
+                    'Laila',
+                    'Kurale',
+                    'Podkova',
+                    
+                    // ইংরেজি ফন্ট
+                    'Oswald:400,700', 
+                    'Roboto:400,700', 
+                    'Montserrat:400,700', 
+                    'Lato:400,700', 
+                    'Open Sans:400,700', 
+                    'Poppins:400,600,700', 
+                    'Raleway:400,700',
+                    'Merriweather:400,700',
+                    'Playfair Display:400,700'
+                ] 
+            }
+        });
+    }
+	
+	
+	function switchTab(tabName) { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); ['design', 'text', 'image', 'layers'].forEach(t => document.getElementById('tab-' + t).classList.add('hidden')); document.getElementById('tab-' + tabName).classList.remove('hidden'); }
     function updateActiveProp(prop, value) { const obj = canvas.getActiveObject(); if (obj) { obj.set(prop, value); if(prop === 'backgroundColor') document.getElementById('transparent-bg-check').checked = false; canvas.renderAll(); if(obj.isHeadline) { if(prop === 'fill') savePreference('color', value); if(prop === 'backgroundColor') savePreference('bg', value); if(prop === 'fontSize') savePreference('size', value); } saveHistory(); } if(prop==='fontSize') document.getElementById('val-size').innerText = value; }
     
     // Change Font (Dynamic)
     function changeFont(fontName) {
         const obj = canvas.getActiveObject();
         if (obj) {
-            // যদি আপলোড করা কাস্টম ফন্ট হয়
             if(fontName.includes('📂')) {
                 const actualName = fontName.replace('📂 ', '');
                 obj.set("fontFamily", actualName);
@@ -675,16 +712,45 @@
                 saveHistory();
                 return;
             }
-            // গুগল ফন্ট হলে
+
+			
+			const localFonts = [
+                'Noto Serif Cond Thin',
+                'Noto Serif Cond Light',
+                'Noto Serif Cond Regular',
+                'Noto Serif Cond Medium',
+                'Noto Serif Cond SemiBold',
+                'Noto Serif Cond Bold',
+                'Noto Serif Cond ExtraBold',
+                'Noto Serif Cond Black',
+                'SolaimanLipi', // আগের যদি থাকে
+                'Shamim'        // আগের যদি থাকে
+            ];
+			
+            
             const cleanFont = fontName.replace(/'/g, "").split(',')[0].trim();
-            WebFont.load({ google: { families: [cleanFont + ':400,700'] }, 
+
+            if (localFonts.includes(cleanFont)) {
+                obj.set("fontFamily", cleanFont);
+                canvas.requestRenderAll();
+                saveHistory();
+                if(obj.isHeadline) savePreference('font', fontName);
+                return;
+            }
+
+            WebFont.load({ 
+                google: { families: [cleanFont + ':400,700'] }, 
                 active: function() { 
-                    obj.set("fontFamily", cleanFont); canvas.requestRenderAll(); 
-                    if(obj.isHeadline) savePreference('font', fontName); saveHistory(); 
+                    obj.set("fontFamily", cleanFont); 
+                    canvas.requestRenderAll(); 
+                    if(obj.isHeadline) savePreference('font', fontName); 
+                    saveHistory(); 
                 } 
             });
         }
     }
+	
+	
     function toggleTransparentBg(checked) { const obj = canvas.getActiveObject(); if (obj) { const color = checked ? '' : (document.getElementById('text-bg').value || '#000'); obj.set('backgroundColor', color); canvas.renderAll(); if(obj.isHeadline) savePreference('bg', color); } }
     function toggleStyle(style) { const obj = canvas.getActiveObject(); if (!obj) return; if (style === 'bold') obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold'); if (style === 'italic') obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic'); if (style === 'underline') obj.set('underline', !obj.underline); canvas.renderAll(); }
     function addText(text, size = 50) { const t = new fabric.Textbox(text, { left: 100, top: 100, width: 400, fontSize: size, fill: '#fff', fontFamily: 'Hind Siliguri', fontWeight: 'bold', textAlign: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }); canvas.add(t); canvas.setActiveObject(t); switchTab('text'); }

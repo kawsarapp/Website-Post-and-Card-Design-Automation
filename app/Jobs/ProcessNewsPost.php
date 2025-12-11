@@ -78,6 +78,7 @@ class ProcessNewsPost implements ShouldQueue
             $wpSuccess = false;
             $laravelSuccess = false;
             $wpPostId = null;
+			
 
             // ১. ওয়ার্ডপ্রেস পোস্টিং
             if ($settings && $settings->wp_url && $settings->wp_username) {
@@ -107,6 +108,13 @@ class ProcessNewsPost implements ShouldQueue
             }
 
             // ২. লারাভেল API পোস্টিং
+			
+			Log::info("🔍 Checking Laravel Settings:", [
+                'toggle_status' => $settings->post_to_laravel,
+                'url' => $settings->laravel_site_url,
+                'token_exists' => !empty($settings->laravel_api_token)
+            ]);
+			
             if ($settings && $settings->post_to_laravel && $settings->laravel_site_url) {
                 try {
                     $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/external-news-post';
