@@ -61,7 +61,7 @@
 {{-- Main News Grid --}}
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="mainNewsGrid">
     @foreach($newsItems as $item)
-    <div class="group bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col h-full overflow-hidden transform hover:-translate-y-1 relative">
+    <div id="news-card-{{ $item->id }}" class="group bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col h-full overflow-hidden transform hover:-translate-y-1 relative">
         
         {{-- Status Badge --}}
         @if($item->is_posted)

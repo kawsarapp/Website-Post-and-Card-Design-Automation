@@ -33,22 +33,37 @@ class NewsController extends Controller
         $this->telegram = $telegram;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
-        
+        if (!$user) return redirect()->route('login');
+
+        $search = $request->input('search');
+        $websiteId = $request->input('website');
+
         $query = NewsItem::with(['website' => function ($q) {
-            $q->withoutGlobalScopes();
-        }]);
-		if ($user->role !== 'super_admin') {
-            $query->where('user_id', $user->id);
+                $q->withoutGlobalScopes();
+            }])
+            ->where('user_id', $user->id)
+            ->where('is_rewritten', 0)      // এখনো AI হাত দেয়নি
+            ->whereNotNull('website_id')    // 🔥 ম্যানুয়াল পোস্ট বাদ (শুধুমাত্র ওয়েবসাইট থেকে আসা)
+            ->where('status', '!=', 'processing'); 
+
+        if ($search) {
+            $query->where('title', 'like', "%{$search}%");
         }
-		
-		$newsItems = $query->orderBy('published_at', 'desc')->paginate(20);
+
+        if ($websiteId) {
+            $query->where('website_id', $websiteId);
+        }
+
+        $newsItems = $query->orderBy('id', 'desc')->paginate(20);
         
-		$isScraping = \Illuminate\Support\Facades\Cache::has('scraping_user_' . $user->id);
-        return view('news.index', compact('newsItems', 'settings', 'isScraping'));
+        $websites = \App\Models\Website::withoutGlobalScopes()
+            ->where('user_id', $user->id)
+            ->get();
+
+        return view('news.index', compact('newsItems', 'websites'));
     }
 
     public function studio($id)
@@ -266,16 +281,15 @@ class NewsController extends Controller
         $user = Auth::user();
         $settings = $user->settings;
 
-        // 🔥 ফিক্স: কুয়েরি বিল্ডার শুরু
         $query = NewsItem::with(['website' => function ($q) {
             $q->withoutGlobalScopes();
         }])
-        ->whereIn('status', ['draft', 'processing', 'publishing', 'published', 'failed']);
-
-        // 🔥 যদি সুপার এডমিন না হয়, তবে শুধু নিজের ড্রাফট দেখবে
-        if ($user->role !== 'super_admin') {
-            $query->where('user_id', $user->id);
-        }
+        ->where('user_id', $user->id)
+        ->where(function($q) {
+            $q->where('is_rewritten', 1)      // ১. AI রিরাইট করা নিউজ
+              ->orWhereNull('website_id')     // ২. 🔥 ম্যানুয়ালি তৈরি করা পোস্ট (Custom)
+              ->orWhereIn('status', ['processing', 'publishing', 'published', 'failed']); // ৩. প্রসেসিং বা পাবলিশড
+        });
 
         $drafts = $query->orderBy('updated_at', 'desc')->paginate(20);
 
