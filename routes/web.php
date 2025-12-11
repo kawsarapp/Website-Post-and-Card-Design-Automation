@@ -49,7 +49,7 @@ Route::middleware(['auth'])->group(function () {
     // 🔥 Design & Settings
     Route::post('/settings/save-design', [SettingsController::class, 'saveDesign'])->name('settings.save-design');
     Route::post('/settings/upload-frame', [SettingsController::class, 'uploadFrame'])->name('settings.upload-frame');
-
+	Route::post('/news/{id}/manual-publish', [NewsController::class, 'publishManualFromIndex'])->name('news.manual-publish');
     // Logout
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -59,7 +59,6 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/websites/{id}', [WebsiteController::class, 'update'])->name('websites.update');
     Route::get('/websites/{id}/scrape', [WebsiteController::class, 'scrape'])->name('websites.scrape');
 
-    // 🔥 News Management
     Route::get('/news', [NewsController::class, 'index'])->name('news.index');
     Route::delete('/news/{id}', [NewsController::class, 'destroy'])->name('news.destroy');
     

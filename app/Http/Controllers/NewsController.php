@@ -221,7 +221,6 @@ class NewsController extends Controller
             'featured_image' => $finalImage
         ];
 
-        // জব ডিসপ্যাচ (ক্রেডিট ডিডাকশন স্কিপ হবে কারণ ড্রাফট পাবলিশ ফ্রি)
         \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
 
         return response()->json(['success' => true, 'message' => 'পরিবর্তন সেভ করা হয়েছে এবং পাবলিশিং শুরু হয়েছে!']);
@@ -235,7 +234,6 @@ class NewsController extends Controller
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
-        // ১. ক্রেডিট ও লিমিট চেক (ট্রানজেকশন সহ)
         if ($user->role !== 'super_admin') {
              if($user->credits <= 0) {
                 return back()->with('error', 'আপনার ক্রেডিট শেষ!');
@@ -245,7 +243,6 @@ class NewsController extends Controller
                  return back()->with('error', 'আজকের ডেইলি লিমিট শেষ! আগামীকাল আবার চেষ্টা করুন।');
              }
              
-             // 🔥 নিরাপদ ক্রেডিট ডিডাকশন
              try {
                  DB::transaction(function () use ($user, $news) {
                      $user->decrement('credits', 1);
@@ -268,7 +265,6 @@ class NewsController extends Controller
             return back()->with('error', 'এটি ইতিমধ্যেই প্রসেসিং হচ্ছে...');
         }
 
-        // স্ট্যাটাস আপডেট ও জব ডিসপ্যাচ
         $news->update(['status' => 'processing', 'error_message' => null]);
         GenerateAIContent::dispatch($news->id, $user->id);
 
@@ -286,9 +282,9 @@ class NewsController extends Controller
         }])
         ->where('user_id', $user->id)
         ->where(function($q) {
-            $q->where('is_rewritten', 1)      // ১. AI রিরাইট করা নিউজ
-              ->orWhereNull('website_id')     // ২. 🔥 ম্যানুয়ালি তৈরি করা পোস্ট (Custom)
-              ->orWhereIn('status', ['processing', 'publishing', 'published', 'failed']); // ৩. প্রসেসিং বা পাবলিশড
+            $q->where('is_rewritten', 1) 
+              ->orWhereNull('website_id')    
+              ->orWhereIn('status', ['processing', 'publishing', 'published', 'failed']);
         });
 
         $drafts = $query->orderBy('updated_at', 'desc')->paginate(20);
@@ -296,16 +292,13 @@ class NewsController extends Controller
         return view('news.drafts', compact('drafts', 'settings'));
     }
 
-    // ৩. ড্রাফট কন্টেন্ট লোড করা (মডালের জন্য)
     public function getDraftContent($id)
     {
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
-        // ড্রাফট না থাকলে অরিজিনাল ডাটা
         $title = !empty($news->ai_title) ? $news->ai_title : $news->title;
 		$content = !empty($news->ai_content) ? $news->ai_content : $news->content;
-        //$content = !empty($news->ai_content) ? $news->ai_content : strip_tags($news->content);
 
         return response()->json([
             'success' => true,
@@ -345,6 +338,38 @@ class NewsController extends Controller
         ProcessNewsPost::dispatch($news->id, $user->id, $customData);
 
         return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
+    }
+	
+	public function publishManualFromIndex(Request $request, $id)
+    {
+        $request->validate([
+            'title' => 'required',
+            'content' => 'required',
+        ]);
+
+        $news = NewsItem::findOrFail($id);
+        $user = Auth::user();
+
+        $news->update([
+            'title'         => $request->title,
+            'content'       => $request->content,
+            'ai_title'      => $request->title,   
+            'ai_content'    => $request->content, 
+            'status'        => 'publishing',
+            'is_rewritten'  => 1,
+            'updated_at'    => now()
+        ]);
+
+        $customData = [
+            'title'          => $news->title,
+            'content'        => $news->content,
+            'category_ids'   => [1], 
+            'featured_image' => $news->thumbnail_url
+        ];
+
+        \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
+
+        return response()->json(['success' => true, 'message' => 'নিউজ আপডেট এবং পাবলিশিং শুরু হয়েছে!']);
     }
 
     // ==========================================

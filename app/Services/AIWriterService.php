@@ -11,27 +11,41 @@ class AIWriterService
 
     public function __construct()
     {
-        // 🔥 UPDATE: প্রম্পটে ভাষার ব্যাপারে কড়া নির্দেশ দেওয়া হয়েছে
+        // 🔥 UPDATE: হুবহু বাংলাদেশী সাব-এডিটর স্টাইল (No Bold, No Garbage, Smart Context)
         $this->systemPrompt = <<<EOT
-You are a Senior Sub-Editor at a leading Bengali News Portal.
-**YOUR GOAL:** Rewrite the provided text into a **detailed, professional news report** in standard "Promit Bangla".
+You are a **Senior Sub-Editor** at a top-tier Bangladeshi Daily (like Prothom Alo or The Daily Star).
+**YOUR GOAL:** Rewrite the raw input into a **crisp, factual, and professional news report** in standard "Promit Bangla".
 
-**🛑 STRICT LANGUAGE RULES:**
-1. **OUTPUT MUST BE BENGALI:** The entire output (Title and Content) MUST be in **Standard Bengali (Bangla)**.
-2. **NO HINDI/ENGLISH:** Do NOT use Hindi words (e.g., करेंगे, देंगे) or English sentences.
-3. **TRANSLATION:** If the source text is in Hindi or English, **TRANSLATE** it completely into professional Bengali before rewriting.
+**🧹 STEP 1: GARBAGE REMOVAL (CRITICAL)**
+Before rewriting, mentally remove all "Garbage Information":
+- **REMOVE:** Promotional text ("Click here", "Subscribe", "Follow us", "Share this").
+- **REMOVE:** Social media jargon ("Viral video", "Netizens say", Hashtags).
+- **REMOVE:** Redundant adjectives (e.g., "Shocking", "Unbelievable", "Mind-blowing").
+- **REMOVE:** Repetitive sentences that say the same thing twice.
 
-**FORMATTING IS MANDATORY:**
-- **Must use HTML tags.**
-- Wrap EVERY paragraph in `<p>` tags.
-- Use `<h3>` for subheadings.
-- Use `<b>` to highlight key info.
+**🧠 STEP 2: CONTEXT & TONE**
+- **Identify the Core News:** What actually happened? (Who, What, When, Where, Why).
+- **Tone:** - If **Politics/Govt**: Formal, serious, neutral. Use words like 'প্রজ্ঞাপন', 'নির্দেশনা', 'জানানো হয়েছে'.
+  - If **Crime/Accident**: Factual, concise. No sensationalism.
+  - If **General**: Informative and direct.
+- **Fact Preservation:** NEVER change Quotes ("..."), Names, Dates, Numbers, or Locations.
+
+**✍️ STEP 3: WRITING RULES (HUMAN TOUCH)**
+1. **NO BOLDING:** Do NOT use `<b>`, `<strong>`, or markdown bold. Real news reports are plain text.
+2. **NO HEADINGS:** Do NOT use `<h3>` or `<h4>` inside the body unless it is a very long feature article. Use paragraph breaks instead.
+3. **INVERTED PYRAMID:** - **Lead Paragraph:** Start directly with the main news. (e.g., "আগামীকাল থেকে স্কুল বন্ধ ঘোষণা করেছে শিক্ষা মন্ত্রণালয়।"). Avoid starting with "It has been reported that...".
+   - **Body:** Provide supporting details and quotes.
+   - **Background:** Context or previous events (if necessary) at the end.
+
+**FORMATTING:**
+- Use ONLY `<p>` tags for paragraphs.
+- Keep paragraphs comprised of 3-4 sentences for readability on mobile screens.
 
 **OUTPUT FORMAT (JSON):**
 Return ONLY a valid JSON object.
 {
-    "title": "A catchy news headline in Bengali",
-    "content": "HTML string with <p> tags."
+    "title": "A professional, catchy news headline in Bengali (Max 10-12 words)",
+    "content": "HTML string with <p> tags only. No bold, no headings."
 }
 EOT;
     }
@@ -98,22 +112,15 @@ EOT;
         if (empty($apiKey)) $apiKey = env('GEMINI_API_KEY');
         if (!$apiKey) throw new \Exception("Gemini API Key Missing");
 
-        // স্মার্ট লুপ: একটার পর একটা মডেল ট্রাই করবে
-        $modelsToTry = [
-            "gemini-1.5-flash", 
-            "gemini-1.5-pro", 
-            "gemini-1.0-pro",
-            "gemini-pro"
-        ];
+        $modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro", "gemini-pro"];
 
         foreach ($modelsToTry as $model) {
             try {
                 $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
                 
-                // Gemini-এর জন্য প্রম্পটে JSON নির্দেশনা দেওয়া
-                $geminiPrompt = $this->systemPrompt . "\n\nProvide output in strictly valid JSON format.";
+                // Gemini-কে বলা হচ্ছে স্মার্টলি ফরম্যাট করতে (No Bold)
+                $geminiPrompt = $this->systemPrompt . "\n\nProvide output in strictly valid JSON format. Remember: NO BOLD text.";
 
-                // কিছু মডেলে responseMimeType সাপোর্ট করে না, তাই সেফটির জন্য শুধু flash এ দেওয়া হলো
                 $config = [];
                 if (str_contains($model, 'flash') || str_contains($model, '1.5')) {
                     $config = ["responseMimeType" => "application/json"];
@@ -136,7 +143,6 @@ EOT;
                 }
                 
                 if ($response->status() >= 400 && $response->status() < 500) {
-                    Log::warning("⚠️ Gemini Model $model failed ({$response->status()}). Trying next...");
                     continue; 
                 }
             } catch (\Exception $e) {
@@ -186,6 +192,8 @@ EOT;
         $json = json_decode($cleanJson, true);
 
         if (json_last_error() === JSON_ERROR_NONE && isset($json['title'])) {
+            // 🔥 Force Clean: AI যদি ভুল করেও Bold ট্যাগ দেয়, আমরা সেটা মুছে ফেলব
+            $json['content'] = strip_tags($json['content'], '<p>'); // শুধু <p> ট্যাগ রাখবে
             return $json;
         }
 
@@ -193,7 +201,7 @@ EOT;
         if (strlen($cleanRaw) > 50) {
             return [
                 'title' => 'AI News (' . $providerName . ')',
-                'content' => $cleanRaw 
+                'content' => strip_tags($cleanRaw, '<p>') 
             ];
         }
         throw new \Exception("$providerName returned invalid format");
