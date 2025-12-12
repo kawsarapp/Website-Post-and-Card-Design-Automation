@@ -19,11 +19,12 @@ class NewsScraperService
         if ($pythonData && !empty($pythonData['body'])) {
             Log::info("✅ Python Scraper Successful: $url");
             
-            // 🔥 FIX: cleanHtml ফাংশন এখন নিচে যোগ করা হয়েছে
-            // এবং ডুপ্লিকেট লাইন রিমুভ করা হয়েছে
+            // ফিক্স করা হচ্ছে
+            $fixedImage = $this->fixVendorImages($pythonData['image'] ?? null);
+
             return [
                 'title'      => $pythonData['title'] ?? null,
-                'image'      => $pythonData['image'] ?? null,
+                'image'      => $fixedImage, // ✅ সংশোধন: এখানে $fixedImage ব্যবহার করতে হবে
                 'body'       => $this->cleanHtml($pythonData['body']), 
                 'source_url' => $url
             ];
@@ -63,7 +64,16 @@ class NewsScraperService
         }
 
         // 5️⃣ PROCESS HTML
-        return $this->processHtml($htmlContent, $url, $customSelectors);
+        // প্রথমে ডাটা প্রসেস করে একটি ভেরিয়েবলে নেওয়া হলো
+        $scrapedData = $this->processHtml($htmlContent, $url, $customSelectors);
+
+        // তারপর ইমেজ ফিক্স করা হলো
+        if (isset($scrapedData['image'])) {
+            $scrapedData['image'] = $this->fixVendorImages($scrapedData['image']);
+        }
+
+        // ✅ সংশোধন: এখন ফিক্স করা ভেরিয়েবলটিই রিটার্ন করতে হবে
+        return $scrapedData;
     }
 
     public function runPythonScraper($url)
@@ -248,6 +258,32 @@ class NewsScraperService
         if ($crawler->filter('title')->count() > 0) return trim($crawler->filter('title')->text());
         return "Untitled News";
     }
+	
+	
+    
+	
+	private function fixVendorImages($imageUrl)
+    {
+        if (!$imageUrl) return null;
+
+        // 🔥 NPB News Logic
+        if (str_contains($imageUrl, 'npbnews.com') && str_contains($imageUrl, 'cache-images')) {
+            $imageUrl = str_replace('cache-images', 'assets', $imageUrl);
+            $imageUrl = preg_replace('/resize-[0-9x]+-/', '', $imageUrl);
+        }
+
+        // 🔥 Jugantor Logic
+        // '/social-thumbnail/' ফোল্ডার রিমুভ করে অরিজিনাল ইমেজে নেওয়া
+        if (str_contains($imageUrl, 'jugantor.com') && str_contains($imageUrl, '/social-thumbnail/')) {
+            $imageUrl = str_replace('/social-thumbnail/', '/', $imageUrl);
+        }
+
+        return $imageUrl;
+    }
+	
+	
+	
+	
 
     private function extractImage(Crawler $crawler, $url)
     {

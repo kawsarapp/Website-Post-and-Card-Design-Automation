@@ -67,7 +67,7 @@
 
                 {{-- ২. AI বাটন --}}
                 <button type="submit" name="process_ai" value="1" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition flex justify-center items-center gap-2">
-                    🤖 সেভ + AI রিরাইট
+                    🤖 AI রিরাইট + সেভ 
                 </button>
 
                 {{-- ৩. ডাইরেক্ট পাবলিশ বাটন --}}
