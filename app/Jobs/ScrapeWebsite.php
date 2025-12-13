@@ -159,9 +159,11 @@ class ScrapeWebsite implements ShouldQueue
                     }
 
                     // Duplicate Check
-                    if (NewsItem::where('original_link', $link)->exists()) {
-                        return; 
-                    }
+					if (NewsItem::where('original_link', $link)
+								->where('user_id', $this->userId) // ✅ এই লাইনটি মাস্ট
+								->exists()) {
+						return; // যদি এই ইউজার আগে নিয়ে থাকে, তবেই বাদ দিবে
+					}
 
                     Log::info("⚡ Found New: " . Str::limit($title, 30));
 

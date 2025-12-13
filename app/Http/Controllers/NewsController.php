@@ -342,29 +342,56 @@ class NewsController extends Controller
 	
 	public function publishManualFromIndex(Request $request, $id)
     {
+        // ১. ভ্যালিডেশন
         $request->validate([
             'title' => 'required',
             'content' => 'required',
+            'image_file' => 'nullable|image|max:5120', // 5MB Max
+            'image_url' => 'nullable|url',
+            'category' => 'nullable'
         ]);
 
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
+        // ==========================================
+        // 🔥 নতুন অংশ: ইমেজ প্রসেসিং
+        // ==========================================
+        $finalImage = $news->thumbnail_url; // ডিফল্ট হিসেবে আগের ইমেজ থাকবে
+
+        if ($request->hasFile('image_file')) {
+            // যদি ফাইল আপলোড করা হয়
+            $path = $request->file('image_file')->store('news-uploads', 'public');
+            $finalImage = asset('storage/' . $path);
+        } elseif ($request->filled('image_url')) {
+            // যদি ইমেজের লিংক দেওয়া হয়
+            $finalImage = $request->image_url;
+        }
+
+        // ==========================================
+        // 🔥 নতুন অংশ: ক্যাটাগরি প্রসেসিং
+        // ==========================================
+        // ক্যাটাগরি সিলেক্ট করলে সেটা নিবে, নাহলে ডিফল্ট ১
+        $categoryIds = $request->filled('category') ? [$request->category] : [1];
+
+        // ২. ডাটাবেস আপডেট
         $news->update([
             'title'         => $request->title,
             'content'       => $request->content,
             'ai_title'      => $request->title,   
             'ai_content'    => $request->content, 
+            'thumbnail_url' => $finalImage, // ✅ আপডেট: নতুন ইমেজ সেভ হবে
             'status'        => 'publishing',
             'is_rewritten'  => 1,
             'updated_at'    => now()
         ]);
 
+        // ৩. জবের জন্য ডাটা রেডি করা
         $customData = [
             'title'          => $news->title,
             'content'        => $news->content,
-            'category_ids'   => [1], 
-            'featured_image' => $news->thumbnail_url
+            'category_ids'   => $categoryIds, // ✅ আপডেট: সিলেক্ট করা ক্যাটাগরি যাবে
+            'featured_image' => $finalImage   // ✅ আপডেট: নতুন ইমেজ যাবে
         ];
 
         \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);

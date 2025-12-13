@@ -1,6 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
+{{-- 🔥 TinyMCE Script Added Here --}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
+
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap');
     .font-bangla { font-family: 'Hind Siliguri', sans-serif; }
@@ -15,6 +18,8 @@
         background-size: 200% 100%;
         animation: shimmer 1.5s infinite;
     }
+    /* TinyMCE z-index fix for modal */
+    .tox-tinymce-aux { z-index: 99999 !important; }
 </style>
 
 {{-- Header Section --}}
@@ -58,8 +63,6 @@
     @endfor
 </div>
 
-
-
 {{-- Main News Grid --}}
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2" id="mainNewsGrid">
     @foreach($newsItems as $item)
@@ -89,7 +92,6 @@
         <div class="h-48 overflow-hidden relative bg-slate-100">
             @if($item->thumbnail_url)
                 <img src="{{ $item->thumbnail_url }}" alt="Thumb" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
-                {{-- Premium Dark Gradient at bottom --}}
                 <div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-80"></div>
             @else
                 <div class="flex items-center justify-center h-full bg-slate-50 relative overflow-hidden group-hover:bg-slate-100 transition-colors">
@@ -180,7 +182,12 @@
                             </button>
 
                             {{-- Edit Button (Outlined) --}}
-                            <button onclick="openManualModal({{ $item->id }}, '{{ addslashes($item->title) }}', `{{ addslashes(strip_tags($item->content)) }}`)" 
+                            {{-- 🔥 Hidden Inputs for safe data passing --}}
+                            <input type="hidden" id="raw-title-{{ $item->id }}" value="{{ $item->title }}">
+                            <input type="hidden" id="raw-image-{{ $item->id }}" value="{{ $item->thumbnail_url }}">
+							<div id="raw-content-{{ $item->id }}" style="display:none;">{!! $item->content !!}</div>
+
+                            <button onclick="openManualModal({{ $item->id }})" 
                                     type="button"
                                     class="bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-600 hover:text-indigo-600 py-2.5 rounded-xl font-bold text-xs transition-all duration-300 flex items-center justify-center gap-1.5">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -211,7 +218,7 @@
     {{ $newsItems->links() }}
 </div>
 
-{{-- PUBLISH MODAL (Same as before) --}}
+{{-- PUBLISH MODAL (Review Draft) --}}
 <div id="rewriteModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh] transform scale-100 transition-transform">
         <div class="bg-white px-6 py-4 flex justify-between items-center border-b border-gray-100">
@@ -247,19 +254,42 @@
     </div>
 </div>
 
-
-
-
-
+{{-- MANUAL EDIT MODAL (Updated with TinyMCE) --}}
 <div id="manualEditModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden animate-fade-in-up">
-        <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
+        <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-lg font-bold text-gray-800">📝 Manual Edit & Publish</h3>
             <button onclick="closeManualModal()" class="text-gray-500 hover:text-red-500 text-2xl">&times;</button>
         </div>
         
-        <div class="p-6">
+        <div class="p-6 overflow-y-auto flex-1">
             <input type="hidden" id="manualNewsId">
+			
+			{{-- 🔥 ১. ইমেজ সেকশন --}}
+            <div class="mb-5 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Feature Image</label>
+                <div class="flex gap-4 items-start">
+                    <div class="w-24 h-24 flex-shrink-0 bg-gray-100 rounded overflow-hidden border">
+                        <img id="manualPreviewImg" src="" class="w-full h-full object-cover">
+                    </div>
+                    <div class="flex-1">
+                        <input type="file" id="manualImageFile" accept="image/*" onchange="previewManualImage(this)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-2">
+                        <div class="text-xs text-gray-400 text-center mb-2">- OR -</div>
+                        <input type="url" id="manualImageUrl" placeholder="Paste image link here..." class="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+            </div>
+
+            {{-- 🔥 ২. ক্যাটাগরি সেকশন --}}
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-sm font-bold text-gray-700">Category</label>
+                    <button type="button" onclick="fetchManualCategories()" class="text-xs text-indigo-600 hover:underline">🔄 Refresh Categories</button>
+                </div>
+                <select id="manualCategory" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 font-bold text-gray-800 bg-white">
+                    <option value="">-- Select Category --</option>
+                </select>
+            </div>
             
             <div class="mb-4">
                 <label class="block text-sm font-bold text-gray-700 mb-2">Title</label>
@@ -268,27 +298,23 @@
 
             <div class="mb-4">
                 <label class="block text-sm font-bold text-gray-700 mb-2">Content</label>
-                <textarea id="manualContent" rows="10" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 text-sm"></textarea>
+                {{-- 🔥 TinyMCE Editor will replace this textarea --}}
+                <textarea id="manualContent" rows="15" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 text-sm"></textarea>
             </div>
+        </div>
 
-            <div class="flex justify-end gap-3 mt-6">
-                <button onclick="closeManualModal()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200">Cancel</button>
-                <button onclick="submitManualPublish()" id="btnManualPub" class="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 shadow-lg flex items-center gap-2">
-                    🚀 Save & Publish
-                </button>
-            </div>
+        <div class="bg-white px-6 py-4 border-t flex justify-end gap-3 flex-shrink-0">
+            <button onclick="closeManualModal()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200">Cancel</button>
+            <button onclick="submitManualPublish()" id="btnManualPub" class="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 shadow-lg flex items-center gap-2">
+                🚀 Save & Publish
+            </button>
         </div>
     </div>
 </div>
 
-
-
-
-
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const urlParams = new URLSearchParams(window.location.search);
-        
         const isServerScraping = @json($isScraping ?? false);
 
         if (urlParams.has('scraping') || isServerScraping) {
@@ -297,25 +323,38 @@
     });
 
     // ==========================================
-    // 🔥 PART 1: SCRAPING MONITOR & LOADING UI
+    // 🔥 TINYMCE INTEGRATION LOGIC
+    // ==========================================
+
+    function initTinyMCE() {
+        if (tinymce.get('manualContent')) {
+            tinymce.get('manualContent').remove();
+        }
+        tinymce.init({
+            selector: '#manualContent',
+            height: 400,
+            plugins: 'link lists code table preview wordcount',
+            toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright | bullist numlist | link table | code preview',
+            menubar: false,
+            statusbar: true,
+            branding: false
+        });
+    }
+
+    // ==========================================
+    // 🔥 SCRAPING MONITOR
     // ==========================================
 
     function startScrapingMonitor() {
-        showLoading(); // শো লোডিং এবং স্কেলিটন
-
+        showLoading(); 
         let checkCount = 0;
-
-        // প্রতি ২ সেকেন্ড পর পর চেক করবে
         const poller = setInterval(() => {
             checkCount++;
-
-            // প্রথম ৩ বার (৬ সেকেন্ড) সার্ভার রেসপন্স যাই হোক, আমরা থামবো না (সেফটি)
             const forceWait = checkCount <= 3 ? 'true' : 'false';
 
 			fetch(`{{ route('news.check-scrape-status') }}?force_wait=${forceWait}`)
                 .then(res => res.json())
                 .then(data => {
-                    // যদি সার্ভার বলে scraping: false এবং আমাদের মিনিমাম চেক (৩ বার) শেষ হয়
                     if (!data.scraping && checkCount > 3) {
                         clearInterval(poller);
                         finishLoading();
@@ -330,14 +369,11 @@
         if (indicator) {
             indicator.classList.remove('hidden');
             indicator.classList.add('flex');
-            // স্পিনার সহ লোডিং টেক্সট
             indicator.innerHTML = `
                 <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span id="loadingText" class="ml-2">Fetching New News... (Please wait)</span>
             `;
         }
-
-        // স্কেলিটন গ্রিড দেখানো এবং মেইন গ্রিড ঝাপসা করা
         const skeleton = document.getElementById('skeletonGrid');
         const mainGrid = document.getElementById('mainNewsGrid');
 
@@ -361,16 +397,13 @@
             indicator.classList.replace('border-indigo-100', 'border-green-200');
             indicator.classList.remove('animate-pulse');
         }
-
-        // ১ সেকেন্ড পর পেজ রিলোড
         setTimeout(() => {
             window.location.href = "{{ route('news.index') }}";
         }, 1000);
     }
 
-
     // ==========================================
-    // 🔥 PART 2: DRAFT MODAL LOGIC
+    // 🔥 DRAFT & PUBLISH MODAL LOGIC
     // ==========================================
 
     function openPublishModal(id) {
@@ -380,7 +413,6 @@
         const idInput = document.getElementById('previewNewsId');
         const btn = document.getElementById('btnPublish');
 
-        // রিসেট UI
         titleInput.value = "Loading...";
         contentInput.value = "Fetching draft...";
         idInput.value = id;
@@ -426,11 +458,7 @@
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    title,
-                    content,
-                    category
-                })
+                body: JSON.stringify({ title, content, category })
             })
             .then(res => res.json())
             .then(data => {
@@ -456,42 +484,132 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
-	
-	
-	
-	
-	
-	
-	
-	
-	function openManualModal(id, title, content) {
+
+    // ==========================================
+    // 🔥 MANUAL EDIT LOGIC (UPDATED)
+    // ==========================================
+
+    function openManualModal(id) {
+        // Hidden Inputs থেকে ডাটা নেওয়া হচ্ছে (Safe)
+        const title = document.getElementById(`raw-title-${id}`).value;
+        const image = document.getElementById(`raw-image-${id}`).value;
+		const content = document.getElementById(`raw-content-${id}`).innerHTML;
+        
         document.getElementById('manualNewsId').value = id;
         document.getElementById('manualTitle').value = title;
-        document.getElementById('manualContent').value = content; // ট্যাগ স্ট্রিপ করা কন্টেন্ট আসবে
-        
+        document.getElementById('manualContent').value = content; // Fallback
+		
+		document.getElementById('manualPreviewImg').src = image ? image : 'https://via.placeholder.com/150';
+        document.getElementById('manualImageUrl').value = image;
+        document.getElementById('manualImageFile').value = ""; // ফাইল ইনপুট রিসেট
+		
+		
+		const catSelect = document.getElementById('manualCategory');
+        if (catSelect.options.length <= 1) {
+            fetchManualCategories();
+        }
+		
         const modal = document.getElementById('manualEditModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+
+        // 🔥 TinyMCE লোড করা
+        setTimeout(() => {
+            initTinyMCE();
+            if(tinymce.get('manualContent')) {
+                 tinymce.get('manualContent').setContent(content);
+            }
+        }, 100);
+    }
+	
+	
+	
+	
+	function previewManualImage(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('manualPreviewImg').src = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
     }
 
-    // মডাল বন্ধ করা
+    // ক্যাটাগরি ফেচ করার ফাংশন
+    function fetchManualCategories() {
+        const select = document.getElementById('manualCategory');
+        select.innerHTML = '<option>Loading...</option>';
+        
+        fetch('/settings/fetch-categories')
+            .then(res => res.json())
+            .then(data => {
+                select.innerHTML = '<option value="">-- Select Category --</option>';
+                if (!data.error) {
+                    data.forEach(cat => {
+                        let option = document.createElement('option');
+                        option.value = cat.id;
+                        option.text = `${cat.name} (ID: ${cat.id})`;
+                        select.appendChild(option);
+                    });
+                }
+            })
+            .catch(err => {
+                select.innerHTML = '<option value="">Error Loading</option>';
+            });
+    }
+	
+	
+	
+	
+
     function closeManualModal() {
         const modal = document.getElementById('manualEditModal');
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        
+        // Editor রিমুভ করা
+        if (tinymce.get('manualContent')) {
+            tinymce.get('manualContent').remove();
+        }
     }
 
-    // ডাটা সাবমিট করা
     function submitManualPublish() {
         const id = document.getElementById('manualNewsId').value;
         const title = document.getElementById('manualTitle').value;
-        const content = document.getElementById('manualContent').value;
         const btn = document.getElementById('btnManualPub');
+
+        // TinyMCE থেকে কন্টেন্ট নেওয়া
+        let content = "";
+        if (tinymce.get('manualContent')) {
+            content = tinymce.get('manualContent').getContent();
+        } else {
+            content = document.getElementById('manualContent').value;
+        }
 
         if(!title || !content) {
             alert("Title and Content cannot be empty!");
             return;
         }
+
+        // 🔥 FormData তৈরি করা (ফাইল আপলোডের জন্য JSON চলবে না)
+        let formData = new FormData();
+        formData.append('title', title);
+        formData.append('content', content);
+        
+        // ক্যাটাগরি
+        const category = document.getElementById('manualCategory').value;
+        if(category) formData.append('category', category);
+
+        // ইমেজ ফাইল
+        const fileInput = document.getElementById('manualImageFile');
+        if (fileInput.files[0]) {
+            formData.append('image_file', fileInput.files[0]);
+        }
+        
+        // ইমেজ ইউআরএল (যদি ফাইল না থাকে)
+        const urlInput = document.getElementById('manualImageUrl').value;
+        if (urlInput) formData.append('image_url', urlInput);
+
 
         btn.disabled = true;
         btn.innerHTML = "Processing...";
@@ -499,18 +617,15 @@
         fetch(`/news/${id}/manual-publish`, {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Content-Type': 'application/json'
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                // Content-Type হেডার দেওয়া যাবে না, FormData অটোমেটিক সেট করবে
             },
-            body: JSON.stringify({ title: title, content: content })
+            body: formData
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                // মডাল বন্ধ করা
                 closeManualModal();
-                
-                // 🔥 ইনডেক্স পেজ থেকে কার্ড রিমুভ করা (এনিমেশন সহ)
                 const card = document.getElementById(`news-card-${id}`);
                 if (card) {
                     card.style.transition = "all 0.5s ease";
@@ -532,11 +647,5 @@
             btn.innerHTML = "🚀 Save & Publish";
         });
     }
-	
-	
-	
-	
-	
 </script>
-
 @endsection
