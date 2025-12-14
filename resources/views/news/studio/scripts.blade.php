@@ -751,6 +751,93 @@
     }
 	
 	
+	
+	// ==========================================
+    // 🔥 STUDIO DIRECT POST (EXACT DOWNLOAD QUALITY)
+    // ==========================================
+
+    // Helper: DataURL to Blob
+    function dataURLToBlob(dataURL) {
+        var arr = dataURL.split(','), mime = arr[0].match(/:(.*?);/)[1];
+        var bstr = atob(arr[1]);
+        var n = bstr.length;
+        var u8arr = new Uint8Array(n);
+        while(n--){
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], {type:mime});
+    }
+
+    
+	
+	function postDirectFromStudio() {
+        // ১. চেকবক্সের ভ্যালু চেক করা
+        const isSocialOnly = document.getElementById('socialOnlyCheck').checked;
+        
+        let confirmMsg = "আপনি কি এই ডিজাইনটি সরাসরি পোস্ট করতে চান?";
+        if (isSocialOnly) {
+            confirmMsg = "⚠️ আপনি 'Only Social' সিলেক্ট করেছেন। \nনিউজটি ওয়েবসাইটে যাবে না, শুধু ফেসবুক/টেলিগ্রামে পোস্ট হবে। \n\nআপনি কি নিশ্চিত?";
+        }
+
+        if (!confirm(confirmMsg)) return;
+
+        const btn = document.querySelector('button[onclick="postDirectFromStudio()"]');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "⏳ Uploading...";
+        btn.disabled = true;
+
+        canvas.discardActiveObject(); 
+        canvas.renderAll();
+
+        try {
+            const dataURL = canvas.toDataURL({ format: 'png', multiplier: 1.5, quality: 1.0 });
+            const blob = dataURLToBlob(dataURL);
+
+            const formData = new FormData();
+            formData.append('design_image', blob, 'studio-final.png');
+            
+            // 🔥🔥 NEW: চেকবক্সের ভ্যালু পাঠানো
+            if (isSocialOnly) {
+                formData.append('social_only', '1');
+            }
+            
+            const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            fetch("{{ route('news.publish-studio', $newsItem->id) }}", {
+                method: "POST",
+                headers: { "X-CSRF-TOKEN": token },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("✅ ডিজাইন পোস্ট প্রসেসিংয়ে পাঠানো হয়েছে!");
+                    window.location.href = "{{ route('news.index') }}"; 
+                } else {
+                    alert("❌ এরর: " + data.message);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("❌ নেটওয়ার্ক এরর!");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+
+        } catch (error) {
+            console.error(error);
+            alert("❌ ক্যানভাস এরর।");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+	
+	
+	
+	
+	
     function toggleTransparentBg(checked) { const obj = canvas.getActiveObject(); if (obj) { const color = checked ? '' : (document.getElementById('text-bg').value || '#000'); obj.set('backgroundColor', color); canvas.renderAll(); if(obj.isHeadline) savePreference('bg', color); } }
     function toggleStyle(style) { const obj = canvas.getActiveObject(); if (!obj) return; if (style === 'bold') obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold'); if (style === 'italic') obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic'); if (style === 'underline') obj.set('underline', !obj.underline); canvas.renderAll(); }
     function addText(text, size = 50) { const t = new fabric.Textbox(text, { left: 100, top: 100, width: 400, fontSize: size, fill: '#fff', fontFamily: 'Hind Siliguri', fontWeight: 'bold', textAlign: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }); canvas.add(t); canvas.setActiveObject(t); switchTab('text'); }

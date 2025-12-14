@@ -7,34 +7,41 @@ use Illuminate\Support\Facades\Log;
 
 class SocialPostService
 {
-    /**
-     * 📘 Facebook Auto Post (With First Comment Link)
-     */
-    public function postToFacebook($settings, $title, $imageUrl, $newsLink)
+    
+	
+	public function postToFacebook($settings, $title, $imagePathOrUrl, $newsLink)
     {
-        // ইউজারের টোকেন না থাকলে রিটার্ন করবে
-        if (empty($settings->fb_page_id) || empty($settings->fb_access_token)) {
-            return; 
-        }
+        if (empty($settings->fb_page_id) || empty($settings->fb_access_token)) return;
 
         try {
-            // ১. ছবি এবং ক্যাপশন পোস্ট করা
-            $response = Http::post("https://graph.facebook.com/v19.0/{$settings->fb_page_id}/photos", [
-                'url'          => $imageUrl,
-                'message'      => $title, // ক্যাপশন
+            $endpoint = "https://graph.facebook.com/v19.0/{$settings->fb_page_id}/photos";
+            $payload = [
+                'message'      => $title,
                 'access_token' => $settings->fb_access_token,
                 'published'    => true
-            ]);
+            ];
+
+            // 🔥 চেক: এটি কি লোকাল ফাইল নাকি URL?
+            if (file_exists($imagePathOrUrl)) {
+                // লোকাল ফাইল হলে 'attach' করতে হবে
+                $response = Http::attach(
+                    'source', file_get_contents($imagePathOrUrl), 'news-card.jpg'
+                )->post($endpoint, $payload);
+            } else {
+                // URL হলে সরাসরি পাঠাবে
+                $payload['url'] = $imagePathOrUrl;
+                $response = Http::post($endpoint, $payload);
+            }
 
             $postId = $response->json()['post_id'] ?? null;
 
-            // ২. পোস্ট সফল হলে প্রথম কমেন্টে লিংক দেওয়া
+            // কমেন্টে লিংক দেওয়া
             if ($postId) {
                 Http::post("https://graph.facebook.com/v19.0/{$postId}/comments", [
                     'message'      => "বিস্তারিত পড়ুন: " . $newsLink,
                     'access_token' => $settings->fb_access_token
                 ]);
-                Log::info("✅ FB Post Success for User ID: {$settings->user_id}");
+                Log::info("✅ FB Post Success");
             } else {
                 Log::error("❌ FB Error: " . json_encode($response->json()));
             }
@@ -44,33 +51,32 @@ class SocialPostService
         }
     }
 
-    /**
-     * ✈️ Telegram Auto Post (Dynamic Bot)
-     */
-    public function postToTelegram($settings, $title, $imageUrl, $newsLink)
+    public function postToTelegram($settings, $title, $imagePathOrUrl, $newsLink)
     {
-        // ইউজারের বট টোকেন না থাকলে রিটার্ন করবে
-        if (empty($settings->telegram_channel_id) || empty($settings->telegram_bot_token)) {
-            return;
-        }
+        if (empty($settings->telegram_channel_id) || empty($settings->telegram_bot_token)) return;
 
         try {
             $botToken = $settings->telegram_bot_token;
             $chatId   = $settings->telegram_channel_id;
+            $endpoint = "https://api.telegram.org/bot{$botToken}/sendPhoto";
 
-            // টেলিগ্রাম API কল
-            $response = Http::post("https://api.telegram.org/bot{$botToken}/sendPhoto", [
+            $payload = [
                 'chat_id' => $chatId,
-                'photo'   => $imageUrl,
                 'caption' => "📢 <b>{$title}</b>\n\n👇 বিস্তারিত পড়তে লিংকে ক্লিক করুন:\n{$newsLink}",
                 'parse_mode' => 'HTML'
-            ]);
+            ];
 
-            if($response->successful()) {
-                Log::info("✅ Telegram Success for User ID: {$settings->user_id}");
+            if (file_exists($imagePathOrUrl)) {
+                // লোকাল ফাইল আপলোড
+                Http::attach('photo', file_get_contents($imagePathOrUrl), 'news.jpg')
+                    ->post($endpoint, $payload);
             } else {
-                Log::error("❌ Telegram Error: " . json_encode($response->json()));
+                // URL পাঠানো
+                $payload['photo'] = $imagePathOrUrl;
+                Http::post($endpoint, $payload);
             }
+
+            Log::info("✅ Telegram Sent");
 
         } catch (\Exception $e) {
             Log::error("❌ Telegram Exception: " . $e->getMessage());

@@ -21,8 +21,15 @@ Route::get('/', function () {
     return redirect()->route('websites.index');
 });
 
+// Test Routes
+// Settings Test Routes
+Route::post('/settings/test-facebook', [SettingsController::class, 'testFacebookConnection'])->name('settings.test-facebook');
+Route::post('/settings/test-telegram', [SettingsController::class, 'testTelegramConnection'])->name('settings.test-telegram');
+Route::post('/settings/test-wordpress', [SettingsController::class, 'testWordPressConnection'])->name('settings.test-wordpress');
 // Telegram Webhook
 Route::post('/telegram/webhook', [TelegramBotController::class, 'handle']);
+// Studio Direct Post Route
+Route::post('/news/{id}/publish-studio', [NewsController::class, 'publishStudioDesign'])->name('news.publish-studio');
 
 // --- Guest Routes ---
 Route::middleware('guest')->group(function () {

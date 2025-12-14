@@ -48,6 +48,10 @@ class UserSetting extends Model
 		'post_to_fb' => 'boolean',
         'post_to_telegram' => 'boolean',
 		'post_to_laravel' => 'boolean',
+		'wp_app_password' => 'encrypted',
+        'fb_access_token' => 'encrypted',
+        'telegram_bot_token' => 'encrypted',
+        'laravel_api_token' => 'encrypted',
     ];
 
     // ✅ টেমপ্লেট লিস্ট (Master List)

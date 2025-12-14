@@ -218,7 +218,8 @@ class NewsController extends Controller
             'title'          => $request->title,
             'content'        => $request->content,
             'category_ids'   => $categories,
-            'featured_image' => $finalImage
+            'featured_image' => $finalImage,
+			'skip_social'    => true
         ];
 
         \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
@@ -330,7 +331,8 @@ class NewsController extends Controller
         $customData = [
             'title' => $request->title,
             'content' => $request->content,
-            'category_id' => $request->category
+            'category_id' => $request->category,
+			'skip_social' => true
         ];
 
         $news->update(['status' => 'publishing']);
@@ -390,8 +392,9 @@ class NewsController extends Controller
         $customData = [
             'title'          => $news->title,
             'content'        => $news->content,
-            'category_ids'   => $categoryIds, // ✅ আপডেট: সিলেক্ট করা ক্যাটাগরি যাবে
-            'featured_image' => $finalImage   // ✅ আপডেট: নতুন ইমেজ যাবে
+            'category_ids'   => $categoryIds,
+            'featured_image' => $finalImage,
+			'skip_social'    => true
         ];
 
         \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
@@ -614,6 +617,76 @@ class NewsController extends Controller
 				'scraping' => $isScraping
 			]);
 		}
+		
+		
+		
+		
+		
+		
+		// ==========================================
+    // 🔥 STUDIO DIRECT PUBLISH METHOD
+    // ==========================================
+   
+   
+   public function publishStudioDesign(Request $request, $id)
+    {
+        $request->validate([
+            'design_image' => 'required|image|max:20480', 
+        ]);
+
+        $news = NewsItem::findOrFail($id);
+        $user = Auth::user();
+
+        // ১. সাধারণ চেক
+        if ($user->role !== 'super_admin') {
+            if ($user->credits <= 0) return response()->json(['success' => false, 'message' => 'ক্রেডিট শেষ!']);
+            if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+                return response()->json(['success' => false, 'message' => 'ডেইলি লিমিট শেষ!']);
+            }
+        }
+
+        try {
+            if ($request->hasFile('design_image')) {
+                
+                // ২. স্টুডিওর ইমেজটি সেভ করা
+                $path = $request->file('design_image')->store('news-cards/studio', 'public');
+                $studioImageUrl = asset('storage/' . $path);
+                
+                // 🔥 CHANGE: আমরা নিউজের 'thumbnail_url' আপডেট করব না।
+                // যাতে ওয়েবসাইটের জন্য অরিজিনাল ছবিটাই থাকে।
+                
+                $news->update([
+                    'status' => 'publishing',
+                    'updated_at' => now()
+                ]);
+				
+				$isSocialOnly = $request->has('social_only') && $request->social_only == '1';
+
+                // ৩. জবে ডাটা পাঠানো
+                $customData = [
+                    'title'          => $news->title, 
+                    'content'        => $news->content,
+					'social_only'    => $isSocialOnly,
+                    'website_image'  => $news->thumbnail_url, // ওয়েবসাইটের জন্য অরিজিনালটা
+                    'social_image'   => $studioImageUrl,      // সোশ্যাল মিডিয়ার জন্য কার্ডটা
+                    
+                    'category_ids'   => [1] 
+                ];
+
+                \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
+
+                return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
+            }
+
+            return response()->json(['success' => false, 'message' => 'ইমেজ পাওয়া যায়নি।']);
+
+        } catch (\Exception $e) {
+            Log::error("Studio Publish Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'সার্ভার এরর: ' . $e->getMessage()]);
+        }
+    }
+	
+	
 	
 	
 }

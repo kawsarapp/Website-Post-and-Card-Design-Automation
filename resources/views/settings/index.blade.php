@@ -109,24 +109,38 @@
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden">
+        
+		<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden">
             <div class="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">Required</div>
-            <h2 class="text-xl font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
-                🔗 WordPress কানেকশন
-            </h2>
+            
+            {{-- 🔥 Header with Test Button --}}
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-bold text-gray-700 flex items-center gap-2">
+                    🔗 WordPress কানেকশন
+                </h2>
+                <button type="button" onclick="testWordPress()" class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition font-bold border border-gray-300">
+                    ⚡ Test Connection
+                </button>
+            </div>
+            
+            {{-- Status Message --}}
+            <p id="wp_status_msg" class="text-xs font-bold mb-4"></p>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="col-span-1 md:col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-1">ওয়েবসাইট লিংক (URL)</label>
-                    <input type="url" name="wp_url" value="{{ old('wp_url', $settings->wp_url ?? '') }}" placeholder="https://mywebsite.com" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    {{-- 🔥 ID Added: wp_url --}}
+                    <input type="url" id="wp_url" name="wp_url" value="{{ old('wp_url', $settings->wp_url ?? '') }}" placeholder="https://mywebsite.com" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">ইউজারনেম (Username)</label>
-                    <input type="text" name="wp_username" value="{{ old('wp_username', $settings->wp_username ?? '') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    {{-- 🔥 ID Added: wp_username --}}
+                    <input type="text" id="wp_username" name="wp_username" value="{{ old('wp_username', $settings->wp_username ?? '') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">App Password</label>
-                    <input type="password" name="wp_app_password" value="{{ old('wp_app_password', $settings->wp_app_password ?? '') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="abcd efgh ijkl mnop">
+                    {{-- 🔥 ID Added: wp_app_password --}}
+                    <input type="password" id="wp_app_password" name="wp_app_password" value="{{ old('wp_app_password', $settings->wp_app_password ?? '') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="abcd efgh ijkl mnop">
                     <p class="text-xs text-gray-500 mt-1">WP Admin > Users > Profile > Application Passwords এ গিয়ে তৈরি করুন।</p>
                 </div>
             </div>
@@ -167,7 +181,21 @@
         </div>
 		
 		
-		
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {{-- আগের ফিল্ডগুলো... --}}
+                
+                {{-- 🔥 NEW: Route Prefix Input --}}
+                <div>
+                     <label class="block text-sm font-bold text-gray-700 mb-1">নিউজ লিংক প্রিফিক্স (Route Prefix)</label>
+                     <div class="flex items-center">
+                         <span class="bg-gray-100 border border-r-0 border-gray-300 px-3 py-2 rounded-l text-gray-500 text-sm">/</span>
+                         <input type="text" name="laravel_route_prefix" value="{{ old('laravel_route_prefix', $settings->laravel_route_prefix ?? 'news') }}" 
+                                class="w-full border-gray-300 rounded-r shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition" 
+                                placeholder="news, post, article">
+                     </div>
+                     <p class="text-xs text-gray-500 mt-1">উদাহরণ: আপনার সাইট যদি <code>site.com/post/123</code> হয়, তবে এখানে <b>post</b> লিখুন।</p>
+                </div>
+            </div>
 		
 		
 		
@@ -190,45 +218,68 @@
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
 			
 			<div class="bg-white p-5 rounded-lg shadow border border-blue-100">
-				<h3 class="font-bold text-lg text-blue-700 mb-3 flex items-center gap-2">
-					<i class="fab fa-facebook"></i> Facebook Page Setup
-				</h3>
+				<div class="flex justify-between items-center mb-3">
+					<h3 class="font-bold text-lg text-blue-700 flex items-center gap-2">
+						<i class="fab fa-facebook"></i> Facebook Page Setup
+					</h3>
+                    {{-- 🔥 TEST BUTTON --}}
+					<button type="button" onclick="testFacebook()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition font-bold border border-blue-200">
+						⚡ Test Connection
+					</button>
+				</div>
 				
 				<div class="mb-3">
 					<label class="block text-sm font-bold text-gray-700">Page ID</label>
-					<input type="text" name="fb_page_id" value="{{ $settings->fb_page_id ?? '' }}" 
+					<input type="text" id="fb_page_id" name="fb_page_id" value="{{ $settings->fb_page_id ?? '' }}" 
 						   class="w-full border p-2 rounded text-sm" placeholder="Example: 100089...">
 				</div>
 
 				<div class="mb-3">
 					<label class="block text-sm font-bold text-gray-700">Page Access Token</label>
-					<textarea name="fb_access_token" rows="2" 
+					<textarea id="fb_access_token" name="fb_access_token" rows="2" 
 							  class="w-full border p-2 rounded text-sm" placeholder="Enter long-lived token here...">{{ $settings->fb_access_token ?? '' }}</textarea>
+                    
+                    {{-- Status Message Showing Area --}}
+                    <p id="fb_status_msg" class="text-xs mt-2 font-bold"></p>
+                    
 					<p class="text-[10px] text-gray-400 mt-1">
 						<a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-blue-500 hover:underline">Get Token via Graph API</a>
 					</p>
 				</div>
 			</div>
-
+			
+			
 			<div class="bg-white p-5 rounded-lg shadow border border-sky-100">
-				<h3 class="font-bold text-lg text-sky-600 mb-3 flex items-center gap-2">
-					<i class="fab fa-telegram"></i> Telegram Channel
-				</h3>
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-lg text-sky-600 flex items-center gap-2">
+                        <i class="fab fa-telegram"></i> Telegram Channel
+                    </h3>
+                    {{-- 🔥 Test Button --}}
+                    <button type="button" onclick="testTelegram()" class="text-xs bg-sky-100 text-sky-700 px-3 py-1 rounded hover:bg-sky-200 transition font-bold border border-sky-200">
+                        ⚡ Test Connection
+                    </button>
+                </div>
 
-				<div class="mb-3">
-					<label class="block text-sm font-bold text-gray-700">Bot Token</label>
-					<input type="text" name="telegram_bot_token" value="{{ $settings->telegram_bot_token ?? '' }}" 
-						   class="w-full border p-2 rounded text-sm" placeholder="Ex: 123456:ABC-DEF...">
-					<p class="text-[10px] text-gray-400">BotFather থেকে পাওয়া টোকেন দিন।</p>
-				</div>
+                <div class="mb-3">
+                    <label class="block text-sm font-bold text-gray-700">Bot Token</label>
+                    {{-- 🔥 ID Added: telegram_bot_token --}}
+                    <input type="text" id="telegram_bot_token" name="telegram_bot_token" value="{{ $settings->telegram_bot_token ?? '' }}" 
+                           class="w-full border p-2 rounded text-sm" placeholder="Ex: 123456:ABC-DEF...">
+                    <p class="text-[10px] text-gray-400">BotFather থেকে পাওয়া টোকেন দিন।</p>
+                </div>
 
-				<div class="mb-3">
-					<label class="block text-sm font-bold text-gray-700">Channel ID</label>
-					<input type="text" name="telegram_channel_id" value="{{ $settings->telegram_channel_id ?? '' }}" 
-						   class="w-full border p-2 rounded text-sm" placeholder="Ex: -100123456789">
-					<p class="text-[10px] text-gray-400">বটকে চ্যানেলের অ্যাডমিন করতে ভুলবেন না।</p>
-				</div>
-			</div>
+                <div class="mb-3">
+                    <label class="block text-sm font-bold text-gray-700">Channel ID</label>
+                    {{-- 🔥 ID Added: telegram_channel_id --}}
+                    <input type="text" id="telegram_channel_id" name="telegram_channel_id" value="{{ $settings->telegram_channel_id ?? '' }}" 
+                           class="w-full border p-2 rounded text-sm" placeholder="Ex: -100123456789">
+                    
+                    {{-- Status Message --}}
+                    <p id="tg_status_msg" class="text-xs mt-2 font-bold"></p>
+                    
+                    <p class="text-[10px] text-gray-400 mt-1">বটকে চ্যানেলের অ্যাডমিন করতে ভুলবেন না।</p>
+                </div>
+            </div>
 		</div>
 		
 		
@@ -270,8 +321,86 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                 @php
                     $aiCategories = [
-                        'Politics', 'International', 'Sports', 'Entertainment', 
-                        'Technology', 'Economy', 'Bangladesh', 'Crime', 'Others'
+                        'Politics',
+'International',
+'Sports',
+'Cricket',          // New
+'Football',         // New
+'Entertainment',
+'Technology',
+'Economy',
+'Business',         // New
+'Bangladesh',
+'National',         // New
+'Crime',
+'Education',        // New
+'Health',           // New
+'Lifestyle',        // New
+'Religion',         // New
+'Travel',           // New
+'Jobs',             // New
+'Opinion',          // New
+'Feature',          // New
+'Others',
+
+'Science',           // New
+'Environment',       // New
+'Weather',           // New
+'Agriculture',       // New
+'Startup',           // New
+'Finance',           // New
+'Stock Market',      // New
+'Banking',           // New
+'Law & Justice',     // New
+'Defense',           // New
+'Cyber Security',    // New
+'AI & Robotics',     // New
+'Gadgets',           // New
+'Mobile',            // New
+'Automobile',        // New
+'Real Estate',       // New
+'Energy',            // New
+'Tourism',           // New
+'Food & Recipe',     // New
+'Fashion',           // New
+'Art & Culture',     // New
+'History',           // New
+'Women',             // New
+'Youth',             // New
+'Editorial',         // New
+
+'Breaking News',     // New
+'Exclusive',         // New
+'Investigation',     // New
+'Human Rights',      // New
+'Social Issues',     // New
+'Public Health',     // New
+'Mental Health',     // New
+'Child Care',        // New
+'Parenting',         // New
+'Senior Citizens',   // New
+'Immigration',       // New
+'Expat Life',        // New
+'Remittance',        // New
+'Development',       // New
+'Infrastructure',    // New
+'Rural Life',        // New
+'Urban Life',        // New
+'Local News',        // New
+'City News',         // New
+'Media & Press',     // New
+
+'Telecom',
+'Internet',
+'E-Commerce',
+'Digital Lifestyle',
+'Gaming',
+'E-Sports',
+'Movies',
+'Music',
+'TV & OTT',         
+'Books & Literature' 
+
                     ];
                     $savedMapping = $settings->category_mapping ?? [];
                 @endphp
@@ -309,7 +438,274 @@
     </form>
 </div>
 
+
 <script>
+    // ==========================================
+    // 🔥 1. WordPress Category Fetch
+    // ==========================================
+    function fetchWPCategories() {
+        const btn = document.querySelector('button[onclick="fetchWPCategories()"]');
+        const originalText = btn.innerHTML; // আগের টেক্সট সেভ রাখা
+        btn.innerHTML = '⏳ Loading...';
+        btn.disabled = true;
+        
+        fetch("{{ route('settings.fetch-categories') }}")
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) {
+                    alert(data.error);
+                    btn.innerHTML = '❌ Error';
+                } else {
+                    populateDropdowns(data);
+                    btn.innerHTML = '✅ Updated';
+                }
+                
+                // ২ সেকেন্ড পর বাটন রিসেট
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Failed to connect to WordPress or Laravel. Please check Settings.');
+                btn.innerHTML = '❌ Failed';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            });
+    }
+
+    // ড্রপডাউন পপুলেট করার হেল্পার ফাংশন
+    function populateDropdowns(categories) {
+        const selectors = document.querySelectorAll('.wp-cat-selector');
+        
+        selectors.forEach(select => {
+            const savedVal = select.nextElementSibling.value; // হিডেন ইনপুট থেকে সেভ করা ভ্যালু
+            
+            let options = '<option value="">Select Category</option>';
+            
+            if (Array.isArray(categories)) {
+                categories.forEach(cat => {
+                    const isSelected = (cat.id == savedVal) ? 'selected' : '';
+                    options += `<option value="${cat.id}" ${isSelected}>${cat.name} (ID: ${cat.id})</option>`;
+                });
+            }
+            
+            select.innerHTML = options;
+        });
+    }
+
+    // ==========================================
+    // 🔥 2. Facebook Test Connection
+    // ==========================================
+    function testFacebook() {
+        const pageId = document.getElementById('fb_page_id').value;
+        const token = document.getElementById('fb_access_token').value;
+        const statusMsg = document.getElementById('fb_status_msg');
+        const btn = document.querySelector('button[onclick="testFacebook()"]');
+
+        if (!pageId || !token) {
+            alert("Please enter Page ID and Token first.");
+            return;
+        }
+
+        // UI Loading State
+        btn.innerHTML = "Checking...";
+        btn.disabled = true;
+        statusMsg.innerHTML = "⏳ Connecting to Facebook...";
+        statusMsg.className = "text-xs mt-2 font-bold text-gray-500";
+
+        fetch("{{ route('settings.test-facebook') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ fb_page_id: pageId, fb_access_token: token })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                statusMsg.innerText = data.message;
+                statusMsg.className = "text-xs mt-2 font-bold text-green-600 whitespace-pre-line"; 
+                alert("Success! Connected to Facebook.");
+            } else {
+                statusMsg.innerText = data.message;
+                statusMsg.className = "text-xs mt-2 font-bold text-red-600 whitespace-pre-line";
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            statusMsg.innerText = "❌ System Error. Check Console.";
+            statusMsg.className = "text-xs mt-2 font-bold text-red-600";
+        })
+        .finally(() => {
+            btn.innerHTML = "⚡ Test Connection";
+            btn.disabled = false;
+        });
+    }
+
+    // ==========================================
+    // 🔥 3. Auto Load Categories (On Page Load)
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', () => {
+        // যদি সেটিংস থাকে, তবে অটোমেটিক ফেচ করবে
+        @if(($settings->wp_url && $settings->wp_username) || ($settings->laravel_site_url && $settings->laravel_api_token))
+            fetchWPCategories();
+        @endif
+    });
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+    function testWordPress() {
+        const url = document.getElementById('wp_url').value;
+        const username = document.getElementById('wp_username').value;
+        const pass = document.getElementById('wp_app_password').value;
+        const statusMsg = document.getElementById('wp_status_msg');
+        const btn = document.querySelector('button[onclick="testWordPress()"]');
+
+        if (!url || !username || !pass) {
+            alert("Please fill all WordPress fields first.");
+            return;
+        }
+
+        btn.innerHTML = "Checking...";
+        btn.disabled = true;
+        statusMsg.innerHTML = "⏳ Connecting to WordPress...";
+        statusMsg.className = "text-xs font-bold mb-4 text-gray-500";
+
+        fetch("{{ route('settings.test-wordpress') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ wp_url: url, wp_username: username, wp_app_password: pass })
+        })
+        .then(res => res.json())
+        .then(data => {
+            statusMsg.innerText = data.message;
+            statusMsg.className = data.success 
+                ? "text-xs font-bold mb-4 text-green-600 whitespace-pre-line" 
+                : "text-xs font-bold mb-4 text-red-600 whitespace-pre-line";
+            
+            if(data.success) alert("Success! WordPress Connected.");
+        })
+        .catch(err => {
+            statusMsg.innerText = "❌ System Error.";
+            statusMsg.className = "text-xs font-bold mb-4 text-red-600";
+        })
+        .finally(() => {
+            btn.innerHTML = "⚡ Test Connection";
+            btn.disabled = false;
+        });
+    }
+
+    // ==========================================
+    // 📘 2. Facebook Test
+    // ==========================================
+    function testFacebook() {
+        const pageId = document.getElementById('fb_page_id').value;
+        const token = document.getElementById('fb_access_token').value;
+        const statusMsg = document.getElementById('fb_status_msg');
+        const btn = document.querySelector('button[onclick="testFacebook()"]');
+
+        if (!pageId || !token) {
+            alert("Please enter FB Page ID and Token.");
+            return;
+        }
+
+        btn.innerHTML = "Checking...";
+        btn.disabled = true;
+        statusMsg.innerHTML = "⏳ Connecting...";
+        statusMsg.className = "text-xs mt-2 font-bold text-gray-500";
+
+        fetch("{{ route('settings.test-facebook') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ fb_page_id: pageId, fb_access_token: token })
+        })
+        .then(res => res.json())
+        .then(data => {
+            statusMsg.innerText = data.message;
+            statusMsg.className = data.success 
+                ? "text-xs mt-2 font-bold text-green-600 whitespace-pre-line"
+                : "text-xs mt-2 font-bold text-red-600 whitespace-pre-line";
+            
+            if(data.success) alert("Success! Facebook Connected.");
+        })
+        .catch(err => {
+            statusMsg.innerText = "❌ Error.";
+            statusMsg.className = "text-xs mt-2 font-bold text-red-600";
+        })
+        .finally(() => {
+            btn.innerHTML = "⚡ Test Connection";
+            btn.disabled = false;
+        });
+    }
+
+    // ==========================================
+    // ✈️ 3. Telegram Test
+    // ==========================================
+    function testTelegram() {
+        const token = document.getElementById('telegram_bot_token').value;
+        const channel = document.getElementById('telegram_channel_id').value;
+        const statusMsg = document.getElementById('tg_status_msg');
+        const btn = document.querySelector('button[onclick="testTelegram()"]');
+
+        if (!token || !channel) {
+            alert("Please enter Bot Token and Channel ID.");
+            return;
+        }
+
+        btn.innerHTML = "Checking...";
+        btn.disabled = true;
+        statusMsg.innerHTML = "⏳ Connecting...";
+        statusMsg.className = "text-xs mt-2 font-bold text-gray-500";
+
+        fetch("{{ route('settings.test-telegram') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ telegram_bot_token: token, telegram_channel_id: channel })
+        })
+        .then(res => res.json())
+        .then(data => {
+            statusMsg.innerText = data.message;
+            statusMsg.className = data.success 
+                ? "text-xs mt-2 font-bold text-green-600 whitespace-pre-line"
+                : "text-xs mt-2 font-bold text-red-600 whitespace-pre-line";
+            
+            if(data.success) alert("Success! Telegram Connected.");
+        })
+        .catch(err => {
+            statusMsg.innerText = "❌ Error.";
+            statusMsg.className = "text-xs mt-2 font-bold text-red-600";
+        })
+        .finally(() => {
+            btn.innerHTML = "⚡ Test Connection";
+            btn.disabled = false;
+        });
+    }
+
+    // ==========================================
+    // 🔄 4. WP Categories & Auto Load
+    // ==========================================
     function fetchWPCategories() {
         const btn = document.querySelector('button[onclick="fetchWPCategories()"]');
         const originalText = btn.innerHTML;
@@ -326,47 +722,35 @@
                     populateDropdowns(data);
                     btn.innerHTML = '✅ Updated';
                 }
-                
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 2000);
+                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
             })
             .catch(err => {
-                console.error(err);
-                alert('Failed to connect to WordPress. Please check URL and Credentials.');
                 btn.innerHTML = '❌ Failed';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 2000);
+                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
             });
     }
 
     function populateDropdowns(categories) {
         const selectors = document.querySelectorAll('.wp-cat-selector');
-        
         selectors.forEach(select => {
-            const savedVal = select.nextElementSibling.value; // হিডেন ইনপুট থেকে সেভ করা ভ্যালু
-            
-            let options = '<option value="">Select WP Category</option>';
-            
+            const savedVal = select.nextElementSibling.value;
+            let options = '<option value="">Select Category</option>';
             if (Array.isArray(categories)) {
                 categories.forEach(cat => {
                     const isSelected = (cat.id == savedVal) ? 'selected' : '';
-                    options += `<option value="${cat.id}" ${isSelected}>${cat.name}</option>`;
+                    options += `<option value="${cat.id}" ${isSelected}>${cat.name} (ID: ${cat.id})</option>`;
                 });
             }
-            
             select.innerHTML = options;
         });
     }
 
-    // পেজ লোড হলে অটোমেটিক একবার ফেচ করবে (যদি ক্রেডেনশিয়াল থাকে)
     document.addEventListener('DOMContentLoaded', () => {
-        @if($settings->wp_url && $settings->wp_username)
+        @if(($settings->wp_url && $settings->wp_username) || ($settings->laravel_site_url && $settings->laravel_api_token))
             fetchWPCategories();
         @endif
     });
+
+
 </script>
 @endsection

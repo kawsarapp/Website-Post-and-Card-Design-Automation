@@ -76,14 +76,36 @@
                 🎨 স্টুডিও প্রো <span class="text-sm bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-normal">SaaS</span>
             </h1>
         </div>
-        <div class="flex gap-3">
-            <button type="button" onclick="restoreSavedDesign()" class="btn btn-warning text-white gap-2 text-sm font-bold px-3 py-1.5 rounded-lg">
-                <i class="fas fa-undo"></i> রিস্টোর
-            </button>
-            <button onclick="resetCanvas()" class="text-gray-500 hover:text-red-500 font-bold text-sm px-3 border border-gray-300 rounded-lg py-1.5 hover:bg-red-50 transition">↻ Reset</button>
-            <button onclick="saveCurrentDesign()" class="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-100 transition border border-indigo-200 flex items-center gap-1 shadow-sm">💾 Save</button>
-            <button id="downloadBtn" onclick="downloadCard()" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2 rounded-lg font-bold text-sm hover:shadow-lg transition flex items-center gap-2 transform hover:-translate-y-0.5">📥 ডাউনলোড</button>
-        </div>
+       
+	   <div class="flex gap-3 items-center">
+    {{-- 🔥 Social Only Checkbox --}}
+    <label class="flex items-center gap-1 cursor-pointer bg-white border border-gray-300 px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-50 select-none">
+        <input type="checkbox" id="socialOnlyCheck" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+        <span>Only Social</span>
+    </label>
+
+    <button type="button" onclick="restoreSavedDesign()" class="btn btn-warning text-white gap-2 text-sm font-bold px-3 py-1.5 rounded-lg">
+        <i class="fas fa-undo"></i> রিস্টোর
+    </button>
+
+    <button onclick="resetCanvas()" class="text-gray-500 hover:text-red-500 font-bold text-sm px-3 border border-gray-300 rounded-lg py-1.5 hover:bg-red-50 transition">
+        ↻ Reset
+    </button>
+
+    <button onclick="saveCurrentDesign()" class="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-100 transition border border-indigo-200 flex items-center gap-1 shadow-sm">
+        💾 Save
+    </button>
+
+    <button id="downloadBtn" onclick="downloadCard()" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2 rounded-lg font-bold text-sm hover:shadow-lg transition flex items-center gap-2 transform hover:-translate-y-0.5">
+        📥 ডাউনলোড
+    </button>
+
+    <button onclick="postDirectFromStudio()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-red-700 transition flex items-center gap-2 shadow-lg border border-red-500">
+        🚀 Post Now
+    </button>
+</div>
+
+	   
     </div>
 
     <div class="flex flex-1 overflow-hidden">
