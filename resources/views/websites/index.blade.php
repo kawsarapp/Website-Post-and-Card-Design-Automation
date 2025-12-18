@@ -21,6 +21,7 @@
         </div>
     @endif
 
+    {{-- 🔥 SUPER ADMIN ONLY: ADD NEW WEBSITE FORM --}}
     @if(auth()->user()->role === 'super_admin')
     <div class="bg-white p-6 rounded-xl shadow-lg border border-indigo-100 mb-10">
         <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">➕ নতুন সোর্স যুক্ত করুন</h2>
@@ -73,18 +74,24 @@
     </div>
     @endif
 
+    {{-- WEBSITE LIST TABLE --}}
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
-                    <th class="px-6 py-4 font-bold">Name & URL</th>
-                    <th class="px-6 py-4 font-bold">Engine</th>
+                    
+                    {{-- 🔥 CONDITIONAL HEADERS --}}
                     @if(auth()->user()->role === 'super_admin')
+                        <th class="px-6 py-4 font-bold">Name & URL</th>
+                        <th class="px-6 py-4 font-bold">Engine</th>
                         <th class="px-6 py-4 font-bold">Selectors</th>
                         <th class="px-6 py-4 font-bold text-right">Actions</th>
                     @else
+                        {{-- NORMAL USER HEADER --}}
+                        <th class="px-6 py-4 font-bold">Website Name</th>
                         <th class="px-6 py-4 font-bold text-right">Action</th>
                     @endif
+
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -96,14 +103,10 @@
                     $remainingSeconds = 0;
 
                     if ($site->last_scraped_at) {
-                        // ডাটাবেসের টাইমকে অ্যাপের টাইমজোনে কনভার্ট করা হচ্ছে
                         $lastScraped = \Carbon\Carbon::parse($site->last_scraped_at)->timezone(config('app.timezone'));
                         $now = now()->timezone(config('app.timezone'));
+                        $diff = $now->diffInSeconds($lastScraped);
                         
-                        $diff = $now->diffInSeconds($lastScraped); // পার্থক্য বের করা
-                        
-                        // যদি ৫ মিনিট (৩০০ সেকেন্ড) পার না হয় এবং টাইমটি ভবিষ্যতের না হয়
-                        // (অনেকের সার্ভার টাইম উল্টাপাল্টা থাকে, তাই চেক করা ভালো)
                         if ($diff < 300) { 
                             $isDisabled = true;
                             $remainingSeconds = 300 - $diff;
@@ -112,21 +115,23 @@
                 @endphp
 
                 <tr class="hover:bg-slate-50 transition">
-                    <td class="px-6 py-4">
-                        <div class="font-bold text-gray-800">{{ $site->name }}</div>
-                        <a href="{{ $site->url }}" target="_blank" class="text-xs text-blue-500 hover:underline block truncate max-w-[200px]">{{ $site->url }} ↗</a>
-                    </td>
-                    <td class="px-6 py-4">
-                        @if($site->scraper_method == 'python')
-                            <span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded border border-yellow-200">Python</span>
-                        @elseif($site->scraper_method == 'node')
-                            <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded border border-green-200">Node</span>
-                        @else
-                            <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-200">Default</span>
-                        @endif
-                    </td>
-
+                    
+                    {{-- 🔥 CONDITIONAL BODY --}}
                     @if(auth()->user()->role === 'super_admin')
+                        {{-- SUPER ADMIN VIEW --}}
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-gray-800">{{ $site->name }}</div>
+                            <a href="{{ $site->url }}" target="_blank" class="text-xs text-blue-500 hover:underline block truncate max-w-[200px]">{{ $site->url }} ↗</a>
+                        </td>
+                        <td class="px-6 py-4">
+                            @if($site->scraper_method == 'python')
+                                <span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded border border-yellow-200">Python</span>
+                            @elseif($site->scraper_method == 'node')
+                                <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded border border-green-200">Node</span>
+                            @else
+                                <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-200">Default</span>
+                            @endif
+                        </td>
                         <td class="px-6 py-4 text-xs font-mono text-slate-500">
                             C: {{ $site->selector_container }} <br> 
                             T: {{ $site->selector_title }} <br>
@@ -140,7 +145,6 @@
                                 ✏️ Edit
                             </button>
                             
-                            {{-- Super Admin Scrape Button --}}
                             <a href="{{ route('websites.scrape', $site->id) }}" 
                                id="btn-{{ $site->id }}"
                                class="scrape-btn bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-200 transition {{ $isDisabled ? 'disabled opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
@@ -155,12 +159,21 @@
                                @endif
                             </a>
                         </td>
+
                     @else
+                        {{-- 🔥 NORMAL USER VIEW (Clean & Simple) --}}
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-indigo-50 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
+                                    {{ substr($site->name, 0, 1) }}
+                                </div>
+                                <div class="font-bold text-gray-800 text-base">{{ $site->name }}</div>
+                            </div>
+                        </td>
                         <td class="px-6 py-4 text-right">
-                             {{-- Regular User Scrape Button --}}
                              <a href="{{ route('websites.scrape', $site->id) }}" 
                                id="btn-{{ $site->id }}"
-                               class="scrape-btn bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition {{ $isDisabled ? 'disabled opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
+                               class="scrape-btn bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 shadow-md transition-all flex items-center gap-2 justify-center ml-auto w-fit {{ $isDisabled ? 'disabled opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
                                data-id="{{ $site->id }}"
                                data-remaining="{{ $remainingSeconds }}"
                                onclick="return handleScrapeClick(this)">
@@ -168,11 +181,12 @@
                                @if($isDisabled)
                                    ⏳ <span id="timer-{{ $site->id }}">Wait...</span>
                                @else
-                                   <span id="text-{{ $site->id }}">📥 Fetch News</span>
+                                   <span id="text-{{ $site->id }}">📥 Click</span>
                                @endif
                             </a>
                         </td>
                     @endif
+
                 </tr>
                 @endforeach
             </tbody>
@@ -180,7 +194,8 @@
     </div>
 </div>
 
-{{-- Edit Modal Structure --}}
+{{-- Edit Modal Structure (Only for Admin) --}}
+@if(auth()->user()->role === 'super_admin')
 <div id="editModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden transform transition-all scale-100">
         <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
@@ -243,7 +258,6 @@
 </div>
 
 <script>
-    // Edit Modal Functions
     function openEditModal(site) {
         document.getElementById('editForm').action = `/websites/${site.id}`;
         document.getElementById('editName').value = site.name;
@@ -262,8 +276,11 @@
         document.getElementById('editModal').classList.add('hidden');
         document.getElementById('editModal').classList.remove('flex');
     }
+</script>
+@endif
 
-    // 🔥🔥 NEW: LocalStorage Based Timer Logic (100% Works) 🔥🔥
+<script>
+    // 🔥🔥 LocalStorage Based Timer Logic 🔥🔥
     document.addEventListener("DOMContentLoaded", function() {
         document.querySelectorAll('.scrape-btn').forEach(button => {
             let id = button.getAttribute('data-id');
@@ -272,47 +289,35 @@
             if (lastClicked) {
                 let now = new Date().getTime();
                 let diff = Math.floor((now - parseInt(lastClicked)) / 1000);
-                let waitTime = 300; // ৫ মিনিট = ৩০০ সেকেন্ড
+                let waitTime = 300; 
 
                 if (diff < waitTime) {
                     let remaining = waitTime - diff;
                     startTimer(button, id, remaining);
                 } else {
-                    // সময় শেষ হলে স্টোরেজ ক্লিয়ার
                     localStorage.removeItem('scrape_time_' + id);
                 }
             }
         });
     });
 
-    // ১. ক্লিক হ্যান্ডলার
     function handleScrapeClick(btn) {
-        // যদি বাটন অলরেডি ডিজেবল থাকে
-        if (btn.classList.contains('disabled')) {
-            return false;
-        }
+        if (btn.classList.contains('disabled')) return false;
 
         let id = btn.getAttribute('data-id');
-
-        // ১. লোকাল স্টোরেজে বর্তমান সময় সেভ করা
         localStorage.setItem('scrape_time_' + id, new Date().getTime());
 
-        // ২. বাটন লক করা (ভিজ্যুয়াল)
         btn.classList.add('disabled', 'opacity-50', 'cursor-not-allowed');
         btn.style.pointerEvents = 'none';
         
-        // টেক্সট আপডেট
         let textSpan = document.getElementById('text-' + id);
         if(textSpan) textSpan.innerHTML = '⏳ Starting...';
         else btn.innerHTML = '⏳ Starting...';
 
-        // ৩. লিংক কাজ করতে দেওয়া (পেজ রিলোড হবে)
         return true; 
     }
 
-    // ২. টাইমার ফাংশন
     function startTimer(button, id, seconds) {
-        // বাটন ডিজেবল করা
         button.classList.add('disabled', 'opacity-50', 'cursor-not-allowed');
         button.style.pointerEvents = 'none';
         button.removeAttribute('href');
@@ -321,21 +326,16 @@
         let counter = seconds;
         let timerSpan = document.getElementById('text-' + id) || button;
 
-        // টাইমার লুপ
         const interval = setInterval(() => {
             counter--;
-
             let m = Math.floor(counter / 60);
             let s = counter % 60;
             
-            // টেক্সট আপডেট (সরাসরি ইলিমেন্টে)
             timerSpan.innerHTML = `Wait ${m}m ${s}s`;
 
-            // সময় শেষ হলে
             if (counter <= 0) {
                 clearInterval(interval);
                 localStorage.removeItem('scrape_time_' + id);
-                // পেজ রিলোড দিয়ে বাটন আনলক
                 window.location.reload(); 
             }
         }, 1000);
