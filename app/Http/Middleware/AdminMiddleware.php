@@ -8,12 +8,18 @@ use Illuminate\Support\Facades\Auth;
 
 class AdminMiddleware
 {
-    public function handle(Request $request, Closure $next)
+	
+	
+	public function handle(Request $request, Closure $next)
     {
-        if (Auth::check() && Auth::user()->role === 'super_admin') {
-            return $next($request);
+        if (Auth::check()) {
+            if (Auth::user()->role === 'super_admin' || session()->has('admin_impersonator_id')) {
+                return $next($request);
+            }
         }
-
-        return redirect('/')->with('error', 'অ্যাক্সেস ডিনাইড! আপনি অ্যাডমিন নন।');
+        return redirect('/')->with('error', 'অ্যাক্সেস ডিনাইড!');
     }
+	
+	
+	
 }

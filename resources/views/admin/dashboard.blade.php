@@ -165,6 +165,12 @@
                                 <input type="number" name="amount" placeholder="+Cr" class="w-12 text-xs border border-slate-300 rounded-l-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500" required>
                                 <button type="submit" class="bg-indigo-600 text-white text-xs px-2 py-1.5 rounded-r-lg hover:bg-indigo-700 font-bold shadow-sm">Add</button>
                             </form>
+							
+							<a href="{{ route('admin.users.login-as', $user->id) }}" 
+							   class="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold hover:bg-yellow-600 ml-2"
+							   onclick="return confirm('আপনি কি এই ইউজার হিসেবে লগইন করতে চান?')">
+							   🔑 Login
+							</a>
 
                             {{-- 5. Block/Unblock --}}
                             <form action="{{ route('admin.users.toggle', $user->id) }}" method="POST">

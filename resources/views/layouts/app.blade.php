@@ -46,6 +46,20 @@
 
     <div class="fixed inset-0 -z-10 h-full w-full bg-white [background:radial-gradient(125%_125%_at_50%_10%,#fff_40%,#6366f110_100%)]"></div>
 
+    {{-- 🔥🔥🔥 ADMIN IMPERSONATION BAR 🔥🔥🔥 --}}
+    @if(session()->has('admin_impersonator_id'))
+        <div class="bg-red-600 text-white text-center py-2 text-sm font-bold fixed top-0 w-full z-[9999] shadow-md flex justify-center items-center gap-4">
+            <span class="animate-pulse">⚠️ আপনি এখন "{{ auth()->user()->name }}" হিসেবে লগইন করে আছেন।</span>
+            
+            <a href="{{ route('stop.impersonate') }}" class="bg-white text-red-600 px-3 py-1 rounded shadow hover:bg-gray-100 transition border border-red-800 text-xs font-extrabold uppercase tracking-wide">
+                🔙 Return to Admin
+            </a>
+        </div>
+        
+        {{-- ইম্পারসোনেশন বারের জন্য স্পেস --}}
+        <div class="h-10"></div>
+    @endif
+
     <nav class="glass-nav border-b border-indigo-50/50 sticky top-0 z-50 transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
@@ -104,25 +118,30 @@
                             <span class="text-lg leading-none">🪙</span>
                             <span>{{ auth()->user()->credits ?? 0 }}</span>
                         </a>
-
-                        @if(auth()->user()->role !== 'super_admin')
-                            @php
-                                $limit = auth()->user()->daily_post_limit ?? 20;
-                                $used = auth()->user()->todays_post_count ?? 0; 
-                                $isLimitReached = $used >= $limit;
-                                $percent = ($used / $limit) * 100;
-                            @endphp
-                            
-                            <div class="hidden sm:flex flex-col w-24 gap-1 group cursor-help" title="Limit: {{ $used }}/{{ $limit }}">
-                                <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                                    <span class="{{ $isLimitReached ? 'text-rose-500' : 'text-slate-500' }}">Daily</span>
-                                    <span class="{{ $isLimitReached ? 'text-rose-600' : 'text-indigo-600' }}">{{ $used }}/{{ $limit }}</span>
-                                </div>
-                                <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                                    <div class="h-full rounded-full transition-all duration-500 {{ $isLimitReached ? 'bg-rose-500' : 'bg-indigo-500' }}" style="width: {{ $percent > 100 ? 100 : $percent }}%"></div>
-                                </div>
-                            </div>
+                        
+                        {{-- 🔥🔥🔥 SETTINGS LINK (Admin & Impersonated Admin) --}}
+                        @if(auth()->user()->role === 'super_admin' || session()->has('admin_impersonator_id'))
+                            <a href="{{ route('settings.index') }}" class="text-xs font-bold text-gray-500 hover:text-indigo-600 hidden md:block">
+                                ⚙️ Settings (Admin)
+                            </a>
                         @endif
+
+                        @php
+                            $limit = auth()->user()->daily_post_limit ?? 20;
+                            $used = auth()->user()->todays_post_count ?? 0; 
+                            $isLimitReached = $used >= $limit;
+                            $percent = ($used / $limit) * 100;
+                        @endphp
+                        
+                        <div class="hidden sm:flex flex-col w-24 gap-1 group cursor-help" title="Limit: {{ $used }}/{{ $limit }}">
+                            <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider">
+                                <span class="{{ $isLimitReached ? 'text-rose-500' : 'text-slate-500' }}">Daily</span>
+                                <span class="{{ $isLimitReached ? 'text-rose-600' : 'text-indigo-600' }}">{{ $used }}/{{ $limit }}</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                                <div class="h-full rounded-full transition-all duration-500 {{ $isLimitReached ? 'bg-rose-500' : 'bg-indigo-500' }}" style="width: {{ $percent > 100 ? 100 : $percent }}%"></div>
+                            </div>
+                        </div>
 
                         @php $unreadCount = auth()->user()->unreadNotifications->count(); @endphp
                         <a href="{{ route('news.drafts') }}" onclick="markRead()" class="relative p-2 rounded-full text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all duration-200">
@@ -139,7 +158,7 @@
                         <div class="hidden md:flex items-center gap-3 pl-3 border-l border-slate-200">
                              <div class="flex flex-col text-right">
                                 <span class="text-sm font-bold text-slate-700 leading-tight">{{ auth()->user()->name }}</span>
-                                <a href="{{ route('settings.index') }}" class="text-[10px] text-slate-400 hover:text-indigo-500 font-medium">Settings</a>
+                                <span class="text-[10px] text-slate-400">User Panel</span>
                             </div>
                             
                             <form action="{{ route('logout') }}" method="POST">
@@ -155,7 +174,7 @@
                         <a href="{{ route('settings.index') }}" class="md:hidden p-2 text-slate-500 hover:text-indigo-600">
                              <span class="sr-only">Settings</span>
                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                         </a>
+                          </a>
                     @endauth
 
                     @guest

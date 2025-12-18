@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Models\UserSetting;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 
 class AdminController extends Controller
 {
@@ -202,7 +203,44 @@ class AdminController extends Controller
         $allPosts = $query->latest('posted_at')->paginate(50)->withQueryString();
 
         return view('admin.post_history', compact('allPosts', 'users', 'websites'));
-    }		
+    }
+
+		
+	// ১. ইম্পারসোনেট শুরু (Login As User) - এটি আগেরটি আপডেট করুন
+    public function loginAsUser($id)
+    {
+        if (auth()->user()->role !== 'super_admin') {
+            return back()->with('error', 'অনুমতি নেই।');
+        }
+
+        $originalAdminId = auth()->id(); // অ্যাডমিনের নিজের আইডি
+        $user = \App\Models\User::findOrFail($id);
+
+        // সেশনে অ্যাডমিনের আইডি সেভ করে রাখা
+        session()->put('admin_impersonator_id', $originalAdminId);
+
+        // ইউজারের আইডিতে লগইন করা
+        \Illuminate\Support\Facades\Auth::login($user);
+
+        return redirect()->route('news.index')->with('success', "Logged in as {$user->name}");
+    }
+
+    public function stopImpersonate()
+    {
+        if (session()->has('admin_impersonator_id')) {
+            
+            $adminId = session('admin_impersonator_id');
+
+            session()->forget('admin_impersonator_id');
+
+            \Illuminate\Support\Facades\Auth::loginUsingId($adminId);
+
+            return redirect()->route('admin.dashboard')->with('success', 'স্বাগতম! অ্যাডমিন প্যানেলে ফিরে এসেছেন।');
+        }
+
+        return redirect()->route('news.index');
+    }
+						
 			
 			
 			
