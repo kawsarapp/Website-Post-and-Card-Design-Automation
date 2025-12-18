@@ -103,8 +103,9 @@ class NewsController extends Controller
                 }
             }
         }
-
-        return view('news.studio', compact('newsItem', 'settings', 'availableTemplates'));
+		
+		$categories = $settings->category_mapping ?? [];
+        return view('news.studio', compact('newsItem', 'settings', 'availableTemplates', 'categories'));
     }
 
     public function proxyImage(Request $request)
@@ -344,11 +345,10 @@ class NewsController extends Controller
 	
 	public function publishManualFromIndex(Request $request, $id)
     {
-        // ১. ভ্যালিডেশন
         $request->validate([
             'title' => 'required',
             'content' => 'required',
-            'image_file' => 'nullable|image|max:5120', // 5MB Max
+            'image_file' => 'nullable|image|max:5120',
             'image_url' => 'nullable|url',
             'category' => 'nullable'
         ]);
@@ -356,45 +356,45 @@ class NewsController extends Controller
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
-        // ==========================================
-        // 🔥 নতুন অংশ: ইমেজ প্রসেসিং
-        // ==========================================
-        $finalImage = $news->thumbnail_url; // ডিফল্ট হিসেবে আগের ইমেজ থাকবে
+        // 🔥🔥 NEW: ডুপ্লিকেট পাবলিশ চেক
+        if ($news->is_posted) {
+            return response()->json([
+                'success' => false, 
+                'message' => '⚠️ এই নিউজটি ইতিমধ্যেই পাবলিশ করা হয়েছে! এডিট করে পুনরায় পাবলিশ করা যাবে না।'
+            ]);
+        }
 
+        // ইমেজ প্রসেসিং
+        $finalImage = $news->thumbnail_url; 
         if ($request->hasFile('image_file')) {
-            // যদি ফাইল আপলোড করা হয়
             $path = $request->file('image_file')->store('news-uploads', 'public');
             $finalImage = asset('storage/' . $path);
         } elseif ($request->filled('image_url')) {
-            // যদি ইমেজের লিংক দেওয়া হয়
             $finalImage = $request->image_url;
         }
 
-        // ==========================================
-        // 🔥 নতুন অংশ: ক্যাটাগরি প্রসেসিং
-        // ==========================================
-        // ক্যাটাগরি সিলেক্ট করলে সেটা নিবে, নাহলে ডিফল্ট ১
+        // ক্যাটাগরি প্রসেসিং
         $categoryIds = $request->filled('category') ? [$request->category] : [1];
 
-        // ২. ডাটাবেস আপডেট
+        // ডাটাবেস আপডেট
         $news->update([
             'title'         => $request->title,
             'content'       => $request->content,
             'ai_title'      => $request->title,   
             'ai_content'    => $request->content, 
-            'thumbnail_url' => $finalImage, // ✅ আপডেট: নতুন ইমেজ সেভ হবে
+            'thumbnail_url' => $finalImage,
             'status'        => 'publishing',
             'is_rewritten'  => 1,
             'updated_at'    => now()
         ]);
 
-        // ৩. জবের জন্য ডাটা রেডি করা
+        // জবের জন্য ডাটা রেডি করা
         $customData = [
             'title'          => $news->title,
             'content'        => $news->content,
             'category_ids'   => $categoryIds,
             'featured_image' => $finalImage,
-			'skip_social'    => true
+            'skip_social'    => true // ম্যানুয়াল পাবলিশে সোশ্যাল স্কিপ হবে
         ];
 
         \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
@@ -628,16 +628,19 @@ class NewsController extends Controller
     // ==========================================
    
    
+   
    public function publishStudioDesign(Request $request, $id)
     {
         $request->validate([
-            'design_image' => 'required|image|max:20480', 
+            'design_image' => 'required|image|max:20480',
+            'category_id'  => 'nullable',
+            'social_caption' => 'nullable|string'
         ]);
 
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
-        // ১. সাধারণ চেক
+        // ১. সাধারণ চেক (User & Credit)
         if ($user->role !== 'super_admin') {
             if ($user->credits <= 0) return response()->json(['success' => false, 'message' => 'ক্রেডিট শেষ!']);
             if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
@@ -645,37 +648,65 @@ class NewsController extends Controller
             }
         }
 
+        // 🔥🔥 NEW: পাবলিশিং লজিক চেক (আপনার রিকোয়ারমেন্ট অনুযায়ী)
+        $isSocialOnly = $request->has('social_only') && $request->social_only == '1';
+
+        if ($news->is_posted) {
+            // কেস ১: নিউজটি অলরেডি ওয়েবসাইটে পাবলিশ করা আছে
+            if (!$isSocialOnly) {
+                // ইউজার আবারও ওয়েবসাইটে পাবলিশ করতে চাচ্ছে -> এটা বন্ধ করতে হবে
+                return response()->json([
+                    'success' => false, 
+                    'message' => '⚠️ এই নিউজটি ইতিমধ্যেই ওয়েবসাইটে পাবলিশ করা হয়েছে! আপনি চাইলে "Only Social" সিলেক্ট করে রিশেয়ার করতে পারেন।'
+                ]);
+            }
+            // যদি "Only Social" হয়, তবে আমরা এলাউ করব (রিশেয়ার করার জন্য)
+        } else {
+            // কেস ২: নিউজটি এখনো ড্রাফট (পাবলিশ হয়নি)
+            if ($isSocialOnly) {
+                // ইউজার ওয়েবসাইট বাদ দিয়ে শুধু সোশ্যাল করতে চাচ্ছে -> এটা বন্ধ করতে হবে (আপনার রিকোয়ারমেন্ট)
+                return response()->json([
+                    'success' => false, 
+                    'message' => '⚠️ নিউজটি এখনো ওয়েবসাইটে পাবলিশ হয়নি! "Only Social" পোস্ট করার আগে অবশ্যই ওয়েবসাইটে পাবলিশ করতে হবে।'
+                ]);
+            }
+        }
+
         try {
             if ($request->hasFile('design_image')) {
                 
-                // ২. স্টুডিওর ইমেজটি সেভ করা
                 $path = $request->file('design_image')->store('news-cards/studio', 'public');
                 $studioImageUrl = asset('storage/' . $path);
                 
-                // 🔥 CHANGE: আমরা নিউজের 'thumbnail_url' আপডেট করব না।
-                // যাতে ওয়েবসাইটের জন্য অরিজিনাল ছবিটাই থাকে।
+                // যদি ওয়েবসাইটের পোস্ট না হয় (Only Social), তবে স্ট্যাটাস চেইঞ্জ করার দরকার নেই
+                if (!$isSocialOnly) {
+                    $news->update([
+                        'status' => 'publishing',
+                        'updated_at' => now()
+                    ]);
+                }
                 
-                $news->update([
-                    'status' => 'publishing',
-                    'updated_at' => now()
-                ]);
-				
-				$isSocialOnly = $request->has('social_only') && $request->social_only == '1';
+                // ক্যাপশন এবং ক্যাটাগরি প্রসেসিং
+                $socialCaption = $request->filled('social_caption') 
+                                ? $request->social_caption 
+                                : (!empty($news->ai_title) ? $news->ai_title : $news->title);
 
-                // ৩. জবে ডাটা পাঠানো
+                $categoryIds = $request->filled('category_id') ? [$request->category_id] : [1];
+
+                // জবে ডাটা পাঠানো
                 $customData = [
                     'title'          => $news->title, 
                     'content'        => $news->content,
-					'social_only'    => $isSocialOnly,
-                    'website_image'  => $news->thumbnail_url, // ওয়েবসাইটের জন্য অরিজিনালটা
-                    'social_image'   => $studioImageUrl,      // সোশ্যাল মিডিয়ার জন্য কার্ডটা
-                    
-                    'category_ids'   => [1] 
+                    'social_only'    => $isSocialOnly,
+                    'website_image'  => $news->thumbnail_url,
+                    'social_image'   => $studioImageUrl,
+                    'category_ids'   => $categoryIds,
+                    'social_caption' => $socialCaption 
                 ];
 
                 \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
 
-                return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
+                return response()->json(['success' => true, 'message' => 'পাবলিশিং প্রসেস শুরু হয়েছে!']);
             }
 
             return response()->json(['success' => false, 'message' => 'ইমেজ পাওয়া যায়নি।']);
@@ -685,6 +716,9 @@ class NewsController extends Controller
             return response()->json(['success' => false, 'message' => 'সার্ভার এরর: ' . $e->getMessage()]);
         }
     }
+	
+	
+	
 	
 	
 	

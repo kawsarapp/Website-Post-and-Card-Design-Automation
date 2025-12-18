@@ -37,9 +37,7 @@ class ProcessNewsPost implements ShouldQueue
         $this->skipCreditDeduction = $skipCreditDeduction;
     }
 
-    
-	
-	public function handle(
+    public function handle(
         WordPressService $wpService, 
         SocialPostService $socialPoster, 
         NewsCardGeneratorService $cardGenerator
@@ -234,31 +232,30 @@ class ProcessNewsPost implements ShouldQueue
                     
                     elseif ($settings->post_to_laravel && $settings->laravel_site_url) {
                          if ($laravelSuccess || $news->is_posted) {
-                             
-
                              $idToUse = $wpPostId ?? $news->wp_post_id ?? $news->id;
-                             
                              $prefix = $settings->laravel_route_prefix ?? 'news';
-                             
                              $prefix = trim($prefix, '/'); 
-
                              $checkLink = rtrim($settings->laravel_site_url, '/') . '/' . $prefix . '/' . $idToUse;
-
                              $newsLink = $checkLink;
                              
                              Log::info("🔗 Using Laravel Link ($prefix): $newsLink");
                          }
                     }
 
+                    // ==========================================
+                    // 🔥🔥 NEW: SOCIAL CAPTION LOGIC
+                    // ==========================================
+                    // স্টুডিও থেকে পাঠানো ক্যাপশন থাকলে সেটা নিবে, নাহলে টাইটেল
+                    $captionToPost = $this->customData['social_caption'] ?? $finalTitle;
+
                     if ($settings->post_to_fb) {
-                        $socialPoster->postToFacebook($settings, $finalTitle, $imageToPost, $newsLink);
+                        $socialPoster->postToFacebook($settings, $captionToPost, $imageToPost, $newsLink);
                     }
                     if ($settings->post_to_telegram) {
-                        $socialPoster->postToTelegram($settings, $finalTitle, $imageToPost, $newsLink);
+                        $socialPoster->postToTelegram($settings, $captionToPost, $imageToPost, $newsLink);
                     }
 
-					
-
+                    // ক্লিনআপ
                     if ($localCardPath && file_exists($localCardPath)) {
                        unlink($localCardPath);
                        Log::info("🧹 Generated card deleted to save space.");
@@ -272,9 +269,6 @@ class ProcessNewsPost implements ShouldQueue
                              Log::info("🧹 Studio Card deleted from server to save space.");
                          }
                     }
-
-                
-					
                 } 
                 else {
                     if ($skipSocial) Log::info("⏭️ Social Posting Skipped (Manual Publish Mode).");
@@ -297,7 +291,6 @@ class ProcessNewsPost implements ShouldQueue
             $this->fail($e);
         }
     }
-
 
     public function failed(\Throwable $exception)
     {

@@ -21,7 +21,7 @@ Route::get('/', function () {
     return redirect()->route('websites.index');
 });
 
-// Test Routes (Settings Test Routes) - এগুলোও অ্যাডমিনের ভেতরে নেওয়া ভালো, তবে বাইরে থাকলেও সমস্যা নেই যদি কন্ট্রোলারে চেক থাকে
+// Test Routes (Settings Test Routes) - এগুলোও অ্যাডমিনের ভেতরে নেওয়া ভালো, তবে বাইরে থাকলেও সমস্যা নেই যদি কন্ট্রোলারে চেক থাকে
 Route::post('/settings/test-facebook', [SettingsController::class, 'testFacebookConnection'])->name('settings.test-facebook');
 Route::post('/settings/test-telegram', [SettingsController::class, 'testTelegramConnection'])->name('settings.test-telegram');
 Route::post('/settings/test-wordpress', [SettingsController::class, 'testWordPressConnection'])->name('settings.test-wordpress');
@@ -95,18 +95,22 @@ Route::middleware(['auth'])->group(function () {
     // Payments
     Route::get('/buy-credits', [PaymentController::class, 'create'])->name('payment.create');
     Route::post('/buy-credits', [PaymentController::class, 'store'])->name('payment.store');
+
+    // 🔥🔥 FETCH CATEGORIES (Moved from Admin group)
+    // এটি এখন সাধারণ ইউজাররাও এক্সেস করতে পারবে স্টুডিও বা ড্রাফট পেজ থেকে
+    Route::get('/settings/fetch-categories', [SettingsController::class, 'fetchCategories'])->name('settings.fetch-categories');
 });
 
 // --- 🔥 ADMIN ONLY ROUTES (Settings এখন এখানে) ---
-Route::middleware(['auth', AdminMiddleware::class]) // এখানে AdminMiddleware ব্যবহার করা হয়েছে
+Route::middleware(['auth', AdminMiddleware::class]) // এখানে AdminMiddleware ব্যবহার করা হয়েছে
     ->group(function () {
     
-    // 🔥🔥 SETTINGS ROUTES (MOVED HERE) 🔥🔥
+    // 🔥🔥 SETTINGS ROUTES (ONLY ADMIN) 🔥🔥
     // এখন সাধারণ ইউজাররা /settings এ গেলে এক্সেস পাবে না
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
-    Route::get('/settings/fetch-categories', [SettingsController::class, 'fetchCategories'])->name('settings.fetch-categories');
+	
     
     // Admin Dashboard Routes
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -119,6 +123,7 @@ Route::middleware(['auth', AdminMiddleware::class]) // এখানে AdminMidd
         Route::post('/users/{id}/scraper', [AdminController::class, 'updateScraperSettings'])->name('users.scraper');
         Route::post('/users/create', [AdminController::class, 'store'])->name('users.store');
         Route::put('/users/{id}/update', [AdminController::class, 'updateUser'])->name('users.update');
+		Route::get('/post-history', [AdminController::class, 'postHistory'])->name('post-history');
         
         // Payments
         Route::get('/payments', [PaymentController::class, 'adminIndex'])->name('payments.index');

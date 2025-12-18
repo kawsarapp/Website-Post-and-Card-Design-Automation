@@ -835,6 +835,158 @@
     }
 	
 	
+
+    function refreshStudioCategories() {
+        const btn = document.querySelector('button[onclick="refreshStudioCategories()"]');
+        const select = document.getElementById('modalCategory');
+        
+        // বাটন লোডিং স্টেট
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "⏳ Loading...";
+        btn.disabled = true;
+
+        // আপনার অ্যাপে fetch-categories রাউটটি web.php তে আছে
+        fetch('/settings/fetch-categories')
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert('❌ এরর: ' + data.error);
+                } else {
+                    // ড্রপডাউন ক্লিয়ার করা
+                    select.innerHTML = '<option value="">-- Select Category --</option>';
+
+                    // নতুন ডাটা দিয়ে লুপ চালানো
+                    if (Array.isArray(data) && data.length > 0) {
+                        data.forEach(cat => {
+                            let option = document.createElement('option');
+                            option.value = cat.id;
+                            option.text = `${cat.name} (ID: ${cat.id})`;
+                            select.appendChild(option);
+                        });
+                        
+                        // ডিফল্ট ক্যাটাগরি যোগ করা
+                        let defaultOpt = document.createElement('option');
+                        defaultOpt.value = "1";
+                        defaultOpt.text = "Uncategorized (Default)";
+                        select.appendChild(defaultOpt);
+
+                        alert("✅ ক্যাটাগরি লিস্ট সফলভাবে আপডেট হয়েছে!");
+                    } else {
+                        alert("⚠️ কোনো ক্যাটাগরি পাওয়া যায়নি।");
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("❌ নেটওয়ার্ক এরর! সেটিংস চেক করুন।");
+            })
+            .finally(() => {
+                // বাটন আগের অবস্থায় আনা
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+    }
+	
+	
+	
+
+    function openPublishModal() {
+        document.getElementById('studioPublishModal').classList.remove('hidden');
+        document.getElementById('studioPublishModal').classList.add('flex');
+    }
+
+    function closePublishModal() {
+        document.getElementById('studioPublishModal').classList.add('hidden');
+        document.getElementById('studioPublishModal').classList.remove('flex');
+    }
+
+    function toggleCategoryField(isChecked) {
+        const wrapper = document.getElementById('categoryFieldWrapper');
+        if (isChecked) {
+            wrapper.classList.add('opacity-50', 'pointer-events-none'); // Disable UI visually
+        } else {
+            wrapper.classList.remove('opacity-50', 'pointer-events-none');
+        }
+    }
+
+    
+	
+	function confirmStudioPost() {
+        const btn = document.getElementById('btnFinalPost');
+        const originalText = btn.innerHTML;
+        
+        // ১. ডাটা সংগ্রহ
+        const isSocialOnly = document.getElementById('modalSocialOnly').checked;
+        const categoryId = document.getElementById('modalCategory').value;
+        const caption = document.getElementById('modalCaption').value; // ক্যাপশন ভ্যালু
+
+        // ২. ভ্যালিডেশন (যদি ওয়েবসাইট পোস্ট হয় তবে ক্যাটাগরি মাস্ট)
+        if (!isSocialOnly && !categoryId) {
+            alert("⚠️ ওয়েবসাইটে পোস্ট করার জন্য ক্যাটাগরি সিলেক্ট করুন।");
+            return;
+        }
+
+        btn.innerHTML = "⏳ Uploading...";
+        btn.disabled = true;
+
+        canvas.discardActiveObject(); 
+        canvas.renderAll();
+
+        try {
+            const dataURL = canvas.toDataURL({ format: 'png', multiplier: 1.5, quality: 1.0 });
+            const blob = dataURLToBlob(dataURL);
+
+            const formData = new FormData();
+            formData.append('design_image', blob, 'studio-final.png');
+            
+            // 🔥 শর্ত চেক (Web Post লজিক)
+            if (isSocialOnly) {
+                formData.append('social_only', '1');
+            } else {
+                // ওয়েব পোস্ট হলে ক্যাটাগরি যাবে
+                if (categoryId) formData.append('category_id', categoryId);
+            }
+            
+            // 🔥🔥 FIX: ক্যাপশন সব সময় পাঠাতে হবে (শর্ত ছাড়া)
+            // আগে এটি হয়তো কোনো if ব্লকের ভেতরে ছিল, এখন বাইরে আনা হলো।
+            formData.append('social_caption', caption); 
+            
+            const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            fetch("{{ route('news.publish-studio', $newsItem->id) }}", {
+                method: "POST",
+                headers: { "X-CSRF-TOKEN": token },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closePublishModal();
+                    alert("✅ পাবলিশিং শুরু হয়েছে! (Caption Saved)");
+                    window.location.href = "{{ route('news.index') }}"; 
+                } else {
+                    alert("❌ এরর: " + data.message);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("❌ নেটওয়ার্ক এরর!");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+
+        } catch (error) {
+            console.error(error);
+            alert("❌ ক্যানভাস এরর।");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+	
+	
+	
 	
 	
 	

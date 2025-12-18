@@ -49,4 +49,27 @@ class NewsItem extends Model
     {
         return $this->belongsTo(Website::class);
     }
+	
+	
+	public function getLiveUrlAttribute()
+    {
+        $settings = $this->user->settings ?? null;
+        if (!$settings) return null;
+
+        if ($this->wp_post_id && $settings->wp_url) {
+            return rtrim($settings->wp_url, '/') . '/?p=' . $this->wp_post_id;
+        }
+
+        if ($settings->post_to_laravel && $settings->laravel_site_url) {
+            $id = $this->wp_post_id ?? $this->id; 
+            $prefix = $settings->laravel_route_prefix ?? 'news';
+            $prefix = trim($prefix, '/');
+
+            return rtrim($settings->laravel_site_url, '/') . '/' . $prefix . '/' . $id;
+        }
+
+        return null;
+    }
+	
+	
 }

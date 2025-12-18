@@ -164,8 +164,45 @@ class AdminController extends Controller
 			}
 			
 			
-			
-			
+	public function postHistory(Request $request)
+    {
+        // ড্রপডাউনের জন্য লিস্ট
+        $users = User::where('role', 'user')->get();
+        $websites = Website::withoutGlobalScopes()->get();
+
+        // মেইন কুয়েরি
+        $query = NewsItem::withoutGlobalScopes()
+            ->with(['user.settings', 'website']) // Eager Loading (Fast Query)
+            ->where('is_posted', true);
+
+        // ১. সার্চ ফিল্টার (Title)
+        if ($request->filled('search')) {
+            $query->where('title', 'like', "%{$request->search}%");
+        }
+
+        // ২. ইউজার ফিল্টার
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        // ৩. পোর্টাল/ওয়েবসাইট ফিল্টার
+        if ($request->filled('website_id')) {
+            $query->where('website_id', $request->website_id);
+        }
+
+        // ৪. তারিখ ফিল্টার (From - To)
+        if ($request->filled('date_from')) {
+            $query->whereDate('posted_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('posted_at', '<=', $request->date_to);
+        }
+
+        // ডাটা ফেচ (Pagination)
+        $allPosts = $query->latest('posted_at')->paginate(50)->withQueryString();
+
+        return view('admin.post_history', compact('allPosts', 'users', 'websites'));
+    }		
 			
 			
 			
