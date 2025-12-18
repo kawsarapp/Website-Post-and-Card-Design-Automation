@@ -75,29 +75,28 @@
     @endif
 
     {{-- WEBSITE LIST TABLE --}}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table class="w-full text-left border-collapse">
+    {{-- WEBSITE LIST TABLE --}}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    {{-- এখানে overflow-x-auto যোগ করা হয়েছে যাতে মোবাইল ভিউতে স্ক্রল করা যায় --}}
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-[600px] md:min-w-full">
             <thead>
                 <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
-                    
-                    {{-- 🔥 CONDITIONAL HEADERS --}}
                     @if(auth()->user()->role === 'super_admin')
-                        <th class="px-6 py-4 font-bold">Name & URL</th>
-                        <th class="px-6 py-4 font-bold">Engine</th>
-                        <th class="px-6 py-4 font-bold">Selectors</th>
-                        <th class="px-6 py-4 font-bold text-right">Actions</th>
+                        <th class="px-4 md:px-6 py-4 font-bold">Name & URL</th>
+                        <th class="px-4 md:px-6 py-4 font-bold">Engine</th>
+                        <th class="px-4 md:px-6 py-4 font-bold">Selectors</th>
+                        <th class="px-4 md:px-6 py-4 font-bold text-right">Actions</th>
                     @else
                         {{-- NORMAL USER HEADER --}}
-                        <th class="px-6 py-4 font-bold">Website Name</th>
-                        <th class="px-6 py-4 font-bold text-right">Action</th>
+                        <th class="px-4 md:px-6 py-4 font-bold">Website Name</th>
+                        <th class="px-4 md:px-6 py-4 font-bold text-right">Action</th>
                     @endif
-
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @foreach($websites as $site)
                 
-                {{-- PHP Time Calculation Logic --}}
                 @php
                     $isDisabled = false;
                     $remainingSeconds = 0;
@@ -115,83 +114,78 @@
                 @endphp
 
                 <tr class="hover:bg-slate-50 transition">
-                    
-                    {{-- 🔥 CONDITIONAL BODY --}}
                     @if(auth()->user()->role === 'super_admin')
                         {{-- SUPER ADMIN VIEW --}}
-                        <td class="px-6 py-4">
-                            <div class="font-bold text-gray-800">{{ $site->name }}</div>
-                            <a href="{{ $site->url }}" target="_blank" class="text-xs text-blue-500 hover:underline block truncate max-w-[200px]">{{ $site->url }} ↗</a>
+                        <td class="px-4 md:px-6 py-4">
+                            <div class="font-bold text-gray-800 text-sm md:text-base">{{ $site->name }}</div>
+                            <a href="{{ $site->url }}" target="_blank" class="text-[10px] md:text-xs text-blue-500 hover:underline block truncate max-w-[120px] md:max-w-[200px]">{{ $site->url }} ↗</a>
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-4 md:px-6 py-4">
                             @if($site->scraper_method == 'python')
-                                <span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded border border-yellow-200">Python</span>
+                                <span class="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded border border-yellow-200">Python</span>
                             @elseif($site->scraper_method == 'node')
-                                <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded border border-green-200">Node</span>
+                                <span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded border border-green-200">Node</span>
                             @else
-                                <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-200">Default</span>
+                                <span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded border border-gray-200">Default</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-xs font-mono text-slate-500">
+                        <td class="px-4 md:px-6 py-4 text-[10px] font-mono text-slate-500">
                             C: {{ $site->selector_container }} <br> 
-                            T: {{ $site->selector_title }} <br>
-                            @if($site->selector_content)
-                                <span class="text-green-600 font-bold">B: {{ \Illuminate\Support\Str::limit($site->selector_content, 15) }}</span>
-                            @endif
+                            T: {{ $site->selector_title }}
                         </td>
-                        <td class="px-6 py-4 text-right flex justify-end gap-2">
-                            <button onclick='openEditModal(@json($site))' 
-                                    class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-200">
-                                ✏️ Edit
-                            </button>
-                            
-                            <a href="{{ route('websites.scrape', $site->id) }}" 
-                               id="btn-{{ $site->id }}"
-                               class="scrape-btn bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-200 transition {{ $isDisabled ? 'disabled opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
-                               data-id="{{ $site->id }}"
-                               data-remaining="{{ $remainingSeconds }}"
-                               onclick="return handleScrapeClick(this)">
-                               
-                               @if($isDisabled)
-                                   ⏳ <span id="timer-{{ $site->id }}">Wait...</span>
-                               @else
-                                   <span id="text-{{ $site->id }}">⚡ Scrape</span>
-                               @endif
-                            </a>
+                        <td class="px-4 md:px-6 py-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button onclick='openEditModal(@json($site))' 
+                                        class="bg-blue-100 text-blue-700 px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs font-bold">
+                                    ✏️
+                                </button>
+                                <a href="{{ route('websites.scrape', $site->id) }}" 
+                                   id="btn-{{ $site->id }}"
+                                   class="scrape-btn bg-green-100 text-green-700 px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs font-bold {{ $isDisabled ? 'disabled opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
+                                   data-id="{{ $site->id }}"
+                                   data-remaining="{{ $remainingSeconds }}"
+                                   onclick="return handleScrapeClick(this)">
+                                    @if($isDisabled)
+                                        ⏳ <span id="timer-{{ $site->id }}">Wait</span>
+                                    @else
+                                        <span id="text-{{ $site->id }}">⚡ Scrape</span>
+                                    @endif
+                                </a>
+                            </div>
                         </td>
 
                     @else
-                        {{-- 🔥 NORMAL USER VIEW (Clean & Simple) --}}
-                        <td class="px-6 py-4">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-indigo-50 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
+                        {{-- NORMAL USER VIEW --}}
+                        <td class="px-4 md:px-6 py-4">
+                            <div class="flex items-center gap-2 md:gap-3">
+                                <div class="bg-indigo-50 text-indigo-600 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-sm md:text-lg">
                                     {{ substr($site->name, 0, 1) }}
                                 </div>
-                                <div class="font-bold text-gray-800 text-base">{{ $site->name }}</div>
+                                <div class="font-bold text-gray-800 text-sm md:text-base">{{ $site->name }}</div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-right">
+                        <td class="px-4 md:px-6 py-4 text-right">
                              <a href="{{ route('websites.scrape', $site->id) }}" 
                                id="btn-{{ $site->id }}"
-                               class="scrape-btn bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 shadow-md transition-all flex items-center gap-2 justify-center ml-auto w-fit {{ $isDisabled ? 'disabled opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
+                               class="scrape-btn bg-indigo-600 text-white px-4 py-2 md:px-6 md:py-2.5 rounded-lg text-xs md:text-sm font-bold hover:bg-indigo-700 shadow-md transition-all inline-flex items-center gap-2 justify-center {{ $isDisabled ? 'disabled opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
                                data-id="{{ $site->id }}"
                                data-remaining="{{ $remainingSeconds }}"
                                onclick="return handleScrapeClick(this)">
                                
                                @if($isDisabled)
-                                   ⏳ <span id="timer-{{ $site->id }}">Wait...</span>
+                                   ⏳ <span id="timer-{{ $site->id }}">Wait</span>
                                @else
                                    <span id="text-{{ $site->id }}">📥 Click</span>
                                @endif
                             </a>
                         </td>
                     @endif
-
                 </tr>
                 @endforeach
             </tbody>
         </table>
     </div>
+</div>
 </div>
 
 {{-- Edit Modal Structure (Only for Admin) --}}
