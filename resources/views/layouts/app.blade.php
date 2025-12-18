@@ -57,7 +57,7 @@
                                 <span class="text-lg">📰</span>
                             </div>
                             <span class="font-bold text-xl bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent tracking-tight group-hover:from-indigo-600 group-hover:to-violet-600 transition-all">
-                                NewsCard<span class="font-extrabold">Pro</span>
+                                SubEditor<span class="font-extrabold">BD</span>
                             </span>
                         </a>
                     </div>
@@ -233,7 +233,7 @@
         <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
             <div class="flex items-center gap-2 mb-4 md:mb-0">
                 <span class="text-2xl">📰</span>
-                <span>&copy; {{ date('Y') }} <span class="font-bold text-slate-800">NewsCard Pro</span>. Crafted for creators.</span>
+                <span>&copy; {{ date('Y') }} <span class="font-bold text-slate-800">SubEditorBD</span>. Crafted for creators.</span>
             </div>
             <div class="flex gap-8 font-medium">
                 <a href="#" class="hover:text-indigo-600 transition">Privacy</a>
