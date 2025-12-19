@@ -15,16 +15,56 @@
     .layer-btn { background: white; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; font-size: 11px; transition: all 0.2s; }
     .layer-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
 
-    /* Custom Fonts */
+
+	@font-face { font-family: 'SolaimanLipi'; src: url('/fonts/SolaimanLipi.ttf') format('truetype'); font-weight: normal; }
+
+    /* 2. Noto Serif Condensed (All Weights) */
     @font-face { font-family: 'Noto Serif Cond Thin'; src: url('/fonts/NotoSerifBengali_Condensed-Thin.ttf') format('truetype'); }
+    @font-face { font-family: 'Noto Serif Cond ExtraLight'; src: url('/fonts/NotoSerifBengali_Condensed-ExtraLight.ttf') format('truetype'); }
     @font-face { font-family: 'Noto Serif Cond Light'; src: url('/fonts/NotoSerifBengali_Condensed-Light.ttf') format('truetype'); }
     @font-face { font-family: 'Noto Serif Cond Regular'; src: url('/fonts/NotoSerifBengali_Condensed-Regular.ttf') format('truetype'); font-weight: normal; }
     @font-face { font-family: 'Noto Serif Cond Medium'; src: url('/fonts/NotoSerifBengali_Condensed-Medium.ttf') format('truetype'); }
     @font-face { font-family: 'Noto Serif Cond SemiBold'; src: url('/fonts/NotoSerifBengali_Condensed-SemiBold.ttf') format('truetype'); }
     @font-face { font-family: 'Noto Serif Cond Bold'; src: url('/fonts/NotoSerifBengali_Condensed-Bold.ttf') format('truetype'); font-weight: bold; }
-    @font-face { font-family: 'Noto Serif Cond ExtraBold'; src: url('/fonts/NotoSerifBengali_Condensed-ExtraBold.ttf') format('truetype'); }
+    @font-face { font-family: 'Noto Serif Cond ExtraBold'; src: url('/fonts/A NotoSerifBengali_Condensed-ExtraBold.ttf') format('truetype'); } /* আপনার ফাইলে A আছে */
     @font-face { font-family: 'Noto Serif Cond Black'; src: url('/fonts/NotoSerifBengali_Condensed-Black.ttf') format('truetype'); }
-</style>
+
+    /* 3. Li Alinur Family */
+    @font-face { font-family: 'Li Alinur Banglaborno'; src: url('/fonts/Li Alinur Banglaborno Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Alinur Banglaborno'; src: url('/fonts/Li Alinur Banglaborno Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Alinur Kuyasha'; src: url('/fonts/Li Alinur Kuyasha Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Alinur Kuyasha'; src: url('/fonts/Li Alinur Kuyasha Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Alinur Sangbadpatra'; src: url('/fonts/Li Alinur Sangbadpatra Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Alinur Sangbadpatra'; src: url('/fonts/Li Alinur Sangbadpatra Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Alinur Tumatul'; src: url('/fonts/wwwLi Alinur Tumatul Unicode.ttf') format('truetype'); font-weight: normal; } /* আপনার ফাইলে www আছে */
+    @font-face { font-family: 'Li Alinur Tumatul'; src: url('/fonts/wwwLi Alinur Tumatul Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    /* 4. Other Li Fonts */
+    @font-face { font-family: 'Li MA Hai'; src: url('/fonts/Li M. A. Hai Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li MA Hai'; src: url('/fonts/Li M. A. Hai Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Purno Pran'; src: url('/fonts/Li Purno Pran Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Purno Pran'; src: url('/fonts/Li Purno Pran Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Sabbir Sorolota'; src: url('/fonts/Li Sabbir Sorolota Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Sabbir Sorolota'; src: url('/fonts/Li Sabbir Sorolota Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Shohid Abu Sayed'; src: url('/fonts/Li Shohid Abu Sayed Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Shohid Abu Sayed'; src: url('/fonts/ALi Shohid Abu Sayed Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Abu JM Akkas'; src: url('/fonts/Li Abu J M Akkas Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Abu JM Akkas'; src: url('/fonts/Li Abu J M Akkas Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Mehdi Ekushey'; src: url('/fonts/Li Mehdi Ekushey Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Mehdi Ekushey'; src: url('/fonts/ALi Mehdi Ekushey Unicode Italic.ttf') format('truetype'); font-style: italic; }
+
+    @font-face { font-family: 'Li Shadhinata'; src: url('/fonts/Li Shadhinata2 2.0 Unicode.ttf') format('truetype'); font-weight: normal; }
+    @font-face { font-family: 'Li Shadhinata'; src: url('/fonts/Li Shadhinata2 2.0 Unicode Italic.ttf') format('truetype'); font-style: italic; }
+	
+	</style>
 
 <div class="fixed inset-0 bg-gray-100 z-50 flex flex-col font-bangla h-dvh">
     
@@ -172,35 +212,43 @@
                     <div class="border-t pt-4 mt-2">
                         <label class="label-title">🅰️ ফন্ট স্টাইল</label>
                         <select id="font-family" onchange="changeFont(this.value)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bangla focus:ring-2 focus:ring-indigo-500 outline-none">
-                            <option value="" disabled selected>-- ফন্ট সিলেক্ট করুন --</option>
-                            <optgroup label="📂 কাস্টম (Noto Serif Condensed)">
-                                <option value="'Noto Serif Cond Thin'">Noto Serif (Thin)</option>
-                                <option value="'Noto Serif Cond Light'">Noto Serif (Light)</option>
-                                <option value="'Noto Serif Cond Regular'">Noto Serif (Regular)</option>
-                                <option value="'Noto Serif Cond Medium'">Noto Serif (Medium)</option>
-                                <option value="'Noto Serif Cond SemiBold'">Noto Serif (SemiBold)</option>
-                                <option value="'Noto Serif Cond Bold'">Noto Serif (Bold)</option>
-                                <option value="'Noto Serif Cond ExtraBold'">Noto Serif (ExtraBold)</option>
-                                <option value="'Noto Serif Cond Black'">Noto Serif (Black)</option>
-                            </optgroup>
-                            <optgroup label="🔥 জনপ্রিয় বাংলা ফন্ট">
-                                <option value="'Hind Siliguri', sans-serif">হিন্দ শিলিগুড়ি</option>
-                                <option value="'Noto Sans Bengali', sans-serif">নোটো স্যান্স</option>
-                                <option value="'Baloo Da 2', cursive">বালু দা ২</option>
-                                <option value="'Galada', cursive">গলাদা</option>
-                                <option value="'Anek Bangla', sans-serif">অনেক বাংলা</option>
-                                <option value="'Tiro Bangla', serif">তিরো বাংলা</option>
-                                <option value="'Mina', sans-serif">মিনা</option>
-                                <option value="'Noto Serif Bengali', serif">নোটো সেরিফ</option>
-                                <option value="'Atma', cursive">আত্মা</option>
-                            </optgroup>
-                            <optgroup label="English Modern Fonts">
-                                <option value="'Roboto', sans-serif">Roboto</option>
-                                <option value="'Oswald', sans-serif">Oswald</option>
-                                <option value="'Montserrat', sans-serif">Montserrat</option>
-                                <option value="'Poppins', sans-serif">Poppins</option>
-                            </optgroup>
-                        </select>
+							<option value="" disabled selected>-- ফন্ট সিলেক্ট করুন --</option>
+							
+							<optgroup label="🔥 Li Series (Stylish)">
+								<option value="'Li Alinur Banglaborno'">Li Alinur Banglaborno</option>
+								<option value="'Li Alinur Kuyasha'">Li Alinur Kuyasha</option>
+								<option value="'Li Alinur Sangbadpatra'">Li Alinur Sangbadpatra</option>
+								<option value="'Li Alinur Tumatul'">Li Alinur Tumatul</option>
+								<option value="'Li MA Hai'">Li M.A. Hai</option>
+								<option value="'Li Purno Pran'">Li Purno Pran</option>
+								<option value="'Li Sabbir Sorolota'">Li Sabbir Sorolota</option>
+								<option value="'Li Shohid Abu Sayed'">Li Shohid Abu Sayed</option>
+								<option value="'Li Abu JM Akkas'">Li Abu J.M. Akkas</option>
+								<option value="'Li Mehdi Ekushey'">Li Mehdi Ekushey</option>
+								<option value="'Li Shadhinata'">Li Shadhinata</option>
+							</optgroup>
+
+							<optgroup label="📂 Noto Serif Condensed">
+								<option value="'Noto Serif Cond Thin'">Noto Serif (Thin)</option>
+								<option value="'Noto Serif Cond ExtraLight'">Noto Serif (ExtraLight)</option>
+								<option value="'Noto Serif Cond Light'">Noto Serif (Light)</option>
+								<option value="'Noto Serif Cond Regular'">Noto Serif (Regular)</option>
+								<option value="'Noto Serif Cond Medium'">Noto Serif (Medium)</option>
+								<option value="'Noto Serif Cond SemiBold'">Noto Serif (SemiBold)</option>
+								<option value="'Noto Serif Cond Bold'">Noto Serif (Bold)</option>
+								<option value="'Noto Serif Cond ExtraBold'">Noto Serif (ExtraBold)</option>
+								<option value="'Noto Serif Cond Black'">Noto Serif (Black)</option>
+							</optgroup>
+
+							<optgroup label="📰 Popular Bangla">
+								<option value="'SolaimanLipi'">SolaimanLipi</option>
+								<option value="'Hind Siliguri', sans-serif">হিন্দ শিলিগুড়ি</option>
+								<option value="'Noto Sans Bengali', sans-serif">নোটো স্যান্স</option>
+								<option value="'Baloo Da 2', cursive">বালু দা ২</option>
+								<option value="'Galada', cursive">গলাদা</option>
+								<option value="'Anek Bangla', sans-serif">অনেক বাংলা</option>
+							</optgroup>
+						</select>
                         
                         <label class="label-title mt-4">📝 এডিট টেক্সট</label>
                         <textarea id="text-content" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm mb-3 font-bangla focus:ring-2 focus:ring-indigo-500 outline-none" rows="3" oninput="updateActiveProp('text', this.value)"></textarea>

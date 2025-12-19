@@ -662,6 +662,21 @@
     //function loadFonts() { WebFont.load({ google: { families: ['Hind Siliguri:300,400,500,600,700', 'Noto Sans Bengali', 'Baloo Da 2', 'Galada', 'Anek Bangla', 'Tiro Bangla', 'Mina', 'Oswald', 'Roboto', 'Montserrat'] } }); }
     
 	function loadFonts() {
+        const customFontFamilies = [
+            // Noto Serif
+            'Noto Serif Cond Thin', 'Noto Serif Cond ExtraLight', 'Noto Serif Cond Light', 
+            'Noto Serif Cond Regular', 'Noto Serif Cond Medium', 'Noto Serif Cond SemiBold', 
+            'Noto Serif Cond Bold', 'Noto Serif Cond ExtraBold', 'Noto Serif Cond Black',
+            
+            // Li Series
+            'Li Alinur Banglaborno', 'Li Alinur Kuyasha', 'Li Alinur Sangbadpatra', 'Li Alinur Tumatul',
+            'Li MA Hai', 'Li Purno Pran', 'Li Sabbir Sorolota', 'Li Shohid Abu Sayed',
+            'Li Abu JM Akkas', 'Li Mehdi Ekushey', 'Li Shadhinata',
+            
+            // Others
+            'SolaimanLipi'
+        ];
+
         WebFont.load({
             google: { 
                 families: [
@@ -673,26 +688,15 @@
                     'Tiro Bangla', 
                     'Mina', 
                     'Noto Serif Bengali:400,700', 
-                    'Atma:300,400,500,600,700',
-                    'Eczar:400,600,800',
-                    'Kavivanar',
-                    'Bonbon',
-                    'Modak',
-                    'Laila',
-                    'Kurale',
-                    'Podkova',
-                    
-                    // ইংরেজি ফন্ট
-                    'Oswald:400,700', 
-                    'Roboto:400,700', 
-                    'Montserrat:400,700', 
-                    'Lato:400,700', 
-                    'Open Sans:400,700', 
-                    'Poppins:400,600,700', 
-                    'Raleway:400,700',
-                    'Merriweather:400,700',
-                    'Playfair Display:400,700'
+                    'Atma:300,400,500,600,700'
                 ] 
+            },
+            custom: {
+                families: customFontFamilies,
+            },
+            active: function() {
+                console.log("✅ All Fonts Loaded!");
+                if(canvas) canvas.requestRenderAll();
             }
         });
     }
@@ -705,6 +709,7 @@
     function changeFont(fontName) {
         const obj = canvas.getActiveObject();
         if (obj) {
+            // ১. আপলোড করা ফন্ট হলে
             if(fontName.includes('📂')) {
                 const actualName = fontName.replace('📂 ', '');
                 obj.set("fontFamily", actualName);
@@ -713,31 +718,31 @@
                 return;
             }
 
-			
-			const localFonts = [
-                'Noto Serif Cond Thin',
-                'Noto Serif Cond Light',
-                'Noto Serif Cond Regular',
-                'Noto Serif Cond Medium',
-                'Noto Serif Cond SemiBold',
-                'Noto Serif Cond Bold',
-                'Noto Serif Cond ExtraBold',
-                'Noto Serif Cond Black',
-                'SolaimanLipi', // আগের যদি থাকে
-                'Shamim'        // আগের যদি থাকে
+            // ২. লোকাল কাস্টম ফন্ট লিস্ট (নতুনগুলো এখানে থাকতে হবে)
+            const localFonts = [
+                'Noto Serif Cond Thin', 'Noto Serif Cond ExtraLight', 'Noto Serif Cond Light', 
+                'Noto Serif Cond Regular', 'Noto Serif Cond Medium', 'Noto Serif Cond SemiBold', 
+                'Noto Serif Cond Bold', 'Noto Serif Cond ExtraBold', 'Noto Serif Cond Black',
+                'SolaimanLipi', 
+                'Li Alinur Banglaborno', 'Li Alinur Kuyasha', 'Li Alinur Sangbadpatra', 'Li Alinur Tumatul',
+                'Li MA Hai', 'Li Purno Pran', 'Li Sabbir Sorolota', 'Li Shohid Abu Sayed',
+                'Li Abu JM Akkas', 'Li Mehdi Ekushey', 'Li Shadhinata'
             ];
-			
             
             const cleanFont = fontName.replace(/'/g, "").split(',')[0].trim();
 
             if (localFonts.includes(cleanFont)) {
                 obj.set("fontFamily", cleanFont);
+                // ইটালিক বা বোল্ড স্টাইল রিসেট করা ভালো যাতে ফন্ট চেঞ্জ বোঝা যায়
+                // obj.set("fontWeight", 'normal'); 
+                // obj.set("fontStyle", 'normal'); 
                 canvas.requestRenderAll();
                 saveHistory();
                 if(obj.isHeadline) savePreference('font', fontName);
                 return;
             }
 
+            // ৩. গুগল ফন্ট
             WebFont.load({ 
                 google: { families: [cleanFont + ':400,700'] }, 
                 active: function() { 
@@ -749,7 +754,6 @@
             });
         }
     }
-	
 	
 	
 	// ==========================================
