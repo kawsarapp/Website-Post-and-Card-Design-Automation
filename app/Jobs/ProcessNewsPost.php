@@ -245,14 +245,29 @@ class ProcessNewsPost implements ShouldQueue
                     // ==========================================
                     // 🔥🔥 NEW: SOCIAL CAPTION LOGIC
                     // ==========================================
-                    // স্টুডিও থেকে পাঠানো ক্যাপশন থাকলে সেটা নিবে, নাহলে টাইটেল
                     $captionToPost = $this->customData['social_caption'] ?? $finalTitle;
 
                     if ($settings->post_to_fb) {
-                        $socialPoster->postToFacebook($settings, $captionToPost, $imageToPost, $newsLink);
+                        $fbResult = $socialPoster->postToFacebook($settings, $captionToPost, $imageToPost, $newsLink);
+                        
+                        if ($fbResult['success']) {
+                            $news->update(['fb_status' => 'success', 'fb_error' => null]);
+                        } else {
+                            $news->update(['fb_status' => 'failed', 'fb_error' => $fbResult['message']]);
+                        }
+                    } else {
+                        $news->update(['fb_status' => 'skipped']);
                     }
                     if ($settings->post_to_telegram) {
-                        $socialPoster->postToTelegram($settings, $captionToPost, $imageToPost, $newsLink);
+                        $tgResult = $socialPoster->postToTelegram($settings, $captionToPost, $imageToPost, $newsLink);
+                        
+                        if ($tgResult['success']) {
+                            $news->update(['tg_status' => 'success', 'tg_error' => null]);
+                        } else {
+                            $news->update(['tg_status' => 'failed', 'tg_error' => $tgResult['message']]);
+                        }
+                    } else {
+                        $news->update(['tg_status' => 'skipped']);
                     }
 
                     // ক্লিনআপ

@@ -25,14 +25,18 @@ class NewsItem extends Model
         'wp_post_id',
         'posted_at',
         'error_message',
-        'is_rewritten'   // 🔥 এটি যোগ করা হয়েছে (যাতে ডাটাবেসে সেভ হয়)
+        'is_rewritten',
+		'fb_status',
+        'fb_error',
+        'tg_status',
+        'tg_error'
     ];
 
     protected $casts = [
         'published_at' => 'datetime',
         'posted_at' => 'datetime',
         'is_posted' => 'boolean',
-        'is_rewritten' => 'boolean', // 🔥 কাস্টিং যোগ করা হয়েছে
+        'is_rewritten' => 'boolean',
     ];
 
     protected static function booted()
