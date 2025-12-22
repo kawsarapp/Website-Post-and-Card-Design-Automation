@@ -5,7 +5,7 @@
     
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-2">
-            🌐 নিউজ সোর্স <span class="text-sm bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">{{ $websites->count() }}</span>
+            🌐 নিউজ <span class="text-sm bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">{{ $websites->count() }}</span>
         </h1>
     </div>
 

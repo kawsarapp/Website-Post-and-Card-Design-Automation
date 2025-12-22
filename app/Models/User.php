@@ -15,6 +15,7 @@ class User extends Authenticatable
         'email', 
         'password', 
         'role', 
+		'parent_id',
         'credits', 
         'total_credits_limit', 
         'daily_post_limit',
@@ -33,6 +34,7 @@ class User extends Authenticatable
      * The attributes that should be cast.
      */
     protected $casts = [
+		'permissions' => 'array',
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
@@ -120,7 +122,23 @@ class User extends Authenticatable
             ->count();
     }
 	
+	public function reporters()
+	{
+		return $this->hasMany(User::class, 'parent_id');
+	}
+
+	// রিপোর্টার কার আন্ডারে আছে
+	public function parent()
+	{
+		return $this->belongsTo(User::class, 'parent_id');
+	}
 	
+	
+	public function hasPermission($permission)
+		{
+			if ($this->role === 'super_admin') return true;
+			return is_array($this->permissions) && in_array($permission, $this->permissions);
+		}
 	
 	
 }

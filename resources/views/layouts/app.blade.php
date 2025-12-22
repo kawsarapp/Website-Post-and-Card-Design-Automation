@@ -3,271 +3,322 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SubEditroBD</title>
+    <title>SubEditorBD - Premium News SaaS</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <script src="https://cdn.tailwindcss.com"></script>
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        body { 
-            font-family: 'Inter', 'Hind Siliguri', sans-serif; 
-        }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-        /* Animations */
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-down {
-            animation: fadeInDown 0.4s ease-out forwards;
-        }
-
-        /* Glass Effects */
-        .glass-nav { 
-            background: rgba(255, 255, 255, 0.85); 
-            backdrop-filter: blur(12px); 
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .glass-dock {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-        }
+        body { font-family: 'Inter', 'Hind Siliguri', sans-serif; }
+        .glass-nav { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(99, 102, 241, 0.1); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col relative selection:bg-indigo-100 selection:text-indigo-700">
 
-    <div class="fixed inset-0 -z-10 h-full w-full bg-white [background:radial-gradient(125%_125%_at_50%_10%,#fff_40%,#6366f110_100%)]"></div>
+<body class="bg-[#f8fafc] text-slate-800 antialiased min-h-screen flex flex-col relative selection:bg-indigo-100 selection:text-indigo-700 custom-scrollbar">
 
-    {{-- 🔥🔥🔥 ADMIN IMPERSONATION BAR 🔥🔥🔥 --}}
+    <div class="fixed inset-0 -z-10 h-full w-full bg-white [background:radial-gradient(125%_125%_at_50%_10%,#fff_40%,#6366f108_100%)]"></div>
+
+    {{-- 🔥 ADMIN IMPERSONATION BAR 🔥 --}}
     @if(session()->has('admin_impersonator_id'))
-        <div class="bg-red-600 text-white text-center py-2 text-sm font-bold fixed top-0 w-full z-[9999] shadow-md flex justify-center items-center gap-4">
-            <span class="animate-pulse">⚠️ আপনি এখন "{{ auth()->user()->name }}" হিসেবে লগইন করে আছেন।</span>
-            
-            <a href="{{ route('stop.impersonate') }}" class="bg-white text-red-600 px-3 py-1 rounded shadow hover:bg-gray-100 transition border border-red-800 text-xs font-extrabold uppercase tracking-wide">
-                🔙 Return to Admin
+        <div class="bg-gradient-to-r from-red-600 to-rose-600 text-white text-center py-2.5 text-sm font-bold fixed top-0 w-full z-[9999] shadow-lg flex justify-center items-center gap-4 border-b border-red-700/30">
+            <span class="flex items-center gap-2">
+                <i class="fa-solid fa-user-secret animate-pulse"></i>
+                আপনি এখন "{{ auth()->user()->name }}" হিসেবে আছেন
+            </span>
+            <a href="{{ route('stop.impersonate') }}" class="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white px-4 py-1 rounded-full text-xs font-bold transition-all border border-white/40 uppercase">
+                Return to Admin
             </a>
         </div>
-        
-        {{-- ইম্পারসোনেশন বারের জন্য স্পেস --}}
         <div class="h-10"></div>
     @endif
 
-    <nav class="glass-nav border-b border-indigo-50/50 sticky top-0 z-50 transition-all duration-300">
+    {{-- 📱 Mobile Top Header --}}
+    <div class="lg:hidden glass-nav sticky top-0 z-50 px-4 py-3 flex justify-between items-center border-b border-slate-200/50">
+        <span class="font-bold text-lg text-indigo-600">SubEditorBD</span>
+        @auth
+            <div class="flex items-center gap-3">
+                <a href="{{ route('credits.index') }}" class="text-xs font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-lg border border-amber-200">
+                    🪙 {{ auth()->user()->credits ?? 0 }}
+                </a>
+            </div>
+        @endauth
+    </div>
+
+    {{-- 💻 Desktop Navigation --}}
+    <nav class="hidden lg:block glass-nav border-b border-slate-200/50 sticky top-0 z-50 transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 
                 <div class="flex items-center gap-8">
-                    <div class="shrink-0 flex items-center">
-                        <a href="{{ route('news.index') }}" class="flex items-center gap-2 group">
-                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 group-hover:shadow-indigo-300 transition-all duration-300 group-hover:scale-105">
-                                <span class="text-lg">📰</span>
-                            </div>
-                            <span class="font-bold text-xl bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent tracking-tight group-hover:from-indigo-600 group-hover:to-violet-600 transition-all">
-                                SubEditor<span class="font-extrabold">BD</span>
-                            </span>
-                        </a>
-                    </div>
-
-                    <div class="hidden md:flex space-x-1">
-                        @php
-                            $navClass = "inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-indigo-50";
-                            $activeClass = "bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200";
-                            $inactiveClass = "text-slate-600 hover:text-indigo-600";
-                        @endphp
-
-                        <a href="{{ route('news.index') }}" class="{{ $navClass }} {{ request()->routeIs('news.index') ? $activeClass : $inactiveClass }}">
-                           Feed
-                        </a>
-                        
-                        <a href="{{ route('news.drafts') }}" class="{{ $navClass }} {{ request()->routeIs('news.drafts') ? $activeClass : $inactiveClass }}">
-                           Drafts
-                        </a>
-
-                        <a href="{{ route('news.create') }}" class="{{ $navClass }} {{ request()->routeIs('news.create') ? $activeClass : $inactiveClass }}">
-                           Create
-                        </a>
-                        
-                        <a href="{{ route('websites.index') }}" class="{{ $navClass }} {{ request()->routeIs('websites.*') ? $activeClass : $inactiveClass }}">
-                           Sources
-                        </a>
-
-                        <a href="{{ route('admin.post-history') }}" class="{{ $navClass }} {{ request()->routeIs('admin.post-history') ? $activeClass : $inactiveClass }}">
-                            History
-                        </a>
-
-                        @if(auth()->check() && auth()->user()->role === 'super_admin')
-                            <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center px-3 py-2 rounded-lg text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors">
-                                Admin
-                            </a>
-                        @endif
-                    </div>
-                </div>
-                
-                <div class="flex items-center gap-3 sm:gap-4">
+                    <a href="{{ route('news.index') }}" class="flex items-center gap-2.5 group">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center text-white shadow-lg group-hover:rotate-6 transition-all duration-300">
+                            <i class="fa-solid fa-newspaper text-lg"></i>
+                        </div>
+                        <span class="font-bold text-xl tracking-tight">SubEditor<span class="text-indigo-600">BD</span></span>
+                    </a>
 
                     @auth
-                        <a href="/credits" class="hidden sm:flex items-center gap-1.5 bg-white border border-amber-200 text-amber-700 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm hover:shadow-md hover:border-amber-300 hover:-translate-y-0.5 transition-all duration-300">
-                            <span class="text-lg leading-none">🪙</span>
-                            <span>{{ auth()->user()->credits ?? 0 }}</span>
+                    <div class="flex items-center bg-slate-100/60 p-1 rounded-xl gap-1">
+                        @php
+                            $linkStyle = "px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2";
+                            $active = "bg-white shadow-sm text-indigo-600 ring-1 ring-black/5";
+                            $inactive = "text-slate-500 hover:text-indigo-600 hover:bg-white/50";
+                        @endphp
+
+                        <a href="{{ route('news.index') }}" class="{{ $linkStyle }} {{ request()->routeIs('news.index') ? $active : $inactive }}">
+                            Feed
                         </a>
-                        
-                        {{-- 🔥🔥🔥 SETTINGS LINK (Admin & Impersonated Admin) --}}
-                        @if(auth()->user()->role === 'super_admin' || session()->has('admin_impersonator_id'))
-                            <a href="{{ route('settings.index') }}" class="text-xs font-bold text-gray-500 hover:text-indigo-600 hidden md:block">
-                                ⚙️ Settings (Admin)
-                            </a>
+
+                        {{-- AI Drafts Permission --}}
+                        @if(auth()->user()->hasPermission('can_ai'))
+                        <a href="{{ route('news.drafts') }}" class="{{ $linkStyle }} {{ request()->routeIs('news.drafts') ? $active : $inactive }}">
+                            AI Drafts
+                        </a>
                         @endif
 
-                        @php
-                            $limit = auth()->user()->daily_post_limit ?? 20;
-                            $used = auth()->user()->todays_post_count ?? 0; 
-                            $isLimitReached = $used >= $limit;
-                            $percent = ($used / $limit) * 100;
-                        @endphp
+                        {{-- Sources Permission --}}
+                        @if(auth()->user()->hasPermission('can_scrape'))
+                        <a href="{{ route('websites.index') }}" class="{{ $linkStyle }} {{ request()->routeIs('websites.*') ? $active : $inactive }}">
+                            Observed
+                        </a>
+                        @endif
                         
-                        <div class="hidden sm:flex flex-col w-24 gap-1 group cursor-help" title="Limit: {{ $used }}/{{ $limit }}">
-                            <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                                <span class="{{ $isLimitReached ? 'text-rose-500' : 'text-slate-500' }}">Daily</span>
-                                <span class="{{ $isLimitReached ? 'text-rose-600' : 'text-indigo-600' }}">{{ $used }}/{{ $limit }}</span>
-                            </div>
-                            <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                                <div class="h-full rounded-full transition-all duration-500 {{ $isLimitReached ? 'bg-rose-500' : 'bg-indigo-500' }}" style="width: {{ $percent > 100 ? 100 : $percent }}%"></div>
+                        @if(auth()->user()->role === 'super_admin')
+                            <a href="{{ route('admin.dashboard') }}" class="{{ $linkStyle }} {{ request()->routeIs('admin.dashboard') ? $active : 'text-rose-600 hover:bg-rose-50' }}">
+                                <i class="fa-solid fa-shield-halved text-xs"></i> Admin
+                            </a>
+                            <a href="{{ route('admin.post-history') }}" class="{{ $linkStyle }} {{ request()->routeIs('admin.post-history') ? $active : 'text-slate-500' }}">ইতিহাস</a>
+                        @endif
+                    </div>
+                    @endauth
+                </div>
+
+                <div class="flex items-center gap-4">
+                    @auth
+                        <div class="flex items-center gap-4 border-r border-slate-200 pr-4">
+                            <a href="{{ route('credits.index') }}" class="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-amber-100 transition-all">
+                                🪙 {{ auth()->user()->credits ?? 0 }}
+                            </a>
+
+                            @php
+                                $limit = auth()->user()->daily_post_limit ?? 20;
+                                $used = auth()->user()->todays_post_count ?? 0; 
+                                $percent = min(($used / $limit) * 100, 100);
+                            @endphp
+                            <div class="w-28 cursor-help" title="Usage: {{ $used }}/{{ $limit }}">
+                                <div class="flex justify-between text-[10px] font-bold uppercase mb-1">
+                                    <span class="text-slate-400">Post Limit</span>
+                                    <span class="text-indigo-600">{{ $used }}/{{ $limit }}</span>
+                                </div>
+                                <div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-indigo-500 rounded-full" style="width: {{ $percent }}%"></div>
+                                </div>
                             </div>
                         </div>
 
-                        @php $unreadCount = auth()->user()->unreadNotifications->count(); @endphp
-                        <a href="{{ route('news.drafts') }}" onclick="markRead()" class="relative p-2 rounded-full text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all duration-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            @if($unreadCount > 0)
-                                <span class="absolute top-1.5 right-1.5 h-4 w-4 flex items-center justify-center bg-rose-500 text-white text-[9px] font-bold rounded-full ring-2 ring-white animate-bounce">
-                                    {{ $unreadCount }}
-                                </span>
-                            @endif
-                        </a>
-
-                        <div class="hidden md:flex items-center gap-3 pl-3 border-l border-slate-200">
-                             <div class="flex flex-col text-right">
-                                <span class="text-sm font-bold text-slate-700 leading-tight">{{ auth()->user()->name }}</span>
-                                <span class="text-[10px] text-slate-400">User Panel</span>
-                            </div>
+                        {{-- Notifications & Settings --}}
+                        <div class="flex items-center gap-2">
+                            @php $unreadCount = auth()->user()->unreadNotifications->count(); @endphp
                             
-                            <form action="{{ route('logout') }}" method="POST">
+                            {{-- Bell notification only if has AI permission --}}
+                            @if(auth()->user()->hasPermission('can_ai'))
+                            <a href="{{ route('news.drafts') }}" onclick="markRead()" class="relative p-2 rounded-xl text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all">
+                                <i class="fa-regular fa-bell text-lg"></i>
+                                @if($unreadCount > 0)
+                                    <span class="absolute top-1.5 right-1.5 h-4 w-4 flex items-center justify-center bg-rose-500 text-white text-[9px] font-bold rounded-full ring-2 ring-white">
+                                        {{ $unreadCount }}
+                                    </span>
+                                @endif
+                            </a>
+                            @endif
+
+                            @if(auth()->user()->role === 'super_admin' || session()->has('admin_impersonator_id'))
+                                <a href="{{ route('settings.index') }}" class="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-all" title="Settings">
+                                    <i class="fa-solid fa-sliders text-lg"></i>
+                                </a>
+                            @endif
+                        </div>
+
+                        <div class="flex items-center gap-3 border-l border-slate-200 pl-4">
+                            <div class="text-right leading-tight">
+                                <p class="text-sm font-bold text-slate-800">{{ auth()->user()->name }}</p>
+                                <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-tighter">{{ auth()->user()->role }}</p>
+                            </div>
+                            <form action="{{ route('logout') }}" method="POST" class="inline">
                                 @csrf
-                                <button type="submit" class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Logout">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
+                                <button type="submit" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all border border-slate-200 shadow-sm">
+                                    <i class="fa-solid fa-power-off"></i>
                                 </button>
                             </form>
                         </div>
-                        
-                        <a href="{{ route('settings.index') }}" class="md:hidden p-2 text-slate-500 hover:text-indigo-600">
-                             <span class="sr-only">Settings</span>
-                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                          </a>
                     @endauth
-
-                    @guest
-                        <a href="{{ route('login') }}" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 text-sm">
-                            Login
-                        </a>
-                    @endguest
-
                 </div>
             </div>
         </div>
     </nav>
 
+    {{-- 🔥 Role & Permission-Based Dashboard Bar (Contextual) 🔥 --}}
     @auth
-        <div class="sm:hidden fixed bottom-4 left-4 right-4 z-50">
-            <div class="glass-dock rounded-2xl grid grid-cols-4 items-center px-2 py-3 border border-white/50 shadow-xl">
+    <div class="max-w-7xl mx-auto px-4 mt-6 hidden lg:block">
+        <div class="glass-card rounded-2xl p-2.5 flex flex-wrap items-center gap-4 border border-indigo-100/50 shadow-sm">
+            
+            {{-- Management View (Permissions: manage_reporters or super_admin) --}}
+            @if(auth()->user()->role === 'super_admin' || auth()->user()->hasPermission('manage_reporters'))
+                <div class="flex items-center gap-2 px-3 py-1.5 bg-rose-50/50 rounded-xl border border-rose-100/50">
+                    <span class="text-rose-600 font-bold text-[10px] uppercase tracking-widest pr-2 border-r border-rose-200">Management</span>
+                    <a href="{{ route('manage.reporters.index') }}" class="text-sm font-semibold text-slate-600 hover:text-rose-600 px-1">প্রতিনিধি লিস্ট</a>
+                    <a href="{{ route('manage.reporters.news') }}" class="text-sm font-semibold text-slate-600 hover:text-rose-600 px-1">রিপোর্ট কার্ড</a>
+                    @if(auth()->user()->role === 'super_admin')
+                    <a href="{{ route('admin.post-history') }}" class="text-sm font-semibold text-slate-600 hover:text-rose-600 px-1">ইতিহাস</a>
+                    @endif
+                </div>
+            @endif
+
+            {{-- Reporter View --}}
+            @if(auth()->user()->role === 'reporter')
+                <div class="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <span class="text-emerald-600 font-bold text-[10px] uppercase tracking-widest pr-2 border-r border-emerald-200">Reporter Panel</span>
+                    <a href="{{ route('reporter.news.create') }}" class="text-sm font-bold text-emerald-700 hover:text-emerald-800">➕ খবর পাঠান</a>
+                    <a href="{{ route('reporter.news.index') }}" class="text-sm font-semibold text-slate-600 hover:text-emerald-600 px-1">আমার খবরসমূহ</a>
+                </div>
+            @endif
+
+            {{-- Quick Actions (Permission: can_direct_publish) --}}
+            @if(auth()->user()->hasPermission('can_direct_publish'))
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl ml-auto">
+                <span class="text-slate-400 font-bold text-[10px] uppercase tracking-widest pr-2 border-r border-slate-200">Quick Actions</span>
+                <a href="{{ route('news.create') }}" class="text-sm font-bold text-indigo-600 hover:underline">Manual Post</a>
+            </div>
+            @endif
+        </div>
+    </div>
+    @endauth
+
+    <main class="flex-grow container mx-auto mt-6 px-4 pb-32 lg:pb-12">
+        @yield('content')
+    </main>
+
+    {{-- 📱 Mobile Bottom Navigation (Responsive Grid based on Permissions) --}}
+    @auth
+        @php
+            // গ্রিড কলাম সংখ্যা নির্ধারণ (Dynamic Grid)
+            $cols = 1; // মেনু বাটন সবসময় থাকবে
+            $cols++; // ফিড বাটন সবসময় থাকবে
+            if(auth()->user()->hasPermission('can_direct_publish')) $cols++;
+            if(auth()->user()->hasPermission('can_ai')) $cols++;
+            
+            $gridClass = match($cols) {
+                2 => 'grid-cols-2',
+                3 => 'grid-cols-3',
+                4 => 'grid-cols-4',
+                5 => 'grid-cols-5',
+                default => 'grid-cols-4'
+            };
+        @endphp
+
+        <div class="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] z-50">
+            <div class="glass-nav rounded-2xl grid {{ $gridClass }} items-center px-2 py-3 border border-indigo-100 shadow-2xl shadow-indigo-200/40">
                 
-                <a href="{{ route('news.index') }}" class="flex flex-col items-center gap-1 {{ request()->routeIs('news.index') ? 'text-indigo-600 font-semibold' : 'text-slate-400' }} transition-all duration-200">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
-                    <span class="text-[10px]">Feed</span>
-                </a>
-                
-                <a href="{{ route('news.create') }}" class="flex flex-col items-center gap-1 {{ request()->routeIs('news.create') ? 'text-indigo-600 font-semibold' : 'text-slate-500' }} transition-all duration-200">
-                     <div class="{{ request()->routeIs('news.create') ? 'bg-indigo-100 p-1.5 rounded-lg text-indigo-700' : '' }}">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                     </div>
-                     <span class="text-[10px]">Create</span>
-                </a>
-                
-                <a href="{{ route('news.drafts') }}" class="flex flex-col items-center gap-1 {{ request()->routeIs('news.drafts') ? 'text-indigo-600 font-semibold' : 'text-slate-400' }} transition-all duration-200">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                    <span class="text-[10px]">Drafts</span>
+                {{-- Feed --}}
+                <a href="{{ route('news.index') }}" class="flex flex-col items-center gap-1 {{ request()->routeIs('news.index') ? 'text-indigo-600' : 'text-slate-400' }}">
+                    <i class="fa-solid fa-house text-lg"></i>
+                    <span class="text-[9px] font-bold uppercase tracking-tighter">Feed</span>
                 </a>
 
-                <a href="{{ route('websites.index') }}" class="flex flex-col items-center gap-1 {{ request()->routeIs('websites.*') ? 'text-indigo-600 font-semibold' : 'text-slate-400' }} transition-all duration-200">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
-                    <span class="text-[10px]">Source</span>
+                {{-- Create (Permission: can_direct_publish) --}}
+                @if(auth()->user()->hasPermission('can_direct_publish'))
+                <a href="{{ route('news.create') }}" class="flex flex-col items-center gap-1 {{ request()->routeIs('news.create') ? 'text-indigo-600' : 'text-slate-400' }}">
+                    <div class="w-10 h-10 -mt-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg border-4 border-white">
+                        <i class="fa-solid fa-plus"></i>
+                    </div>
+                    <span class="text-[9px] font-bold uppercase mt-1">Create</span>
                 </a>
+                @endif
 
+                {{-- AI Draft (Permission: can_ai) --}}
+                @if(auth()->user()->hasPermission('can_ai'))
+                <a href="{{ route('news.drafts') }}" class="flex flex-col items-center gap-1 {{ request()->routeIs('news.drafts') ? 'text-indigo-600' : 'text-slate-400' }}">
+                    <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+                    <span class="text-[9px] font-bold uppercase tracking-tighter">AI Draft</span>
+                </a>
+                @endif
+
+                {{-- Mobile Menu --}}
+                <div class="relative group flex flex-col items-center">
+                    <button id="mobileMenuBtn" class="flex flex-col items-center gap-1 text-slate-400">
+                        <i class="fa-solid fa-bars text-lg"></i>
+                        <span class="text-[9px] font-bold uppercase tracking-tighter">Menu</span>
+                    </button>
+                    <div id="mobileDropdown" class="hidden absolute bottom-14 right-0 w-48 bg-white rounded-xl shadow-xl border border-slate-100 p-2">
+                        
+                        {{-- Sources (Permission: can_scrape) --}}
+                        @if(auth()->user()->hasPermission('can_scrape'))
+                        <a href="{{ route('websites.index') }}" class="block px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-lg border-b border-slate-50 mb-1">
+                            <i class="fa-solid fa-globe mr-2 text-xs"></i> Sources
+                        </a>
+                        @endif
+
+                        <a href="{{ route('credits.index') }}" class="block px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-lg">
+                            <i class="fa-solid fa-coins mr-2 text-xs"></i> Buy Credits
+                        </a>
+
+                        @if(auth()->user()->role === 'reporter')
+                            <a href="{{ route('reporter.news.index') }}" class="block px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-lg">
+                                <i class="fa-solid fa-file-pen mr-2 text-xs"></i> My Reports
+                            </a>
+                        @endif
+
+                        @if(auth()->user()->hasPermission('manage_reporters'))
+                            <a href="{{ route('manage.reporters.index') }}" class="block px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-lg">
+                                <i class="fa-solid fa-users-gear mr-2 text-xs"></i> Reporters
+                            </a>
+                        @endif
+
+                        <form action="{{ route('logout') }}" method="POST" class="mt-1 border-t border-slate-100">
+                            @csrf
+                            <button type="submit" class="w-full text-left px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-lg">
+                                <i class="fa-solid fa-power-off mr-2 text-xs"></i> Logout
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     @endauth
 
-    <main class="flex-grow container mx-auto mt-6 px-4 pb-32 sm:pb-12">
-        
-        @if(session('success'))
-            <div class="max-w-4xl mx-auto bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 px-6 py-4 rounded-r-lg shadow-sm flex items-center gap-4 mb-8 animate-fade-in-down">
-                <div class="bg-emerald-100 p-2 rounded-full">
-                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                </div>
-                <div>
-                    <h3 class="font-bold text-sm">Success</h3>
-                    <p class="text-sm opacity-90">{{ session('success') }}</p>
-                </div>
-            </div>
-        @endif
-
-        @if(session('error'))
-            <div class="max-w-4xl mx-auto bg-rose-50 border-l-4 border-rose-500 text-rose-800 px-6 py-4 rounded-r-lg shadow-sm flex items-center gap-4 mb-8 animate-fade-in-down">
-                <div class="bg-rose-100 p-2 rounded-full">
-                    <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </div>
-                <div>
-                    <h3 class="font-bold text-sm">Error</h3>
-                    <p class="text-sm opacity-90">{{ session('error') }}</p>
-                </div>
-            </div>
-        @endif
-
-        @yield('content')
-        
-    </main>
-
-    <footer class="bg-white border-t border-slate-200 py-10 hidden sm:block">
-        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
-            <div class="flex items-center gap-2 mb-4 md:mb-0">
-                <span class="text-2xl">📰</span>
-                <span>&copy; {{ date('Y') }} <span class="font-bold text-slate-800">SubEditorBD</span>. Crafted for creators.</span>
-            </div>
-            <div class="flex gap-8 font-medium">
-                <a href="#" class="hover:text-indigo-600 transition">Privacy</a>
-                <a href="#" class="hover:text-indigo-600 transition">Terms</a>
-                <a href="#" class="hover:text-indigo-600 transition">Support</a>
-            </div>
+    <footer class="bg-white border-t border-slate-200 py-10 mt-10 hidden lg:block">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-sm text-slate-400">
+            <p>&copy; {{ date('Y') }} <span class="font-bold text-slate-700">SubEditorBD</span>. Crafted for Digital Journalists.</p>
         </div>
     </footer>
     
     <script>
+        // Mark Read Logic
         function markRead() {
-            fetch('{{ route("notifications.read") }}');
+            fetch('{{ route("notifications.read") }}').catch(err => console.error(err));
+        }
+
+        // Mobile Menu Toggle
+        const menuBtn = document.getElementById('mobileMenuBtn');
+        const dropdown = document.getElementById('mobileDropdown');
+        if(menuBtn) {
+            menuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('hidden');
+            });
+            document.addEventListener('click', (e) => {
+                if(!dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
         }
     </script>
-
 </body>
 </html>

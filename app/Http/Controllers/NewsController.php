@@ -127,18 +127,36 @@ class NewsController extends Controller
         return back()->with('success', $news->is_queued ? '📌 অটো-পোস্ট লিস্টে যুক্ত হয়েছে' : 'লিস্ট থেকে সরানো হয়েছে');
     }
 
-    public function toggleAutomation(Request $request)
-    {
-        $request->validate(['interval' => 'nullable|integer|min:1|max:60']);
-        $user = Auth::user();
-        $settings = $user->settings ?? UserSetting::firstOrCreate(['user_id' => $user->id]);
-        $settings->is_auto_posting = !$settings->is_auto_posting;
-        if ($request->has('interval') && $request->interval > 0) $settings->auto_post_interval = $request->interval;
-        if ($settings->is_auto_posting) $settings->last_auto_post_at = now();
-        $settings->save();
-        $status = $settings->is_auto_posting ? "চালু" : 'বন্ধ';
-        return back()->with('success', "অটোমেশন {$status} করা হয়েছে।");
-    }
+    
+	public function toggleAutomation(Request $request)
+		{
+			if (!auth()->user()->hasPermission('can_auto_post')) {
+				return back()->with('error', 'আপনার অটোমেশন ব্যবহার করার অনুমতি নেই।');
+			}
+
+			$request->validate([
+				'interval' => 'nullable|integer|min:1|max:60'
+			]);
+
+			$user = auth()->user();
+
+			$settings = $user->settings()->firstOrCreate(['user_id' => $user->id]);
+
+			$settings->is_auto_posting = !$settings->is_auto_posting;
+
+			if ($request->filled('interval')) {
+				$settings->auto_post_interval = $request->interval;
+			}
+
+			if ($settings->is_auto_posting) {
+				$settings->last_auto_post_at = now();
+			}
+
+			$settings->save();
+
+			$status = $settings->is_auto_posting ? "চালু" : 'বন্ধ';
+			return back()->with('success', "অটোমেশন সফলভাবে {$status} করা হয়েছে।");
+		}
     
     public function checkAutoPostStatus()
     {
@@ -272,43 +290,123 @@ class NewsController extends Controller
 
         return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে!');
     }
+	
+	
+	public function drafts()
+{
+    $user = Auth::user();
+    $settings = $user->settings;
 
-    // ২. ড্রাফট পেজ
-    public function drafts()
-    {
-        $user = Auth::user();
-        $settings = $user->settings;
+    $query = NewsItem::with(['website' => function ($q) {
+        $q->withoutGlobalScopes();
+    }])
+    ->where('user_id', $user->id)
+    ->where(function($q) {
+        // ১. যেগুলোর কাজ শুরু হয়েছে (Edited or AI rewritten)
+        $q->where('is_rewritten', 1) 
+          // ২. অথবা যেগুলো সাধারণ ম্যানুয়াল পোস্ট (অ্যাডমিন নিজে তৈরি করেছে)
+          ->orWhere(function($subQ) {
+              $subQ->whereNull('website_id')
+                   ->whereNull('reporter_id'); 
+          })
+          // ৩. অথবা যেকোনো নিউজ যা বর্তমানে প্রসেসিং/পাবলিশিং অবস্থায় আছে
+          ->orWhereIn('status', ['processing', 'publishing', 'published', 'failed']);
+    });
 
-        $query = NewsItem::with(['website' => function ($q) {
-            $q->withoutGlobalScopes();
-        }])
-        ->where('user_id', $user->id)
-        ->where(function($q) {
-            $q->where('is_rewritten', 1) 
-              ->orWhereNull('website_id')    
-              ->orWhereIn('status', ['processing', 'publishing', 'published', 'failed']);
-        });
+    $drafts = $query->orderBy('updated_at', 'desc')->paginate(20);
+    return view('news.drafts', compact('drafts', 'settings'));
+}
 
-        $drafts = $query->orderBy('updated_at', 'desc')->paginate(20);
+public function updateDraft(Request $request, $id)
+{
+    $request->validate([
+        'title' => 'required',
+        'content' => 'required',
+    ]);
 
-        return view('news.drafts', compact('drafts', 'settings'));
-    }
+    $news = NewsItem::findOrFail($id);
+    
+    $news->update([
+        'title'         => $request->title,
+        'content'       => $request->content,
+        'ai_title'      => $request->title,
+        'ai_content'    => $request->content,
+		'is_posted'     => true,
+        'status'        => 'draft',       // এখানে স্ট্যাটাস ড্রাফট থাকবে
+        'is_rewritten'  => 1,             // এটি যোগ করুন যাতে ড্রাফট পেজে নিউজটি দেখা যায়
+        'updated_at'    => now()
+    ]);
 
-    public function getDraftContent($id)
-    {
-        $news = NewsItem::findOrFail($id);
-        $user = Auth::user();
+    return response()->json(['success' => true, 'message' => 'ড্রাফট সফলভাবে সেভ হয়েছে।']);
+}
+		
 
-        $title = !empty($news->ai_title) ? $news->ai_title : $news->title;
-		$content = !empty($news->ai_content) ? $news->ai_content : $news->content;
 
+    
+    
+	public function getDraftContent($id)
+{
+    // ১. নিউজটি খুঁজে বের করা এবং প্রয়োজনীয় রিলেশন লোড করা
+    $news = NewsItem::with('lockedBy')->findOrFail($id);
+    $user = Auth::user();
+
+    // ২. লকিং সিস্টেম চেক (যাতে একই নিউজ একাধিক ব্যক্তি এডিট না করে)
+    if ($news->locked_by_user_id && $news->locked_by_user_id !== $user->id) {
         return response()->json([
-            'success' => true,
-            'title'    => $title,
-            'content' => $content,
-            'categories' => $user->settings->category_mapping ?? []
+            'success' => false, 
+            'message' => '⚠️ এটি বর্তমানে ' . ($news->lockedBy->name ?? 'অন্য একজন') . ' এডিট করছেন।'
         ]);
     }
+
+    // ৩. নিউজটি বর্তমান ইউজারের জন্য লক করা
+    $news->update([
+        'locked_by_user_id' => $user->id,
+        'locked_at' => now()
+    ]);
+
+    // ৪. কন্টেন্ট ও টাইটেল নির্ধারণ (AI কন্টেন্ট থাকলে সেটি অগ্রাধিকার পাবে)
+    $title = !empty($news->ai_title) ? $news->ai_title : $news->title;
+    $content = !empty($news->ai_content) ? $news->ai_content : $news->content;
+
+    // ৫. অতিরিক্ত ছবি প্রসেসিং (tags কলামে JSON ডাটা ডিকোড করা)
+    $extraImages = [];
+    if (!empty($news->tags)) {
+        $decodedTags = json_decode($news->tags, true);
+        // যদি এটি একটি বৈধ অ্যারে হয়, তবে সেটি অতিরিক্ত ছবির লিস্ট
+        if (is_array($decodedTags)) {
+            $extraImages = $decodedTags;
+        }
+    }
+
+    // ৬. রেসপন্স পাঠানো (মোডালে যা যা দরকার)
+    return response()->json([
+        'success'      => true,
+        'title'        => $title,
+        'content'      => $content,
+        'image_url'    => $news->thumbnail_url,   // প্রধান ছবি
+        'extra_images' => $extraImages,           // অতিরিক্ত ৪টি ছবির অ্যারে
+        'location'     => $news->location,         // লোকেশন
+        'original_link'=> $news->original_link,   // সোর্স লিংক
+        'tags_string'  => is_array($extraImages) ? '' : $news->tags, // যদি ট্যাগস সাধারণ টেক্সট হয়
+        'categories'   => $user->settings->category_mapping ?? [] // ক্যাটাগরি ম্যাপিং
+    ]);
+}
+	
+	/*
+	public function unlockNews($id)
+		{
+			$news = NewsItem::withoutGlobalScopes()->findOrFail($id);
+			
+			// শুধুমাত্র যিনি লক করেছেন তিনিই আনলক করতে পারবেন
+			if ($news->locked_by_user_id === auth()->id()) {
+				$news->update([
+					'locked_by_user_id' => null,
+					'locked_at' => null
+				]);
+			}
+			return response()->json(['success' => true]);
+		}
+		*/
 
     public function confirmPublish(Request $request, $id)
     {
@@ -344,63 +442,68 @@ class NewsController extends Controller
     }
 	
 	public function publishManualFromIndex(Request $request, $id)
-    {
-        $request->validate([
-            'title' => 'required',
-            'content' => 'required',
-            'image_file' => 'nullable|image|max:5120',
-            'image_url' => 'nullable|url',
-            'category' => 'nullable'
+{
+    // ১. ভ্যালিডেশন
+    $request->validate([
+        'title' => 'required',
+        'content' => 'required',
+        'image_file' => 'nullable|image|max:5120',
+        'image_url' => 'nullable|url',
+        'category' => 'nullable'
+    ]);
+
+    $news = NewsItem::findOrFail($id);
+    $user = Auth::user();
+
+    // ২. ডুপ্লিকেট পাবলিশ চেক (আপনার নতুন লজিক অনুযায়ী)
+    if ($news->is_posted || $news->status === 'publishing') {
+        return response()->json([
+            'success' => false, 
+            'message' => '⚠️ এই নিউজটি ইতিমধ্যেই পাবলিশ করা হয়েছে বা বর্তমানে পাবলিশিং প্রসেসে আছে!'
         ]);
-
-        $news = NewsItem::findOrFail($id);
-        $user = Auth::user();
-
-        // 🔥🔥 NEW: ডুপ্লিকেট পাবলিশ চেক
-        if ($news->is_posted) {
-            return response()->json([
-                'success' => false, 
-                'message' => '⚠️ এই নিউজটি ইতিমধ্যেই পাবলিশ করা হয়েছে! এডিট করে পুনরায় পাবলিশ করা যাবে না।'
-            ]);
-        }
-
-        // ইমেজ প্রসেসিং
-        $finalImage = $news->thumbnail_url; 
-        if ($request->hasFile('image_file')) {
-            $path = $request->file('image_file')->store('news-uploads', 'public');
-            $finalImage = asset('storage/' . $path);
-        } elseif ($request->filled('image_url')) {
-            $finalImage = $request->image_url;
-        }
-
-        // ক্যাটাগরি প্রসেসিং
-        $categoryIds = $request->filled('category') ? [$request->category] : [1];
-
-        // ডাটাবেস আপডেট
-        $news->update([
-            'title'         => $request->title,
-            'content'       => $request->content,
-            'ai_title'      => $request->title,   
-            'ai_content'    => $request->content, 
-            'thumbnail_url' => $finalImage,
-            'status'        => 'publishing',
-            'is_rewritten'  => 1,
-            'updated_at'    => now()
-        ]);
-
-        // জবের জন্য ডাটা রেডি করা
-        $customData = [
-            'title'          => $news->title,
-            'content'        => $news->content,
-            'category_ids'   => $categoryIds,
-            'featured_image' => $finalImage,
-            'skip_social'    => true // ম্যানুয়াল পাবলিশে সোশ্যাল স্কিপ হবে
-        ];
-
-        \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
-
-        return response()->json(['success' => true, 'message' => 'নিউজ আপডেট এবং পাবলিশিং শুরু হয়েছে!']);
     }
+
+    // ৩. ইমেজ প্রসেসিং
+    $finalImage = $news->thumbnail_url; 
+    if ($request->hasFile('image_file')) {
+        $path = $request->file('image_file')->store('news-uploads', 'public');
+        $finalImage = asset('storage/' . $path);
+    } elseif ($request->filled('image_url')) {
+        $finalImage = $request->image_url;
+    }
+
+    // ৪. ক্যাটাগরি প্রসেসিং
+    $categoryIds = $request->filled('category') ? [$request->category] : [1];
+
+    // ৫. ডাটাবেস আপডেট (পাবলিশিং শুরু করার আগে স্টেট পরিবর্তন)
+    $news->update([
+        'title'         => $request->title,
+        'content'       => $request->content,
+        'ai_title'      => $request->title,   
+        'ai_content'    => $request->content, 
+        'thumbnail_url' => $finalImage,
+        'status'        => 'publishing',
+        'is_posted'     => true, // অ্যাকশন নেওয়া হয়েছে বুঝাতে true করে দেওয়া হলো
+        'is_rewritten'  => 1,
+        'updated_at'    => now()
+    ]);
+
+    // ৬. জবের জন্য ডাটা রেডি এবং ডিসপ্যাচ
+    $customData = [
+        'title'          => $news->title,
+        'content'        => $news->content,
+        'category_ids'   => $categoryIds,
+        'featured_image' => $finalImage,
+        'skip_social'    => true // ম্যানুয়াল পাবলিশে সোশ্যাল স্কিপ হবে
+    ];
+
+    \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
+
+    return response()->json([
+        'success' => true, 
+        'message' => 'নিউজটি সফলভাবে পাবলিশিং কিউতে পাঠানো হয়েছে!'
+    ]);
+}
 
     // ==========================================
     // 🔥 SOCIAL & MANUAL POST

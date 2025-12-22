@@ -12,6 +12,7 @@ class NewsItem extends Model
 
     protected $fillable = [
         'user_id',
+		'reporter_id',
         'website_id',
         'title',
         'ai_title',
@@ -20,7 +21,7 @@ class NewsItem extends Model
         'original_link',
         'thumbnail_url',
         'published_at',
-        'status',        // draft, published, processing, failed
+        'status',
         'is_posted',
         'wp_post_id',
         'posted_at',
@@ -29,7 +30,14 @@ class NewsItem extends Model
 		'fb_status',
         'fb_error',
         'tg_status',
-        'tg_error'
+        'tg_error',
+		'location',
+		'short_summary',
+		'image_caption',
+		'tags',
+		'reporter_name_manual',
+		'locked_at',
+		'locked_by_user_id'
     ];
 
     protected $casts = [
@@ -75,5 +83,16 @@ class NewsItem extends Model
         return null;
     }
 	
+	
+	public function reporter()
+		{
+			return $this->belongsTo(User::class, 'reporter_id');
+		}
+		
+		public function lockedBy()
+		{
+			return $this->belongsTo(User::class, 'locked_by_user_id');
+		}
+			
 	
 }

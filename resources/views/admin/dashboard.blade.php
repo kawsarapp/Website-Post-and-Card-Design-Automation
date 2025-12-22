@@ -4,193 +4,180 @@
 <div class="max-w-7xl mx-auto py-8 bg-gray-100 min-h-screen">
 
     {{-- Header Section --}}
-    <div class="flex flex-col md:flex-row justify-between items-center mb-8">
+<div class="flex flex-col md:flex-row justify-between items-center mb-8">
+    <div>
+        <h1 class="text-3xl font-bold text-slate-800">⚡ সুপার অ্যাডমিন প্যানেল</h1>
+        <p class="text-slate-500 mt-1">সিস্টেম ওভারভিউ এবং ইউজার ম্যানেজমেন্ট</p>
+    </div>
+    <div class="mt-4 md:mt-0">
+        <span class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-mono shadow-md">
+            Admin Mode
+        </span>
+    </div>
+</div>
+
+{{-- Alert Messages --}}
+@if(session('success'))
+    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded shadow-sm" role="alert">
+        <p class="font-bold">Success!</p>
+        <p>{{ session('success') }}</p>
+    </div>
+@endif
+
+{{-- Stats Cards --}}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition">
+        <div class="p-4 bg-blue-50 text-blue-600 rounded-xl text-2xl">👥</div>
         <div>
-            <h1 class="text-3xl font-bold text-slate-800">⚡ সুপার অ্যাডমিন প্যানেল</h1>
-            <p class="text-slate-500 mt-1">সিস্টেম ওভারভিউ এবং ইউজার ম্যানেজমেন্ট</p>
-        </div>
-        <div class="mt-4 md:mt-0">
-            <span class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-mono shadow-md">
-                Admin Mode
-            </span>
+            <p class="text-slate-500 text-sm font-bold uppercase">মোট ইউজার</p>
+            <h3 class="text-3xl font-bold text-slate-800">{{ $totalUsers }}</h3>
         </div>
     </div>
 
-    {{-- Alert Messages --}}
-    @if(session('success'))
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded shadow-sm" role="alert">
-            <p class="font-bold">Success!</p>
-            <p>{{ session('success') }}</p>
-        </div>
-    @endif
-
-    {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition">
-            <div class="p-4 bg-blue-50 text-blue-600 rounded-xl text-2xl">👥</div>
-            <div>
-                <p class="text-slate-500 text-sm font-bold uppercase">মোট ইউজার</p>
-                <h3 class="text-3xl font-bold text-slate-800">{{ $totalUsers }}</h3>
-            </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition">
-            <div class="p-4 bg-purple-50 text-purple-600 rounded-xl text-2xl">📰</div>
-            <div>
-                <p class="text-slate-500 text-sm font-bold uppercase">জেনারেটেড নিউজ</p>
-                <h3 class="text-3xl font-bold text-slate-800">{{ $totalNews }}</h3>
-            </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition">
-            <div class="p-4 bg-emerald-50 text-emerald-600 rounded-xl text-2xl">🌐</div>
-            <div>
-                <p class="text-slate-500 text-sm font-bold uppercase">কানেক্টেড সাইট</p>
-                <h3 class="text-3xl font-bold text-slate-800">{{ $totalWebsites }}</h3>
-            </div>
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition">
+        <div class="p-4 bg-purple-50 text-purple-600 rounded-xl text-2xl">📰</div>
+        <div>
+            <p class="text-slate-500 text-sm font-bold uppercase">জেনারেটেড নিউজ</p>
+            <h3 class="text-3xl font-bold text-slate-800">{{ $totalNews }}</h3>
         </div>
     </div>
 
-    {{-- User Table Section --}}
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <h2 class="text-lg font-bold text-slate-700">👤 ইউজার লিস্ট</h2>
-			<button onclick="openCreateUserModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shadow flex items-center gap-2">
-				➕ নতুন ইউজার
-			</button>
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition">
+        <div class="p-4 bg-emerald-50 text-emerald-600 rounded-xl text-2xl">🌐</div>
+        <div>
+            <p class="text-slate-500 text-sm font-bold uppercase">কানেক্টেড সাইট</p>
+            <h3 class="text-3xl font-bold text-slate-800">{{ $totalWebsites }}</h3>
         </div>
-		
+    </div>
+</div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                        <th class="px-6 py-4 font-bold">নাম ও ইমেইল</th>
-                        <th class="px-6 py-4 font-bold text-center">ক্রেডিট</th>
-                        <th class="px-6 py-4 font-bold text-center">ডেইলি লিমিট</th>
-                        <th class="px-6 py-4 font-bold text-center">স্ট্যাটাস</th>
-                        <th class="px-6 py-4 font-bold">জয়েনিং ডেট</th>
-                        <th class="px-6 py-4 font-bold text-right">অ্যাকশন</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    @foreach($users as $user)
-                    <tr class="hover:bg-slate-50 transition group">
-                        
-                        {{-- Name & Email --}}
-                        <td class="px-6 py-4">
-                            <div class="font-bold text-slate-800">{{ $user->name }}</div>
-                            <div class="text-sm text-slate-500">{{ $user->email }}</div>
-                        </td>
+{{-- User Table Section --}}
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <h2 class="text-lg font-bold text-slate-700">👤 ইউজার লিস্ট</h2>
+        <button onclick="openCreateUserModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shadow flex items-center gap-2">
+            ➕ নতুন ইউজার
+        </button>
+    </div>
 
-                        {{-- Credits --}}
-                        <td class="px-6 py-4 text-center">
-                            <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold inline-block min-w-[60px]">
-                                {{ $user->credits }} Left
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                    <th class="px-6 py-4 font-bold">নাম ও ইমেইল</th>
+                    <th class="px-6 py-4 font-bold text-center">ক্রেডিট</th>
+                    <th class="px-6 py-4 font-bold text-center">ডেইলি লিমিট</th>
+                    <th class="px-6 py-4 font-bold text-center">স্ট্যাটাস</th>
+                    <th class="px-6 py-4 font-bold">জয়েনিং ডেট</th>
+                    <th class="px-6 py-4 font-bold text-right">অ্যাকশন</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                @foreach($users as $user)
+                <tr class="hover:bg-slate-50 transition group">
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-slate-800">{{ $user->name }}</div>
+                        <div class="text-sm text-slate-500">{{ $user->email }}</div>
+                    </td>
+
+                    <td class="px-6 py-4 text-center">
+                        <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold inline-block min-w-[60px]">
+                            {{ $user->credits }} Left
+                        </span>
+                    </td>
+
+                    <td class="px-6 py-4 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                            <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+                                {{ $user->daily_post_limit }} / Day
                             </span>
-                        </td>
+                            <button onclick="openLimitModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->daily_post_limit }}')" 
+                                    class="text-gray-400 hover:text-blue-600 transition p-1 rounded hover:bg-gray-200" title="Edit Limit">
+                                ✏️
+                            </button>
+                        </div>
+                    </td>
 
-                        {{-- Daily Limit --}}
-                        <td class="px-6 py-4 text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
-                                    {{ $user->daily_post_limit }} / Day
-                                </span>
-                                <button onclick="openLimitModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->daily_post_limit }}')" 
-                                        class="text-gray-400 hover:text-blue-600 transition p-1 rounded hover:bg-gray-200" title="Edit Limit">
-                                    ✏️
-                                </button>
-                            </div>
-                        </td>
+                    <td class="px-6 py-4 text-center">
+                        @if($user->is_active)
+                            <span class="text-green-600 text-xs font-bold bg-green-100 px-2 py-1 rounded border border-green-200">Active</span>
+                        @else
+                            <span class="text-red-600 text-xs font-bold bg-red-100 px-2 py-1 rounded border border-red-200">Banned</span>
+                        @endif
+                    </td>
 
-                        {{-- Status --}}
-                        <td class="px-6 py-4 text-center">
-                            @if($user->is_active)
-                                <span class="text-green-600 text-xs font-bold bg-green-100 px-2 py-1 rounded border border-green-200">Active</span>
-                            @else
-                                <span class="text-red-600 text-xs font-bold bg-red-100 px-2 py-1 rounded border border-red-200">Banned</span>
-                            @endif
-                        </td>
+                    <td class="px-6 py-4 text-sm text-slate-500">
+                        {{ $user->created_at->format('d M, Y') }}
+                    </td>
 
-                        {{-- Date --}}
-                        <td class="px-6 py-4 text-sm text-slate-500">
-                            {{ $user->created_at->format('d M, Y') }}
-                        </td>
-
-                        {{-- Actions --}}
-                        <td class="px-6 py-4 text-right flex justify-end gap-2 items-center flex-wrap">
-						
-						
-						
-						{{-- Edit User Button --}}
-						<button onclick="openEditUserModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->email }}')" 
-								class="bg-yellow-500 text-white px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-600 shadow-sm flex items-center justify-center gap-1" 
-								title="Edit Name/Email/Pass">
-							✏️ Edit
-						</button>
+                    <td class="px-6 py-4 text-right flex justify-end gap-2 items-center flex-wrap">
+                        
+                        {{-- Edit User Button --}}
+                        <button onclick="openEditUserModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->email }}')" 
+                                class="bg-yellow-500 text-white px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-600 shadow-sm flex items-center justify-center gap-1" 
+                                title="Edit Name/Email/Pass">
+                            ✏️ Edit
+                        </button>
                             
-                            {{-- 1. Sources Button --}}
-                            <button onclick='openSourceModal(
-                                        "{{ $user->id }}", 
-                                        "{{ $user->name }}", 
-                                        @json($user->accessibleWebsites->pluck("id"))
-                                    )' 
-                                    class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 flex items-center gap-1 shadow-sm" 
-                                    title="Manage News Sources">
-                                🌐 <span class="hidden md:inline">Sources</span>
+                        {{-- 1. Sources Button --}}
+                        <button onclick='openSourceModal("{{ $user->id }}", "{{ $user->name }}", @json($user->accessibleWebsites->pluck("id")))' 
+                                class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 flex items-center gap-1 shadow-sm" 
+                                title="Manage News Sources">
+                            🌐 <span class="hidden md:inline">Sources</span>
+                        </button>
+
+                        {{-- 2. Templates Button --}}
+                        <button onclick='openTemplateModal("{{ $user->id }}", "{{ $user->name }}", @json($user->settings->allowed_templates ?? []), "{{ $user->settings->default_template ?? "dhaka_post_card" }}")' 
+                                class="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 flex items-center gap-1 shadow-sm" 
+                                title="Manage Templates">
+                            🎨 <span class="hidden md:inline">Templates</span>
+                        </button>
+
+                        {{-- 3. Scraper Settings Button --}}
+                        <button onclick="openScraperModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->settings->scraper_method ?? '' }}')" 
+                                class="bg-purple-600 text-white px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-700 shadow-sm flex items-center justify-center gap-1" 
+                                title="Scraper Settings">
+                            🤖
+                        </button>
+
+                        {{-- 4. Permissions Button --}}
+                        <button onclick='openPermissionModal("{{ $user->id }}", "{{ $user->name }}", @json($user->permissions ?? []))' 
+                                class="bg-pink-600 text-white px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-pink-700 shadow-sm flex items-center justify-center gap-1" 
+                                title="User Permissions">
+                            🔐
+                        </button>
+
+                        {{-- 5. Add Credit Form --}}
+                        <form action="{{ route('admin.users.credits', $user->id) }}" method="POST" class="flex items-center">
+                            @csrf
+                            <input type="number" name="amount" placeholder="+Cr" class="w-12 text-xs border border-slate-300 rounded-l-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500" required>
+                            <button type="submit" class="bg-indigo-600 text-white text-xs px-2 py-1.5 rounded-r-lg hover:bg-indigo-700 font-bold shadow-sm">Add</button>
+                        </form>
+                        
+                        <a href="{{ route('admin.users.login-as', $user->id) }}" 
+                           class="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold hover:bg-yellow-600 ml-2"
+                           onclick="return confirm('আপনি কি এই ইউজার হিসেবে লগইন করতে চান?')">
+                           🔑 Login
+                        </a>
+
+                        {{-- 6. Block/Unblock --}}
+                        <form action="{{ route('admin.users.toggle', $user->id) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-bold border shadow-sm transition {{ $user->is_active ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-green-200 text-green-600 hover:bg-green-50' }}" onclick="return confirm('Are you sure?')">
+                                {{ $user->is_active ? 'Block' : 'Unblock' }}
                             </button>
-
-                            {{-- 2. Templates Button --}}
-                            <button onclick='openTemplateModal(
-                                        "{{ $user->id }}", 
-                                        "{{ $user->name }}", 
-                                        @json($user->settings->allowed_templates ?? []), 
-                                        "{{ $user->settings->default_template ?? "dhaka_post_card" }}"
-                                    )' 
-                                    class="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 flex items-center gap-1 shadow-sm" 
-                                    title="Manage Templates">
-                                🎨 <span class="hidden md:inline">Templates</span>
-                            </button>
-
-                            {{-- 3. Scraper Settings Button --}}
-                            <button onclick="openScraperModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->settings->scraper_method ?? '' }}')" 
-                                    class="bg-purple-600 text-white px-2 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-700 shadow-sm flex items-center justify-center gap-1" 
-                                    title="Scraper Settings">
-                                🤖
-                            </button>
-
-                            {{-- 4. Add Credit Form --}}
-                            <form action="{{ route('admin.users.credits', $user->id) }}" method="POST" class="flex items-center">
-                                @csrf
-                                <input type="number" name="amount" placeholder="+Cr" class="w-12 text-xs border border-slate-300 rounded-l-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500" required>
-                                <button type="submit" class="bg-indigo-600 text-white text-xs px-2 py-1.5 rounded-r-lg hover:bg-indigo-700 font-bold shadow-sm">Add</button>
-                            </form>
-							
-							<a href="{{ route('admin.users.login-as', $user->id) }}" 
-							   class="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold hover:bg-yellow-600 ml-2"
-							   onclick="return confirm('আপনি কি এই ইউজার হিসেবে লগইন করতে চান?')">
-							   🔑 Login
-							</a>
-
-                            {{-- 5. Block/Unblock --}}
-                            <form action="{{ route('admin.users.toggle', $user->id) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-bold border shadow-sm transition {{ $user->is_active ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-green-200 text-green-600 hover:bg-green-50' }}" onclick="return confirm('Are you sure?')">
-                                    {{ $user->is_active ? 'Block' : 'Unblock' }}
-                                </button>
-                            </form>
-
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="p-4 bg-gray-50 border-t border-gray-200">
-            {{ $users->links() }}
-        </div>
+                        </form>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
     </div>
+    
+    <div class="p-4 bg-gray-50 border-t border-gray-200">
+        {{ $users->links() }}
+    </div>
+</div>
 
     {{-- MODALS SECTION --}}
 
@@ -390,6 +377,45 @@
             </form>
         </div>
     </div>
+	
+	
+	{{-- Permission Modal --}}
+		<div id="permissionModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+			<div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+				<h3 class="font-bold text-gray-800">Set Permissions for <span id="permUserName" class="text-pink-600"></span></h3>
+				<button onclick="closePermissionModal()" class="text-gray-400 hover:text-red-500 text-2xl">&times;</button>
+			</div>
+			
+			<form id="permissionForm" method="POST" class="p-6">
+				@csrf
+				<div class="grid grid-cols-1 gap-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+					@php
+						$perms = [
+							'can_scrape'       => '🌐 News Scraper Access',
+							'can_ai'           => '🤖 AI Content Rewriter',
+							'can_studio'       => '🎨 Studio Design Access',
+							'can_auto_post'    => '🚀 Automation & Auto Post',
+							'manage_reporters' => '👥 Reporter Management',
+							'reporter_direct'  => '✍️ Reporter Direct Publish'
+						];
+					@endphp
+
+					@foreach($perms as $key => $label)
+					<label class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer hover:bg-pink-50 transition">
+						<input type="checkbox" name="permissions[]" value="{{ $key }}" class="form-checkbox text-pink-600 rounded">
+						<span class="text-sm font-bold text-gray-700">{{ $label }}</span>
+					</label>
+					@endforeach
+				</div>
+
+				<div class="flex justify-end gap-3 pt-4 border-t mt-4">
+					<button type="button" onclick="closePermissionModal()" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg font-bold text-sm">Cancel</button>
+					<button type="submit" class="px-6 py-2 bg-pink-600 text-white rounded-lg font-bold hover:bg-pink-700 shadow-md text-sm">Save Permissions</button>
+				</div>
+			</form>
+		</div>
+	</div>
 
 </div>
 
@@ -518,6 +544,29 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+	
+	
+	
+	function openPermissionModal(userId, userName, userPerms) {
+    document.getElementById('permUserName').innerText = userName;
+    document.getElementById('permissionForm').action = `/admin/users/${userId}/permissions`;
+    
+    // Reset all checkboxes
+    const checkboxes = document.querySelectorAll('#permissionForm input[name="permissions[]"]');
+    checkboxes.forEach(cb => {
+        cb.checked = Array.isArray(userPerms) && userPerms.includes(cb.value);
+    });
+
+    const modal = document.getElementById('permissionModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+	}
+
+	function closePermissionModal() {
+		const modal = document.getElementById('permissionModal');
+		modal.classList.add('hidden');
+		modal.classList.remove('flex');
+	}
 	
 	
 	

@@ -21,6 +21,11 @@ Artisan::command('news:autopost', function () {
     $this->info("বোট: মোট " . $users->count() . " জন একটিভ ইউজার পাওয়া গেছে।");
 
     foreach ($users as $user) {
+		
+		if (!$user->hasPermission('can_auto_post')) {
+        $this->warn("⛔ User {$user->name} does not have 'can_auto_post' permission. Skipping.");
+        continue;
+    }
         $this->info("--- চেকিং ইউজার: {$user->name} ---");
 
         // ক্রেডিট চেক (সুপার এডমিন বাদে)

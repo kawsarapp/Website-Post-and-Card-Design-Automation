@@ -240,6 +240,16 @@ class AdminController extends Controller
 
         return redirect()->route('news.index');
     }
+	
+	
+	public function updatePermissions(Request $request, $id)
+		{
+			$user = User::findOrFail($id);
+			$user->permissions = $request->input('permissions', []); // চেক না করলে খালি অ্যারে সেভ হবে
+			$user->save();
+
+			return back()->with('success', 'ইউজার পারমিশন সফলভাবে আপডেট করা হয়েছে!');
+		}
 						
 			
 			

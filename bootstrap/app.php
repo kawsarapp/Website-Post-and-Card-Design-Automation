@@ -9,12 +9,20 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
+	
+	
+	
+
+
     ->withMiddleware(function (Middleware $middleware) {
         // ✅ ১. এখানে আমরা 'admin' নাম দিয়ে মিডলওয়্যারটি চিনিয়ে দিচ্ছি
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+			'permission' => \App\Http\Middleware\CheckPermission::class,
+			//'role' => \App\Http\Middleware\CheckRole::class,
         ]);
         
         // CSRF টোকেন ভেরিফিকেশন বাদ দেওয়া (Webhook এর জন্য)
