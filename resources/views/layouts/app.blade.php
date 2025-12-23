@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SubEditorBD - Premium News SaaS</title>
+    <title>Newsmanage24 - Make Easy your Work</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -41,7 +41,7 @@
 
     {{-- 📱 Mobile Top Header --}}
     <div class="lg:hidden glass-nav sticky top-0 z-50 px-4 py-3 flex justify-between items-center border-b border-slate-200/50">
-        <span class="font-bold text-lg text-indigo-600">SubEditorBD</span>
+        <span class="font-bold text-lg text-indigo-600">Newsmanage24</span>
         @auth
             <div class="flex items-center gap-3">
                 <a href="{{ route('credits.index') }}" class="text-xs font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-lg border border-amber-200">
@@ -61,7 +61,7 @@
                         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center text-white shadow-lg group-hover:rotate-6 transition-all duration-300">
                             <i class="fa-solid fa-newspaper text-lg"></i>
                         </div>
-                        <span class="font-bold text-xl tracking-tight">SubEditor<span class="text-indigo-600">BD</span></span>
+                        <span class="font-bold text-xl tracking-tight">Newsmanage<span class="text-indigo-600">24</span></span>
                     </a>
 
                     @auth
@@ -266,7 +266,7 @@
                         @endif
 
                         <a href="{{ route('credits.index') }}" class="block px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-lg">
-                            <i class="fa-solid fa-coins mr-2 text-xs"></i> Buy Credits
+                            <i class="fa-solid fa-coins mr-2 text-xs"></i>Credits
                         </a>
 
                         @if(auth()->user()->role === 'reporter')
@@ -295,7 +295,7 @@
 
     <footer class="bg-white border-t border-slate-200 py-10 mt-10 hidden lg:block">
         <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-sm text-slate-400">
-            <p>&copy; {{ date('Y') }} <span class="font-bold text-slate-700">SubEditorBD</span>. Crafted for Digital Journalists.</p>
+            <p>&copy; {{ date('Y') }} <span class="font-bold text-slate-700">Newsmanage24</span>. Crafted for Digital Journalists.</p>
         </div>
     </footer>
     

@@ -148,7 +148,7 @@
                                     @if($isDisabled)
                                         ⏳ <span id="timer-{{ $site->id }}">Wait</span>
                                     @else
-                                        <span id="text-{{ $site->id }}">⚡ Scrape</span>
+                                        <span id="text-{{ $site->id }}">⚡ Observed</span>
                                     @endif
                                 </a>
                             </div>
