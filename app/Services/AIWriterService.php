@@ -11,53 +11,52 @@ class AIWriterService
 
     public function __construct()
     {
-        
-		// 🔥 UPDATE: হুবহু বাংলাদেশী সাব-এডিটর স্টাইল (No Bold, No Garbage, Smart Context, Strict Length)
-				$this->systemPrompt = <<<EOT
-				You are a **Senior Sub-Editor** at a top-tier Bangladeshi Daily (like Prothom Alo or The Daily Star).
-				**YOUR GOAL:** Rewrite the raw input into a **crisp, factual, and professional news report** in standard "Promit Bangla".
+        // আপনার হুবহু বাংলাদেশী সাব-এডিটর স্টাইল প্রম্পট
+        $this->systemPrompt = <<<EOT
+        You are a **Senior Sub-Editor** at a top-tier Bangladeshi Daily (like Prothom Alo or The Daily Star).
+        **YOUR GOAL:** Rewrite the raw input into a **crisp, factual, and professional news report** in standard "Promit Bangla".
 
-				**🧹 STEP 1: GARBAGE REMOVAL (CRITICAL)**
-				Before rewriting, mentally remove all "Garbage Information":
-				- **REMOVE:** Promotional text ("Click here", "Subscribe", "Follow us", "Share this").
-				- **REMOVE:** Social media jargon ("Viral video", "Netizens say", Hashtags).
-				- **REMOVE:** Redundant adjectives (e.g., "Shocking", "Unbelievable", "Mind-blowing").
-				- **REMOVE:** Repetitive sentences that say the same thing twice.
+        **🧹 STEP 1: GARBAGE REMOVAL (CRITICAL)**
+        Before rewriting, mentally remove all "Garbage Information":
+        - **REMOVE:** Promotional text ("Click here", "Subscribe", "Follow us", "Share this").
+        - **REMOVE:** Social media jargon ("Viral video", "Netizens say", Hashtags).
+        - **REMOVE:** Redundant adjectives (e.g., "Shocking", "Unbelievable", "Mind-blowing").
+        - **REMOVE:** Repetitive sentences that say the same thing twice.
 
-				**🧠 STEP 2: CONTEXT & TONE**
-				- **Identify the Core News:** What actually happened? (Who, What, When, Where, Why).
-				- **Tone:** - If **Politics/Govt**: Formal, serious, neutral. Use words like 'প্রজ্ঞাপন', 'নির্দেশনা', 'জানানো হয়েছে'.
-				  - If **Crime/Accident**: Factual, concise. No sensationalism.
-				  - If **General**: Informative and direct.
-				- **Fact Preservation:** NEVER change Quotes ("..."), Names, Dates, Numbers, or Locations.
+        **🧠 STEP 2: CONTEXT & TONE**
+        - **Identify the Core News:** What actually happened? (Who, What, When, Where, Why).
+        - **Tone:** - If **Politics/Govt**: Formal, serious, neutral. Use words like 'প্রজ্ঞাপন', 'নির্দেশনা', 'জানানো হয়েছে'.
+          - If **Crime/Accident**: Factual, concise. No sensationalism.
+          - If **General**: Informative and direct.
+        - **Fact Preservation:** NEVER change Quotes ("..."), Names, Dates, Numbers, or Locations.
 
-				**✍️ STEP 3: WRITING RULES (HUMAN TOUCH)**
-				1. **NO BOLDING:** Do NOT use `<b>`, `<strong>`, or markdown bold. Real news reports are plain text.
-				2. **NO HEADINGS:** Do NOT use `<h3>` or `<h4>` inside the body unless it is a very long feature article. Use paragraph breaks instead.
-				3. **INVERTED PYRAMID:** - **Lead Paragraph:** Start directly with the main news. (e.g., "আগামীকাল থেকে স্কুল বন্ধ ঘোষণা করেছে শিক্ষা মন্ত্রণালয়।"). Avoid starting with "It has been reported that...".
-				   - **Body:** Provide supporting details and quotes.
-				   - **Background:** Context or previous events (if necessary) at the end.
+        **✍️ STEP 3: WRITING RULES (HUMAN TOUCH)**
+        1. **NO BOLDING:** Do NOT use `<b>`, `<strong>`, or markdown bold. Real news reports are plain text.
+        2. **NO HEADINGS:** Do NOT use `<h3>` or `<h4>` inside the body unless it is a very long feature article. Use paragraph breaks instead.
+        3. **INVERTED PYRAMID:** - **Lead Paragraph:** Start directly with the main news. (e.g., "আগামীকাল থেকে স্কুল বন্ধ ঘোষণা করেছে শিক্ষা মন্ত্রণালয়।"). Avoid starting with "It has been reported that...".
+           - **Body:** Provide supporting details and quotes.
+           - **Background:** Context or previous events (if necessary) at the end.
 
-				**📏 STEP 4: LENGTH & COMPLETENESS (STRICT)**
-				- **NO SUMMARIZATION:** Do not summarize or abridge the news. You are a Sub-Editor, not a Summarizer. If the input contains 5 detailed points, your output must cover all 5 points.
-				- **NO FABRICATION:** Do not add filler sentences just to make it look long. Stick strictly to the information provided in the source.
-				- **Maintain Depth:** The output length should be proportional to the factual content of the input.
+        **📏 STEP 4: LENGTH & COMPLETENESS (STRICT)**
+        - **NO SUMMARIZATION:** Do not summarize or abridge the news. You are a Sub-Editor, not a Summarizer. If the input contains 5 detailed points, your output must cover all 5 points.
+        - **NO FABRICATION:** Do not add filler sentences just to make it look long. Stick strictly to the information provided in the source.
+        - **Maintain Depth:** The output length should be proportional to the factual content of the input.
 
-				**FORMATTING:**
-				- Use ONLY `<p>` tags for paragraphs.
-				- Keep paragraphs comprised of 3-4 sentences for readability on mobile screens.
+        **FORMATTING:**
+        - Use ONLY `<p>` tags for paragraphs.
+        - Keep paragraphs comprised of 3-4 sentences for readability on mobile screens.
 
-				**OUTPUT FORMAT (JSON):**
-				Return ONLY a valid JSON object.
-				{
-					"title": "A professional, catchy news headline in Bengali (Max 10-12 words)",
-					"content": "HTML string with <p> tags only. No bold, no headings."
-				}
-				EOT;
-				
-			}
+        **OUTPUT FORMAT (JSON):**
+        Return ONLY a valid JSON object.
+        {
+            "title": "A professional, catchy news headline in Bengali (Max 10-12 words)",
+            "content": "HTML string with <p> tags only. No bold, no headings."
+        }
+        EOT;
+    }
 
-    public function rewrite($content, $title)
+    // 🔥 আপডেট: $isRetry প্যারামিটার যুক্ত করা হয়েছে
+    public function rewrite($content, $title, $isRetry = false)
     {
         if (empty($content) || strlen(strip_tags($content)) < 100) {
             throw new \Exception("SHORT_CONTENT");
@@ -65,37 +64,39 @@ class AIWriterService
 
         $safeContent = mb_substr($content, 0, 8000, 'UTF-8'); 
 
+        // 🔥 আপডেট: পুনরায় লেখার জন্য বিশেষ নির্দেশিকা
+        $retryInstruction = $isRetry 
+            ? "\n\n⚠️ NOTE: This is a RE-WRITE request. Your previous version was not satisfactory. Please use DIFFERENT vocabulary, change the sentence structure, and try a MORE ENGAGING lead paragraph while maintaining the same facts."
+            : "";
+
+        $finalInput = "Title: $title\n\nContent: $safeContent" . $retryInstruction;
+
         // 1️⃣ TRY DEEPSEEK
         try {
-            return $this->callDeepSeek($safeContent, $title);
+            return $this->callDeepSeek($finalInput, $title, $isRetry);
         } catch (\Exception $e) {
             Log::warning("⚠️ DeepSeek Failed: " . $e->getMessage() . ". Switching to Gemini...");
         }
 
         // 2️⃣ TRY GEMINI
         try {
-            return $this->callGemini($safeContent, $title);
+            return $this->callGemini($finalInput, $title, $isRetry);
         } catch (\Exception $e) {
             Log::warning("⚠️ Gemini Failed: " . $e->getMessage() . ". Switching to OpenAI...");
         }
 
         // 3️⃣ TRY OPENAI
         try {
-            return $this->callOpenAI($safeContent, $title);
+            return $this->callOpenAI($finalInput, $title, $isRetry);
         } catch (\Exception $e) {
             Log::error("❌ ALL AI SERVICES FAILED: " . $e->getMessage());
             throw new \Exception("ALL_AI_FAILED");
         }
     }
 
-    // ======================================================
-    // 🧠 PRIVATE DRIVERS
-    // ======================================================
-
-    private function callDeepSeek($content, $title)
+    private function callDeepSeek($content, $title, $isRetry)
     {
-        $apiKey = config('services.deepseek.key');
-        if (empty($apiKey)) $apiKey = env('DEEPSEEK_API_KEY');
+        $apiKey = config('services.deepseek.key') ?? env('DEEPSEEK_API_KEY');
         if (!$apiKey) throw new \Exception("DeepSeek API Key Missing");
 
         $response = Http::withHeaders([
@@ -105,39 +106,36 @@ class AIWriterService
             "model" => "deepseek-chat",
             "messages" => [
                 ["role" => "system", "content" => $this->systemPrompt], 
-                ["role" => "user", "content" => "Title: $title\n\nContent: $content"]
+                ["role" => "user", "content" => $content]
             ],
-            "response_format" => ["type" => "json_object"]
+            "response_format" => ["type" => "json_object"],
+            "temperature" => $isRetry ? 1.0 : 0.7 // 🔥 রি-ট্রাই হলে সৃজনশীলতা বাড়ানো হবে
         ]);
 
         return $this->parseResponse($response, 'DeepSeek');
     }
 
-    private function callGemini($content, $title)
+    private function callGemini($content, $title, $isRetry)
     {
-        $apiKey = config('services.gemini.key');
-        if (empty($apiKey)) $apiKey = env('GEMINI_API_KEY');
+        $apiKey = config('services.gemini.key') ?? env('GEMINI_API_KEY');
         if (!$apiKey) throw new \Exception("Gemini API Key Missing");
 
-        $modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro", "gemini-pro"];
+        $modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro"];
 
         foreach ($modelsToTry as $model) {
             try {
                 $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
                 
-                // Gemini-কে বলা হচ্ছে স্মার্টলি ফরম্যাট করতে (No Bold)
-                $geminiPrompt = $this->systemPrompt . "\n\nProvide output in strictly valid JSON format. Remember: NO BOLD text.";
-
-                $config = [];
-                if (str_contains($model, 'flash') || str_contains($model, '1.5')) {
-                    $config = ["responseMimeType" => "application/json"];
-                }
+                $config = [
+                    "responseMimeType" => "application/json",
+                    "temperature" => $isRetry ? 0.9 : 0.6 // 🔥 পরিবর্তন আনা হয়েছে
+                ];
 
                 $response = Http::withHeaders(['Content-Type' => 'application/json'])
                     ->timeout(40)
                     ->post($url, [
                         "contents" => [[
-                            "parts" => [["text" => $geminiPrompt . "\n\nTitle: $title\nContent: $content"]]
+                            "parts" => [["text" => $this->systemPrompt . "\n\n" . $content]]
                         ]],
                         "generationConfig" => $config
                     ]);
@@ -148,21 +146,14 @@ class AIWriterService
                     Log::info("✅ Rewritten by: Gemini ($model)");
                     return $this->processRawJson($rawText, 'Gemini');
                 }
-                
-                if ($response->status() >= 400 && $response->status() < 500) {
-                    continue; 
-                }
-            } catch (\Exception $e) {
-                continue;
-            }
+            } catch (\Exception $e) { continue; }
         }
-        throw new \Exception("Gemini Failed with ALL models.");
+        throw new \Exception("Gemini Failed.");
     }
 
-    private function callOpenAI($content, $title)
+    private function callOpenAI($content, $title, $isRetry)
     {
-        $apiKey = config('services.openai.key');
-        if (empty($apiKey)) $apiKey = env('OPENAI_API_KEY');
+        $apiKey = config('services.openai.key') ?? env('OPENAI_API_KEY');
         if (!$apiKey) throw new \Exception("OpenAI API Key Missing");
 
         $response = Http::withHeaders([
@@ -172,9 +163,10 @@ class AIWriterService
             "model" => "gpt-4o-mini", 
             "messages" => [
                 ["role" => "system", "content" => $this->systemPrompt], 
-                ["role" => "user", "content" => "Title: $title\n\nContent: $content"]
+                ["role" => "user", "content" => $content]
             ],
-            "response_format" => ["type" => "json_object"]
+            "response_format" => ["type" => "json_object"],
+            "temperature" => $isRetry ? 1.0 : 0.7 // 🔥
         ]);
 
         return $this->parseResponse($response, 'OpenAI');
@@ -199,18 +191,11 @@ class AIWriterService
         $json = json_decode($cleanJson, true);
 
         if (json_last_error() === JSON_ERROR_NONE && isset($json['title'])) {
-            // 🔥 Force Clean: AI যদি ভুল করেও Bold ট্যাগ দেয়, আমরা সেটা মুছে ফেলব
-            $json['content'] = strip_tags($json['content'], '<p>'); // শুধু <p> ট্যাগ রাখবে
+            // 🔥 Force Clean: Bold ট্যাগ মুছে ফেলা
+            $json['content'] = strip_tags($json['content'], '<p>'); 
             return $json;
         }
 
-        $cleanRaw = preg_replace('/^```json\s*|```\s*$/', '', $rawContent);
-        if (strlen($cleanRaw) > 50) {
-            return [
-                'title' => 'AI News (' . $providerName . ')',
-                'content' => strip_tags($cleanRaw, '<p>') 
-            ];
-        }
         throw new \Exception("$providerName returned invalid format");
     }
 

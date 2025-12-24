@@ -15,6 +15,9 @@ use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
 use App\Models\User;
 use App\Notifications\NewsScrapedNotification;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver; 
+use Illuminate\Support\Facades\Storage;
 
 class ScrapeWebsite implements ShouldQueue
 {
@@ -109,7 +112,7 @@ class ScrapeWebsite implements ShouldQueue
             }
 
             $count = 0;
-            $limit = 5; // 👈 শর্ত অনুযায়ী ৫টি লিমিট সেট করা হলো
+            $limit = 5; // 👈 শর্ত অনুযায়ী ৫টি লিমিট সেট করা হলো
 
             $activeContainer->each(function (Crawler $node, $i) use ($website, $scraper, &$count, $limit, $activeTitleSelector) {
                 
@@ -162,7 +165,7 @@ class ScrapeWebsite implements ShouldQueue
 					if (NewsItem::where('original_link', $link)
 								->where('user_id', $this->userId) // ✅ এই লাইনটি মাস্ট
 								->exists()) {
-						return; // যদি এই ইউজার আগে নিয়ে থাকে, তবেই বাদ দিবে
+						return; // যদি এই ইউজার আগে নিয়ে থাকে, তবেই বাদ দিবে
 					}
 
                     Log::info("⚡ Found New: " . Str::limit($title, 30));
@@ -177,8 +180,14 @@ class ScrapeWebsite implements ShouldQueue
                             if (!$src) return;
 
                             // Bad Keywords Filter (Garbage image rodh kora)
-                            $badKeywords = ['logo', 'icon', 'svg', 'avatar', 'user', 'profile', 'author', 'app-store', 'google-play', 'facebook', 'share'];
-                            foreach ($badKeywords as $bad) {
+                            $badKeywords = [
+								'logo', 'icon', 'svg', 'avatar', 'user', 'profile', 
+								'author', 'author_photos', 'desk', 'placeholder', 
+								'app-store', 'google-play', 'facebook', 'sites',
+								'small_201', 'authors', 'logo-fb', 'share', 'logo.png',
+							];
+							
+							foreach ($badKeywords as $bad) {
                                 if (stripos($src, $bad) !== false) return;
                             }
                             $listImage = $src;
@@ -202,6 +211,31 @@ class ScrapeWebsite implements ShouldQueue
                     }
                     if ($finalImage && strpos($finalImage, '/og/') !== false) {
                         $finalImage = str_replace('/og/', '/', $finalImage);
+                    }
+
+                    // 🔥 RTV এবং নির্দিষ্ট ডোমেইনের ইমেজের নিচের ১৫% স্থায়ীভাবে ক্রপ করা
+                    if ($finalImage && str_contains($finalImage, 'rtvonline.com')) {
+                        try {
+                            $manager = new ImageManager(new Driver());
+                            $image = $manager->read(file_get_contents($finalImage));
+
+                            $width = $image->width();
+                            $height = $image->height();
+                            // নিচের ১৫% বাদ দিয়ে ৮৫% উচ্চতা রাখা হচ্ছে
+                            $newHeight = (int) ($height * 0.90);
+
+                            $image->crop($width, $newHeight, 0, 0);
+
+                            $filename = 'cropped_' . time() . '_' . Str::random(06) . '.jpg';
+                            $savePath = 'news_images/' . $filename;
+
+                            Storage::disk('public')->put($savePath, (string) $image->encodeByExtension('jpg'));
+                            $finalImage = asset('storage/' . $savePath);
+                            
+                            Log::info("✅ RTV Image Cropped: $filename");
+                        } catch (\Exception $e) {
+                            Log::error("❌ Image Cropping Error: " . $e->getMessage());
+                        }
                     }
 
                     $finalTitle = !empty($scrapedData['title']) && strlen($scrapedData['title']) > 10 

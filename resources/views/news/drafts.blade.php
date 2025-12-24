@@ -101,12 +101,22 @@
                     </div>
 
                 @else
-                    {{-- Normal Draft State --}}
-                    <button type="button" 
-                        onclick="fetchDraftContent({{ $item->id }}, '{{ $item->thumbnail_url }}')" 
-                        class="w-full group/btn relative flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg transition-all duration-300 text-xs font-bold shadow-md hover:shadow-lg hover:shadow-indigo-500/30 overflow-hidden">
-                        <span class="relative z-10 flex items-center gap-2">Edit & Publish</span>
-                    </button>
+                    {{-- Normal Draft State (Updated with AI Rewrite Button) --}}
+                    <div class="flex gap-2">
+                        <button type="button" 
+                            onclick="fetchDraftContent({{ $item->id }}, '{{ $item->thumbnail_url }}')" 
+                            class="flex-1 group/btn relative flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg transition-all duration-300 text-xs font-bold shadow-md hover:shadow-lg hover:shadow-indigo-500/30 overflow-hidden">
+                            <span class="relative z-10 flex items-center gap-2">Edit & Publish</span>
+                        </button>
+
+                        {{-- 🔥 AI Rewrite Option for Existing Draft --}}
+                        <form action="{{ route('news.process-ai', $item->id) }}" method="POST" onsubmit="return confirm('এটি ১ ক্রেডিট কাটবে। আবার AI দিয়ে রিরাইট করতে চান?');">
+                            @csrf
+                            <button type="submit" class="px-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 py-2.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center" title="AI দিয়ে আবার লিখুন">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            </button>
+                        </form>
+                    </div>
                 @endif
             </div>
         </div>
@@ -115,6 +125,8 @@
     </div>
     <div class="mt-8">{{ $drafts->links() }}</div>
 </div>
+
+{{-- ... বাকি সব কোড (Modal এবং Script) অপরিবর্তিত রাখা হয়েছে ... --}}
 
 {{-- PUBLISH MODAL (TinyMCE Enabled) --}}
 <div id="rewriteModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">

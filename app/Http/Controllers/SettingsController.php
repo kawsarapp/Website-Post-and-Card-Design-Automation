@@ -16,9 +16,22 @@ class SettingsController extends Controller
     // ১. সেটিংস পেজ ভিউ
     public function index()
     {
+		/*
         $user = Auth::user();
         $settings = $user->settings ?? new UserSetting(['user_id' => $user->id]);
         return view('settings.index', compact('settings'));
+		*/
+		
+		$user = Auth::user();
+		if ($user->role !== 'super_admin' && !$user->hasPermission('can_settings')) {
+			return redirect()->route('news.index')->with('error', 'আপনার সেটিংস পরিবর্তনের অনুমতি নেই।');
+		}
+
+		$settings = $user->settings ?? new UserSetting(['user_id' => $user->id]);
+		return view('settings.index', compact('settings'));
+			
+			
+		
     }
 
     // ২. সেটিংস আপডেট (🔥 আপডেটেড: সব ফিল্ড সেভ হবে)
@@ -39,9 +52,15 @@ class SettingsController extends Controller
         ]);
 		
 		
-
+		/*
         $user = Auth::user();
         $settings = UserSetting::firstOrCreate(['user_id' => $user->id]);
+		*/
+		
+		
+		if (Auth::user()->role !== 'super_admin' && !Auth::user()->hasPermission('can_settings')) {
+        return abort(403);
+    }
 
         // সাধারণ সেটিংস
         $settings->brand_name = $request->brand_name;

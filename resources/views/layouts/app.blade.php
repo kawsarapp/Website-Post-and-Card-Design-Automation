@@ -61,6 +61,12 @@
                     @if(auth()->user()->hasPermission('can_scrape'))
                     <a href="{{ route('websites.index') }}" class="px-4 py-1.5 rounded-lg text-sm font-semibold {{ request()->routeIs('websites.*') ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-indigo-600' }}">Observed</a>
                     @endif
+					
+					@if(auth()->user()->role === 'super_admin' || (auth()->user()->permissions && in_array('can_settings', auth()->user()->permissions)))
+						<a href="{{ route('settings.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">
+							<i class="fa-solid fa-sliders"></i> Settings (সেটিংস)
+						</a>
+					@endif
                 </div>
                 @endauth
             </div>
@@ -251,7 +257,7 @@
 
                             @if(auth()->user()->hasPermission('can_scrape'))
                             <a href="{{ route('websites.index') }}" class="flex items-center gap-3 p-2.5 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-xl">
-                                <i class="fa-solid fa-earth-asia text-blue-500 w-5"></i> Observed Sources
+                                <i class="fa-solid fa-earth-asia text-blue-500 w-5"></i> Observed
                             </a>
                             @endif
                         </div>
@@ -287,6 +293,10 @@
             </div>
         </div>
     @endauth
+	
+	<footer class="mt-8 text-center text-slate-400 text-xs pb-4">
+    <p>© 2025 Newsmanage24 | System Version: <span class="font-bold text-indigo-500">{{ $appVersion }}</span></p>
+</footer>
 
     <script>
         // Desktop 3-Dot Menu Toggle

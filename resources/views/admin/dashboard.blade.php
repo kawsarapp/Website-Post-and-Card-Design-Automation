@@ -392,13 +392,14 @@
 				<div class="grid grid-cols-1 gap-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
 					@php
 						$perms = [
-							'can_scrape'       => '🌐 News Scraper Access',
-							'can_ai'           => '🤖 AI Content Rewriter',
-							'can_studio'       => '🎨 Studio Design Access',
-							'can_auto_post'    => '🚀 Automation & Auto Post',
-							'manage_reporters' => '👥 Reporter Management',
-							'reporter_direct'  => '✍️ Reporter Direct Publish'
-						];
+						'can_scrape'       => '🌐 News Scraper Access',
+						'can_ai'           => '🤖 AI Content Rewriter',
+						'can_studio'       => '🎨 Studio Design Access',
+						'can_auto_post'    => '🚀 Automation & Auto Post',
+						'manage_reporters' => '👥 Reporter Management',
+						'reporter_direct'  => '✍️ Reporter Direct Publish', // 🔥 এখানে কমা যোগ করুন
+						'can_settings'     => '⚙️ Settings Page Access',   // 🔥 নতুন পারমিশন
+					];
 					@endphp
 
 					@foreach($perms as $key => $label)

@@ -50,10 +50,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.update-profile');
 
+	// --- ৬. সেটিংস ম্যানেজমেন্ট (যাদের can_settings পারমিশন আছে) ---
+	Route::middleware(['permission:can_settings'])->group(function () {
+		Route::get('/admin/settings', [SettingsController::class, 'index'])->name('settings.index');
+		Route::post('/admin/settings', [SettingsController::class, 'update'])->name('settings.update');
+		Route::post('/admin/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
+	});
 
-    // ============================================================
-    // ৩. রিপোর্টার সেকশন 
-    // ============================================================
+
     Route::prefix('reporter')->name('reporter.')->group(function () {
         Route::get('/news/create', [ReporterController::class, 'create'])->name('news.create');
         Route::post('/news/store', [ReporterController::class, 'store'])->name('news.store');
@@ -147,10 +151,7 @@ Route::middleware(['auth', AdminMiddleware::class])->group(function () {
     Route::prefix('admin/users/{id}')->name('admin.users.')->group(function () {
         Route::post('/permissions', [AdminController::class, 'updatePermissions'])->name('permissions');
     });
-    
-    Route::get('/admin/settings', [SettingsController::class, 'index'])->name('settings.index');
-    Route::post('/admin/settings', [SettingsController::class, 'update'])->name('settings.update');
-    Route::post('/admin/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
+
 
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');

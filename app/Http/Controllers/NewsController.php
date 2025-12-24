@@ -214,12 +214,10 @@ class NewsController extends Controller
             'status'        => 'publishing',
             'title'         => $request->title,
             'content'       => $request->content,
-			
 			'ai_title'      => $request->title,
             'ai_content'    => $request->content,
-			
             'thumbnail_url' => $finalImage,
-            'error_message' => null, // এরর রিসেট
+            'error_message' => null,
             'updated_at'    => now()
         ]);
 
@@ -249,47 +247,58 @@ class NewsController extends Controller
     // 🔥 NEW: AI FLOW & DRAFTS
     // ==========================================
 
+   
    public function sendToAiQueue($id)
-    {
-        $news = NewsItem::findOrFail($id);
-        $user = Auth::user();
+		{
+			$news = NewsItem::findOrFail($id);
+			$user = Auth::user();
 
-        if ($user->role !== 'super_admin') {
-             if($user->credits <= 0) {
-                return back()->with('error', 'আপনার ক্রেডিট শেষ!');
-             }
+			// ১. সুপার অ্যাডমিন না হলে ক্রেডিট এবং ডেইলি লিমিট চেক
+			if ($user->role !== 'super_admin') {
+				 if($user->credits <= 0) {
+					return back()->with('error', 'আপনার ক্রেডিট শেষ!');
+				 }
 
-             if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
-                 return back()->with('error', 'আজকের ডেইলি লিমিট শেষ! আগামীকাল আবার চেষ্টা করুন।');
-             }
-             
-             try {
-                 DB::transaction(function () use ($user, $news) {
-                     $user->decrement('credits', 1);
+				 if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
+					 return back()->with('error', 'আজকের ডেইলি লিমিট শেষ! আগামীকাল আবার চেষ্টা করুন।');
+				 }
+				 
+				 try {
+					 DB::transaction(function () use ($user, $news) {
+						 $user->decrement('credits', 1);
 
-                     \App\Models\CreditHistory::create([
-                         'user_id' => $user->id,
-                         'action_type' => 'ai_rewrite',
-                         'description' => 'AI Processing: ' . \Illuminate\Support\Str::limit($news->title, 40),
-                         'credits_change' => -1,
-                         'balance_after' => $user->credits
-                     ]);
-                 });
-             } catch (\Exception $e) {
-                 Log::error("Credit Deduction Failed: " . $e->getMessage());
-                 return back()->with('error', 'সিস্টেম এরর! ক্রেডিট কাটা সম্ভব হয়নি।');
-             }
-        }
+						 \App\Models\CreditHistory::create([
+							 'user_id' => $user->id,
+							 'action_type' => 'ai_rewrite',
+							 'description' => 'AI Processing: ' . \Illuminate\Support\Str::limit($news->title, 40),
+							 'credits_change' => -1,
+							 'balance_after' => $user->credits
+						 ]);
+					 });
+				 } catch (\Exception $e) {
+					 Log::error("Credit Deduction Failed: " . $e->getMessage());
+					 return back()->with('error', 'সিস্টেম এরর! ক্রেডিট কাটা সম্ভব হয়নি।');
+				 }
+			}
 
-        if ($news->status === 'processing') {
-            return back()->with('error', 'এটি ইতিমধ্যেই প্রসেসিং হচ্ছে...');
-        }
+			// ২. ডাবল প্রসেসিং প্রোটেকশন
+			if ($news->status === 'processing') {
+				return back()->with('error', 'এটি ইতিমধ্যেই প্রসেসিং হচ্ছে...');
+			}
 
-        $news->update(['status' => 'processing', 'error_message' => null]);
-        GenerateAIContent::dispatch($news->id, $user->id);
+			// 🔥 পরিবর্তন: পুরোনো ডাটা মুছে ফেলা (যাতে ইউজার স্ক্রিনে পরিবর্তন বুঝতে পারে)
+			$news->update([
+				'status' => 'processing', 
+				'error_message' => null,
+				'ai_title' => 'AI লিখছে...', // কার্ডে তাৎক্ষণিক 'AI লিখছে' মেসেজ দেখাবে
+				'ai_content' => null         // পুরোনো কন্টেন্ট ক্লিয়ার করে দেওয়া হলো
+			]);
 
-        return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে!');
-    }
+			// ৩. জব ডিসপ্যাচ করা
+			\App\Jobs\GenerateAIContent::dispatch($news->id, $user->id);
+
+			return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে!');
+		}
 	
 	
 	public function drafts()
@@ -819,6 +828,23 @@ public function updateDraft(Request $request, $id)
             return response()->json(['success' => false, 'message' => 'সার্ভার এরর: ' . $e->getMessage()]);
         }
     }
+	
+	
+	public function getGithubVersion()
+	{
+		return Cache::remember('github_version', 3600, function () {
+			try {
+				$response = Http::get('https://api.github.com/repos/আপনার_ইউজারনেম/Website-Post-and-Card-Design-Automation/releases/latest');
+				
+				if ($response->successful()) {
+					return $response->json()['tag_name']; // যেমন: v1.0.1
+				}
+				return 'v1.0.0';
+			} catch (\Exception $e) {
+				return 'v1.0.0';
+			}
+		});
+	}
 	
 	
 	

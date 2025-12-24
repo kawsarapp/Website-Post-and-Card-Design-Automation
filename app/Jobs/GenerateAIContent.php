@@ -51,7 +51,11 @@ class GenerateAIContent implements ShouldQueue
             
             $fullContext = "Headline: " . $title . "\n\nDetails: " . $cleanBody;
 
-            $aiResponse = $aiWriter->rewrite($fullContext, $title);
+            // 🔥 পরিবর্তন: চেক করা হচ্ছে নিউজটি আগে রি-রাইট করা হয়েছে কি না
+            $isRetry = (bool) $news->is_rewritten;
+
+            // 🔥 পরিবর্তন: rewrite মেথডে $isRetry প্যারামিটারটি পাস করা হচ্ছে
+            $aiResponse = $aiWriter->rewrite($fullContext, $title, $isRetry);
 
             $news->update([
                 'ai_title' => $aiResponse['title'] ?? $news->title,
