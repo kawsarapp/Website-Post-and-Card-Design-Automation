@@ -34,7 +34,8 @@ class UserSetting extends Model
         'post_to_telegram',
 		'laravel_site_url',   // লারাভেল সাইটের লিংক
 		'laravel_api_token',  // সিকিউরিটি টোকেন
-		'post_to_laravel',    // লারাভেলে পোস্ট হবে কি না (Toggle)
+		'post_to_laravel',
+		'fb_comment_link',
 
     ];
 

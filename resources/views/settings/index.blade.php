@@ -201,20 +201,6 @@
 		
 		
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
 			
 			<div class="bg-white p-5 rounded-lg shadow border border-blue-100">
@@ -245,6 +231,7 @@
 					<p class="text-[10px] text-gray-400 mt-1">
 						<a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-blue-500 hover:underline">Get Token via Graph API</a>
 					</p>
+					<input type="checkbox" name="fb_comment_link" {{ $settings->fb_comment_link ? 'checked' : '' }}>
 				</div>
 			</div>
 			

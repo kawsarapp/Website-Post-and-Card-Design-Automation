@@ -39,13 +39,16 @@ class SocialPostService
             $postId = $data['post_id'] ?? null;
 
             if ($postId) {
-                // কমেন্ট (Optional)
-                try {
-                    Http::post("https://graph.facebook.com/v19.0/{$postId}/comments", [
-                        'message'      => "বিস্তারিত পড়ুন: " . $newsLink,
-                        'access_token' => $settings->fb_access_token
-                    ]);
-                } catch (\Exception $e) {}
+                if (!empty($settings->fb_comment_link)) {
+                    try {
+                        Http::post("https://graph.facebook.com/v19.0/{$postId}/comments", [
+                            'message'      => "বিস্তারিত পড়ুন: " . $newsLink,
+                            'access_token' => $settings->fb_access_token
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error("❌ FB Comment Error: " . $e->getMessage());
+                    }
+                }
 
                 Log::info("✅ FB Post Success: $postId");
                 return ['success' => true, 'message' => null];

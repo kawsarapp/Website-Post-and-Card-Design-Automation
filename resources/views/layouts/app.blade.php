@@ -59,7 +59,7 @@
                     @endif
 
                     @if(auth()->user()->hasPermission('can_scrape'))
-                    <a href="{{ route('websites.index') }}" class="px-4 py-1.5 rounded-lg text-sm font-semibold {{ request()->routeIs('websites.*') ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-indigo-600' }}">Observed</a>
+                    <a href="{{ route('websites.index') }}" class="px-4 py-1.5 rounded-lg text-sm font-semibold {{ request()->routeIs('websites.*') ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-indigo-600' }}">Observe</a>
                     @endif
 					
 					@if(auth()->user()->role === 'super_admin' || (auth()->user()->permissions && in_array('can_settings', auth()->user()->permissions)))

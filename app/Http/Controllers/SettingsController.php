@@ -72,6 +72,8 @@ class SettingsController extends Controller
         $settings->fb_page_id = $request->fb_page_id;
         $settings->fb_access_token = $request->fb_access_token;
         $settings->post_to_fb = $request->has('post_to_fb');
+		
+		$settings->fb_comment_link = $request->has('fb_comment_link');
 
         // টেলিগ্রাম সেটিংস
         $settings->telegram_bot_token = $request->telegram_bot_token;
