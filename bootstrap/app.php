@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request; // 🔥 এটি ইম্পোর্ট করা জরুরি
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,26 +13,28 @@ return Application::configure(basePath: dirname(__DIR__))
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
-	
-	
-	
-
-
     ->withMiddleware(function (Middleware $middleware) {
-        // ✅ ১. এখানে আমরা 'admin' নাম দিয়ে মিডলওয়্যারটি চিনিয়ে দিচ্ছি
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
-			'permission' => \App\Http\Middleware\CheckPermission::class,
-			//'role' => \App\Http\Middleware\CheckRole::class,
+            'permission' => \App\Http\Middleware\CheckPermission::class,
+            //'role' => \App\Http\Middleware\CheckRole::class,
         ]);
         
-        // CSRF টোকেন ভেরিফিকেশন বাদ দেওয়া (Webhook এর জন্য)
         $middleware->validateCsrfTokens(except: [
             '/telegram/webhook', 
-            '/news/*/post' // যদি বাইরে থেকে পোস্ট রিকোয়েস্ট আসে
+            '/news/*/post'
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
-    })
+        // 🔥 লাইভ সার্ভারে এরর হ্যান্ডলিং
+        $exceptions->render(function (Throwable $e, Request $request) {
+            // যদি APP_DEBUG=true থাকে, তবে ডিফল্ট এরর পেজ দেখাবে
+            if (config('app.debug')) {
+                return null; 
+            }
+
+            // লাইভ সার্ভারে (Debug False থাকলে) কাস্টম পেজে রিডাইরেক্ট করবে
+            return response()->view('errors.custom', [], 500);
+        });
+    }) // 👈 এখানে ক্লোজিং ব্র্যাকেট ভুল ছিল, ঠিক করা হয়েছে
     ->create();

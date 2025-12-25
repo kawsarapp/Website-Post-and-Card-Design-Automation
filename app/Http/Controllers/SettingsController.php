@@ -13,30 +13,26 @@ use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
-    // ১. সেটিংস পেজ ভিউ
+    /**
+     * ১. সেটিংস পেজ ভিউ
+     */
     public function index()
     {
-		/*
         $user = Auth::user();
+        if ($user->role !== 'super_admin' && !$user->hasPermission('can_settings')) {
+            return redirect()->route('news.index')->with('error', 'আপনার সেটিংস পরিবর্তনের অনুমতি নেই।');
+        }
+
         $settings = $user->settings ?? new UserSetting(['user_id' => $user->id]);
         return view('settings.index', compact('settings'));
-		*/
-		
-		$user = Auth::user();
-		if ($user->role !== 'super_admin' && !$user->hasPermission('can_settings')) {
-			return redirect()->route('news.index')->with('error', 'আপনার সেটিংস পরিবর্তনের অনুমতি নেই।');
-		}
-
-		$settings = $user->settings ?? new UserSetting(['user_id' => $user->id]);
-		return view('settings.index', compact('settings'));
-			
-			
-		
     }
 
-    // ২. সেটিংস আপডেট (🔥 আপডেটেড: সব ফিল্ড সেভ হবে)
+    /**
+     * ২. সেটিংস আপডেট (FIX: Attempt to assign property on null)
+     */
     public function update(Request $request)
     {
+        // ভ্যালিডেশন
         $request->validate([
             'brand_name' => 'required|string|max:50',
             'wp_url' => 'nullable|url',
@@ -48,19 +44,16 @@ class SettingsController extends Controller
             'telegram_channel_id' => 'nullable|string',
             'laravel_site_url' => 'nullable|url',
             'laravel_api_token' => 'nullable|string',
-			'laravel_route_prefix' => 'nullable|string|max:20',
+            'laravel_route_prefix' => 'nullable|string|max:20',
         ]);
-		
-		
-		/*
-        $user = Auth::user();
-        $settings = UserSetting::firstOrCreate(['user_id' => $user->id]);
-		*/
-		
-		
-		if (Auth::user()->role !== 'super_admin' && !Auth::user()->hasPermission('can_settings')) {
-        return abort(403);
-    }
+
+        // পারমিশন চেক
+        if (Auth::user()->role !== 'super_admin' && !Auth::user()->hasPermission('can_settings')) {
+            return abort(403);
+        }
+
+        // 🔥 এই লাইনটি নিশ্চিত করে যে $settings কখনো null হবে না
+        $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
 
         // সাধারণ সেটিংস
         $settings->brand_name = $request->brand_name;
@@ -78,18 +71,19 @@ class SettingsController extends Controller
         // ফেসবুক সেটিংস
         $settings->fb_page_id = $request->fb_page_id;
         $settings->fb_access_token = $request->fb_access_token;
-        $settings->post_to_fb = $request->has('post_to_fb') ? true : false;
+        $settings->post_to_fb = $request->has('post_to_fb');
 
         // টেলিগ্রাম সেটিংস
         $settings->telegram_bot_token = $request->telegram_bot_token;
         $settings->telegram_channel_id = $request->telegram_channel_id;
-        $settings->post_to_telegram = $request->has('post_to_telegram') ? true : false;
+        $settings->post_to_telegram = $request->has('post_to_telegram');
 
         // লারাভেল API সেটিংস
         $settings->laravel_site_url = $request->laravel_site_url;
         $settings->laravel_api_token = $request->laravel_api_token;
-        $settings->post_to_laravel = $request->has('post_to_laravel') ? true : false;
-		$settings->laravel_route_prefix = $request->laravel_route_prefix ?? 'news'; // ডিফল্ট 'news'
+        $settings->post_to_laravel = $request->has('post_to_laravel');
+        $settings->laravel_route_prefix = $request->laravel_route_prefix ?? 'news';
+
         // ক্যাটাগরি ম্যাপিং
         if ($request->has('category_mapping')) {
             $settings->category_mapping = $request->category_mapping;
@@ -97,15 +91,11 @@ class SettingsController extends Controller
 
         $settings->save();
 
-        return back()->with('success', 'সব সেটিংস সফলভাবে সেভ করা হয়েছে!');
+        return back()->with('success', 'সব সেটিংস সফলভাবে সেভ করা হয়েছে!');
     }
 
-    // ==========================================
-    // 🔥 TESTING FUNCTIONS (NEW)
-    // ==========================================
-
     /**
-     * ✅ 1. Test Facebook Connection
+     * ৩. ফেসবুক কানেকশন টেস্ট
      */
     public function testFacebookConnection(Request $request)
     {
@@ -141,7 +131,7 @@ class SettingsController extends Controller
     }
 
     /**
-     * ✅ 2. Test Telegram Connection
+     * ৪. টেলিগ্রাম কানেকশন টেস্ট
      */
     public function testTelegramConnection(Request $request)
     {
@@ -153,13 +143,11 @@ class SettingsController extends Controller
         }
 
         try {
-            // ১. বট চেক করা (getMe)
             $meResponse = Http::get("https://api.telegram.org/bot{$botToken}/getMe");
             if (!$meResponse->successful()) {
                 return response()->json(['success' => false, 'message' => '❌ Bot Token ভুল!']);
             }
 
-            // ২. চ্যানেল এক্সেস চেক করা (getChat)
             $chatResponse = Http::get("https://api.telegram.org/bot{$botToken}/getChat", [
                 'chat_id' => $channelId
             ]);
@@ -175,17 +163,16 @@ class SettingsController extends Controller
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => "❌ চ্যানেল পাওয়া যায়নি বা বট এডমিন নেই।\nError: " . ($chatData['description'] ?? 'Unknown')
+                    'message' => "❌ চ্যানেল পাওয়া যায়নি বা বট এডমিন নেই।\nError: " . ($chatData['description'] ?? 'Unknown')
                 ]);
             }
-
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Network Error: ' . $e->getMessage()]);
         }
     }
 
     /**
-     * ✅ 3. Test WordPress Connection
+     * ৫. ওয়ার্ডপ্রেস কানেকশন টেস্ট
      */
     public function testWordPressConnection(Request $request)
     {
@@ -198,16 +185,14 @@ class SettingsController extends Controller
         }
 
         try {
-            // ইউজারের ইনফো চেক করা (Auth Check)
             $apiUrl = rtrim($url, '/') . '/wp-json/wp/v2/users/me';
-            
             $response = Http::withBasicAuth($username, $password)->get($apiUrl);
 
             if ($response->successful()) {
                 $data = $response->json();
                 return response()->json([
                     'success' => true,
-                    'message' => "✅ ওয়ার্ডপ্রেস কানেক্টেড!\nUser: " . ($data['name'] ?? $username)
+                    'message' => "✅ ওয়ার্ডপ্রেস কানেক্টেড!\nUser: " . ($data['name'] ?? $username)
                 ]);
             } else {
                 return response()->json([
@@ -215,16 +200,14 @@ class SettingsController extends Controller
                     'message' => "❌ কানেকশন ফেইল্ড! স্ট্যাটাস কোড: " . $response->status()
                 ]);
             }
-
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'WP Error: ' . $e->getMessage()]);
         }
     }
 
-    // ==========================================
-    // 🔥 OTHER FUNCTIONS (EXISTING)
-    // ==========================================
-
+    /**
+     * ৬. ক্যাটাগরি ফেচ করা (WP/Laravel)
+     */
     public function fetchCategories(WordPressService $wpService)
     {
         $user = Auth::user();
@@ -234,7 +217,6 @@ class SettingsController extends Controller
             return response()->json(['error' => 'Settings not found'], 400);
         }
 
-        // Laravel Fetch Logic
         if ($settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token) {
             try {
                 $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/get-categories';
@@ -243,7 +225,6 @@ class SettingsController extends Controller
             } catch (\Exception $e) {}
         }
 
-        // WordPress Fetch Logic
         if ($settings->wp_url && $settings->wp_username && $settings->wp_app_password) {
             try {
                 $categories = $wpService->getCategories(
@@ -259,6 +240,9 @@ class SettingsController extends Controller
         return response()->json(['error' => 'No Connection Found'], 400);
     }
 
+    /**
+     * ৭. লোগো আপলোড
+     */
     public function uploadLogo(Request $request)
     {
         $request->validate(['logo' => 'required|image|max:2048']);
@@ -272,6 +256,9 @@ class SettingsController extends Controller
         return response()->json(['success' => false], 400);
     }
 
+    /**
+     * ৮. ফ্রেম আপলোড
+     */
     public function uploadFrame(Request $request)
     {
         $request->validate(['frame' => 'required|image|mimes:png|max:2048']);
@@ -282,6 +269,9 @@ class SettingsController extends Controller
         return response()->json(['success' => false], 400);
     }
 
+    /**
+     * ৯. ক্রেডিট হিস্ট্রি
+     */
     public function credits()
     {
         $user = Auth::user();
@@ -289,6 +279,9 @@ class SettingsController extends Controller
         return view('settings.credits', compact('histories', 'user'));
     }
 
+    /**
+     * ১০. ডিজাইন প্রেফারেন্স সেভ
+     */
     public function saveDesign(Request $request)
     {
         try {
@@ -301,6 +294,9 @@ class SettingsController extends Controller
         }
     }
 
+    /**
+     * ১১. প্রোফাইল আপডেট
+     */
     public function updateProfile(Request $request)
     {
         $user = Auth::user();
@@ -316,6 +312,6 @@ class SettingsController extends Controller
             $user->password = Hash::make($request->password);
         }
         $user->save();
-        return back()->with('success', 'প্রোফাইল আপডেট হয়েছে!');
+        return back()->with('success', 'প্রোফাইল আপডেট হয়েছে!');
     }
 }
