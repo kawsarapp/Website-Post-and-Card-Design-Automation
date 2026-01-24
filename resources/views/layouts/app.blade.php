@@ -210,7 +210,7 @@
 
     {{-- 🔥 FOOTER (ADDED) --}}
     <footer class="mt-auto py-6 text-center text-slate-400 text-xs hidden lg:block">
-        <p>© {{ date('Y') }} Newsmanage24 | <span class="text-indigo-500 font-bold">v1.0.0</span></p>
+		<p>© {{ date('Y') }} Newsmanage24 | <span class="text-indigo-500 font-bold">v{{ Cache::get('github_version', '1.0.0') }}</span></p>
     </footer>
 
     {{-- 📱 5. MOBILE BOTTOM NAVIGATION --}}
