@@ -13,7 +13,7 @@ class UpdateVersion extends Command
 
 		public function handle()
 		{
-			$token = env('GITHUB_TOKEN');
+			$token = config('services.github.token');
 			$repo = 'kawsarapp/Website-Post-and-Card-Design-Automation';
 			$url = "https://api.github.com/repos/{$repo}/releases/latest";
 
