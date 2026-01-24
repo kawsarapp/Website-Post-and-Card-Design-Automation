@@ -43,7 +43,7 @@ class ProcessNewsPost implements ShouldQueue
         NewsCardGeneratorService $cardGenerator
     ) {
         try {
-            Log::info("🚀 Publishing Job Started for News ID: {$this->newsId}");
+            Log::info("🚀 Publishing/Updating Job Started for News ID: {$this->newsId}");
 
             $news = NewsItem::withoutGlobalScopes()
                 ->with(['website' => function ($query) {
@@ -83,34 +83,46 @@ class ProcessNewsPost implements ShouldQueue
 
             $wpSuccess = false;
             $laravelSuccess = false;
-            $wpPostId = null; // এটি আমরা রিমোট আইডি (WP বা Laravel) রাখার জন্য ব্যবহার করব
+            $remotePostId = $news->wp_post_id; 
+            $publishedUrl = $news->live_url; // আগের ইউআরএল ডিফল্ট হিসেবে রাখা হলো
 
             // ==========================================
-            // ১. ওয়ার্ডপ্রেস পোস্টিং
+            // ১. ওয়ার্ডপ্রেস পোস্টিং (Create or Update)
             // ==========================================
             if (!$socialOnly && $settings && $settings->wp_url && $settings->wp_username) {
-                $postResult = $wpService->createPost(
-                    $news, $user, $finalTitle, $finalContent, $categories, $websiteImage
-                );
+                
+                if ($news->wp_post_id) {
+                    Log::info("🔄 Updating existing WordPress post: ID {$news->wp_post_id}");
+                    $postResult = $wpService->updatePost(
+                        $news->wp_post_id, $news, $user, $finalTitle, $finalContent, $categories, $websiteImage
+                    );
+                } else {
+                    Log::info("🆕 Creating new WordPress post");
+                    $postResult = $wpService->createPost(
+                        $news, $user, $finalTitle, $finalContent, $categories, $websiteImage
+                    );
+                }
 
                 if ($postResult['success']) {
                     $wpSuccess = true;
-                    $wpPostId = $postResult['post_id'];
-                    Log::info("✅ WP Post Success: ID {$wpPostId}");
+                    $remotePostId = $postResult['post_id'];
+                    $publishedUrl = $postResult['url'] ?? $publishedUrl; // WP থেকে আসা লিঙ্ক সংরক্ষণ
+                    Log::info("✅ WP Action Success: ID {$remotePostId}");
                 } else {
                     $errorMsg = $postResult['message'] ?? 'Unknown WP Error';
-                    Log::error("❌ WP Post Failed: " . $errorMsg);
+                    Log::error("❌ WP Action Failed: " . $errorMsg);
                     if (!$settings->post_to_laravel) throw new \Exception("WP Failed: " . $errorMsg);
                 }
             }
 
             // ==========================================
-            // ২. লারাভেল API পোস্টিং (আপডেটেড)
+            // ২. লারাভেল / নোড / এপিআই পোস্টিং (Create or Update)
             // ==========================================
             if (!$socialOnly && $settings && $settings->post_to_laravel && $settings->laravel_site_url) {
                 try {
                     $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/external-news-post';
-                    $response = Http::post($apiUrl, [
+                    
+                    $payload = [
                         'token' => $settings->laravel_api_token,
                         'title' => $finalTitle,
                         'content' => $finalContent,
@@ -118,28 +130,29 @@ class ProcessNewsPost implements ShouldQueue
                         'category_name' => $news->category ?? 'General',
                         'category_ids' => $categories, 
                         'original_link' => $news->original_link
-                    ]);
+                    ];
+
+                    if ($news->wp_post_id) {
+                        $payload['remote_id'] = $news->wp_post_id;
+                        Log::info("🔄 Sending Update Request to API for ID: {$news->wp_post_id}");
+                    }
+
+                    $response = Http::post($apiUrl, $payload);
 
                     if ($response->successful()) {
                         $laravelSuccess = true;
-                        
-                        // 🔥🔥 FIX: লারাভেল থেকে রিটার্ন করা ID ক্যাপচার করা
                         $respData = $response->json();
-                        // রেসপন্সে 'id' বা 'post_id' ফিল্ড খুঁজছি
-                        $remoteLaravelId = $respData['id'] ?? $respData['post_id'] ?? null;
                         
-                        if ($remoteLaravelId) {
-                            $wpPostId = $remoteLaravelId; // আমরা wp_post_id কলামেই লারাভেল আইডি রাখছি
-                            Log::info("✅ Laravel Post Success. Remote ID: {$remoteLaravelId}");
-                        } else {
-                            Log::info("✅ Laravel Post Success (No ID returned).");
-                        }
-
+                        // টার্গেট এপিআই থেকে আসা ID এবং লাইভ লিঙ্ক ক্যাপচার
+                        $remotePostId = $respData['post_id'] ?? $respData['id'] ?? $remotePostId;
+                        $publishedUrl = $respData['live_url'] ?? $publishedUrl; // ডাইনামিক লাইভ লিঙ্ক
+                        
+                        Log::info("✅ API Action Success. Remote ID: {$remotePostId}");
                     } else {
-                        Log::error("❌ Laravel Post Failed: " . $response->body());
+                        Log::error("❌ API Action Failed: " . $response->body());
                     }
                 } catch (\Exception $e) {
-                    Log::error("❌ Laravel Connection Error: " . $e->getMessage());
+                    Log::error("❌ API Connection Error: " . $e->getMessage());
                 }
             }
 
@@ -148,17 +161,17 @@ class ProcessNewsPost implements ShouldQueue
             // ==========================================
             if ($wpSuccess || $laravelSuccess || $socialOnly) {
 
-                DB::transaction(function () use ($news, $user, $wpPostId, $websiteImage, $socialOnly) {
+                DB::transaction(function () use ($news, $user, $remotePostId, $publishedUrl, $websiteImage, $socialOnly) {
                     $updateData = [
                         'is_posted' => true,
                         'posted_at' => now(),
                         'status' => 'published',
+                        'live_url' => $publishedUrl, // ডাটাবেসে নতুন লিঙ্ক সেভ হচ্ছে
                         'error_message' => null
                     ];
 
-                    // 🔥 রিমোট আইডি সেভ করা (WP বা Laravel ID)
-                    if ($wpPostId) {
-                        $updateData['wp_post_id'] = $wpPostId;
+                    if ($remotePostId) {
+                        $updateData['wp_post_id'] = $remotePostId;
                     }
 
                     if (!$socialOnly) {
@@ -174,7 +187,7 @@ class ProcessNewsPost implements ShouldQueue
                             \App\Models\CreditHistory::create([
                                 'user_id' => $user->id,
                                 'action_type' => 'auto_post',
-                                'description' => 'Auto Published via Job',
+                                'description' => 'Published/Updated via Job',
                                 'credits_change' => -1,
                                 'balance_after' => $user->credits
                             ]);
@@ -183,7 +196,7 @@ class ProcessNewsPost implements ShouldQueue
                 });
 
                 // ==========================================
-                // 🔥🔥 NEW: SOCIAL POSTING LOGIC
+                // সোশ্যাল মিডিয়া পোস্টিং লজিক
                 // ==========================================
                 
                 if (!$skipSocial && ($settings->post_to_fb || $settings->post_to_telegram)) {
@@ -191,14 +204,12 @@ class ProcessNewsPost implements ShouldQueue
                     $imageToPost = $socialImage; 
                     $localCardPath = null;
 
-                    // ১. ইমেজ প্রসেসিং
                     if (!isset($this->customData['social_image'])) {
                          Log::info("🎨 Generating Auto News Card...");
                          $localCardPath = $cardGenerator->generate($news, $settings);
                          if ($localCardPath) $imageToPost = $localCardPath;
                     } else {
-                        Log::info("✨ Using Studio Designed Image for Social Media.");
-                        // পাথ ফাইন্ডার লজিক (যা আগে ফিক্স করা হয়েছিল)
+                        Log::info("✨ Using Studio Designed Image.");
                         $originalUrl = $imageToPost;
                         $foundLocal = false;
                         $appUrl = config('app.url');
@@ -216,77 +227,35 @@ class ProcessNewsPost implements ShouldQueue
                                 if (file_exists($checkPath)) { $imageToPost = $checkPath; $foundLocal = true; }
                             }
                         }
-                        if ($foundLocal) Log::info("✅ Local Path Found: $imageToPost");
                     }
                     
-                    // ==========================================
-                    // 🔗 INTELLIGENT LINK GENERATION (FIXED URL STRUCTURE)
-                    // ==========================================
-                    
-                    $newsLink = $news->original_link; 
+                    // সোশ্যাল মিডিয়ার জন্য লিঙ্ক নির্বাচন (ডাইনামিক লিঙ্ককে অগ্রাধিকার দেওয়া হয়েছে)
+                    $newsLink = $publishedUrl ?? $news->original_link; 
 
-                    if ($settings->wp_url && ($wpSuccess || $news->wp_post_id)) {
-                        $idToUse = $wpPostId ?? $news->wp_post_id;
-                        $newsLink = rtrim($settings->wp_url, '/') . '/?p=' . $idToUse;
-                    } 
-                    
-                    elseif ($settings->post_to_laravel && $settings->laravel_site_url) {
-                         if ($laravelSuccess || $news->is_posted) {
-                             $idToUse = $wpPostId ?? $news->wp_post_id ?? $news->id;
-                             $prefix = $settings->laravel_route_prefix ?? 'news';
-                             $prefix = trim($prefix, '/'); 
-                             $checkLink = rtrim($settings->laravel_site_url, '/') . '/' . $prefix . '/' . $idToUse;
-                             $newsLink = $checkLink;
-                             
-                             Log::info("🔗 Using Laravel Link ($prefix): $newsLink");
-                         }
+                    // যদি ডাইনামিক লিঙ্ক না থাকে তবে ম্যানুয়ালি তৈরি করা হবে
+                    if (!$publishedUrl) {
+                        if ($settings->wp_url && $remotePostId) {
+                            $newsLink = rtrim($settings->wp_url, '/') . '/?p=' . $remotePostId;
+                        } elseif ($settings->post_to_laravel && $settings->laravel_site_url) {
+                             $prefix = trim($settings->laravel_route_prefix ?? 'news', '/');
+                             $newsLink = rtrim($settings->laravel_site_url, '/') . '/' . $prefix . '/' . $remotePostId;
+                        }
                     }
 
-                    // ==========================================
-                    // 🔥🔥 NEW: SOCIAL CAPTION LOGIC
-                    // ==========================================
                     $captionToPost = $this->customData['social_caption'] ?? $finalTitle;
 
                     if ($settings->post_to_fb) {
                         $fbResult = $socialPoster->postToFacebook($settings, $captionToPost, $imageToPost, $newsLink);
-                        
-                        if ($fbResult['success']) {
-                            $news->update(['fb_status' => 'success', 'fb_error' => null]);
-                        } else {
-                            $news->update(['fb_status' => 'failed', 'fb_error' => $fbResult['message']]);
-                        }
-                    } else {
-                        $news->update(['fb_status' => 'skipped']);
+                        $news->update(['fb_status' => $fbResult['success'] ? 'success' : 'failed', 'fb_error' => $fbResult['message'] ?? null]);
                     }
                     if ($settings->post_to_telegram) {
                         $tgResult = $socialPoster->postToTelegram($settings, $captionToPost, $imageToPost, $newsLink);
-                        
-                        if ($tgResult['success']) {
-                            $news->update(['tg_status' => 'success', 'tg_error' => null]);
-                        } else {
-                            $news->update(['tg_status' => 'failed', 'tg_error' => $tgResult['message']]);
-                        }
-                    } else {
-                        $news->update(['tg_status' => 'skipped']);
+                        $news->update(['tg_status' => $tgResult['success'] ? 'success' : 'failed', 'tg_error' => $tgResult['message'] ?? null]);
                     }
 
                     // ক্লিনআপ
-                    if ($localCardPath && file_exists($localCardPath)) {
-                       unlink($localCardPath);
-                       Log::info("🧹 Generated card deleted to save space.");
-                    }
-                    
-                    if (isset($this->customData['social_image'])) {
-                         $studioImgPath = $imageToPost;
-
-                         if (file_exists($studioImgPath) && strpos($studioImgPath, 'news-cards/studio') !== false) {
-                             unlink($studioImgPath);
-                             Log::info("🧹 Studio Card deleted from server to save space.");
-                         }
-                    }
-                } 
-                else {
-                    if ($skipSocial) Log::info("⏭️ Social Posting Skipped (Manual Publish Mode).");
+                    if ($localCardPath && file_exists($localCardPath)) unlink($localCardPath);
+                    if (isset($this->customData['social_image']) && file_exists($imageToPost) && strpos($imageToPost, 'news-cards/studio') !== false) unlink($imageToPost);
                 }
 
                 try {
@@ -294,11 +263,7 @@ class ProcessNewsPost implements ShouldQueue
                 } catch (\Exception $e) {}
 
             } else {
-                if (!$settings->wp_url && !$settings->post_to_laravel) {
-                    throw new \Exception("Settings Error: No WP or Laravel destination configured.");
-                } else {
-                    throw new \Exception("Posting failed on all configured endpoints.");
-                }
+                throw new \Exception("Posting failed on all configured endpoints.");
             }
 
         } catch (\Exception $e) {
@@ -313,7 +278,7 @@ class ProcessNewsPost implements ShouldQueue
         if ($news) {
             $news->update([
                 'status' => 'failed',
-                'error_message' => 'Publish Error: ' . $exception->getMessage() 
+                'error_message' => 'Action Error: ' . $exception->getMessage() 
             ]);
             Log::error("❌ Job Final Failure for News ID: {$this->newsId}");
         }

@@ -20,10 +20,14 @@ use App\Http\Middleware\AdminMiddleware;
 |--------------------------------------------------------------------------
 */
 
-// --- ১. পাবলিক এবং গেস্ট রুটস ---
+// --- ১. পাবলিক এবং গেস্ট রুটস (লগইন ছাড়া এক্সেস পাবে) ---
 Route::get('/', function () {
     return redirect()->route('login');
 });
+
+// 🔥 বসের জন্য পাবলিক প্রিভিউ এবং ফিডব্যাক রুটস (এটি auth এর বাইরে থাকতে হবে)
+Route::get('/preview/{id}', [NewsController::class, 'publicPreview'])->name('news.public-preview');
+Route::post('/preview/{id}/feedback', [NewsController::class, 'handlePreviewFeedback'])->name('news.preview-feedback');
 
 // টেলিগ্রাম ওয়েবহুক
 Route::post('/telegram/webhook', [TelegramBotController::class, 'handle']);
@@ -50,26 +54,21 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.update-profile');
 
-	// --- ৬. সেটিংস ম্যানেজমেন্ট (যাদের can_settings পারমিশন আছে) ---
-	Route::middleware(['permission:can_settings'])->group(function () {
-		Route::get('/admin/settings', [SettingsController::class, 'index'])->name('settings.index');
-		Route::post('/admin/settings', [SettingsController::class, 'update'])->name('settings.update');
-		Route::post('/admin/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
-	});
+    // --- সেটিংস ম্যানেজমেন্ট (যাদের can_settings পারমিশন আছে) ---
+    Route::middleware(['permission:can_settings'])->group(function () {
+        Route::get('/admin/settings', [SettingsController::class, 'index'])->name('settings.index');
+        Route::post('/admin/settings', [SettingsController::class, 'update'])->name('settings.update');
+        Route::post('/admin/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
+    });
 
-
+    // রিপোর্টার সেকশন
     Route::prefix('reporter')->name('reporter.')->group(function () {
         Route::get('/news/create', [ReporterController::class, 'create'])->name('news.create');
         Route::post('/news/store', [ReporterController::class, 'store'])->name('news.store');
         Route::get('/my-news', [ReporterController::class, 'index'])->name('news.index');
     });
 
-
-    // ============================================================
-    // ৪. ম্যানেজমেন্ট ও নিউজ কোর সেকশন
-    // ============================================================
-    
-    // ৫. প্রতিনিধি ম্যানেজমেন্ট (manage_reporters)
+    // প্রতিনিধি ম্যানেজমেন্ট
     Route::middleware(['permission:manage_reporters'])->group(function () {
         Route::prefix('manage')->name('manage.')->group(function () {
             Route::get('/reporters', [ReporterManagementController::class, 'index'])->name('reporters.index');
@@ -79,10 +78,11 @@ Route::middleware(['auth'])->group(function () {
         });
     });
 
-    // নিউজ কোর রুটস
+    // ============================================================
+    // ৪. নিউজ কোর সেকশন (NewsController)
+    // ============================================================
     Route::controller(NewsController::class)->prefix('news')->name('news.')->group(function () {
         
-        // কমন নিউজ রুটস
         Route::get('/', 'index')->name('index');
         Route::delete('/{id}', 'destroy')->name('destroy');
         Route::post('/{id}/post', 'postToWordPress')->name('post');
@@ -92,42 +92,46 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/check-scrape-status', 'checkScrapeStatus')->name('check-scrape-status');
         Route::post('/toggle-automation', 'toggleAutomation')->name('toggle-automation');
         
+        // 🔥 ড্রাফট আপডেট চেক করার রুট (এটি auth এর ভেতরে থাকা নিরাপদ)
+        Route::post('/check-draft-updates', 'checkDraftUpdates')->name('check-draft-updates');
+
+        // 🔥 নতুন প্রকাশিত নিউজ দেখার রুট
+        Route::get('/published', 'published')->name('published');
+
         // --- 🔐 লকিং এবং আনলকিং রুটস ---
         Route::get('/{id}/unlock', 'unlockNews')->name('unlock');
         Route::get('/{id}/get-draft', 'getDraftContent')->name('get-draft');
 
         // --- 📝 ড্রাফট এবং AI রিরাইট রুটস ---
-        // ফিক্স: এখানে শুধুমাত্র একটি রুট থাকবে যা updateDraft কে কল করবে
         Route::post('/{id}/update-draft', 'updateDraft')->name('update-draft');
         Route::post('/{id}/process-ai', 'sendToAiQueue')->name('process-ai');
 
-        // ৪. ম্যানুয়াল পাবলিশ (can_direct_publish)
+        // ম্যানুয়াল পাবলিশ পারমিশন
         Route::middleware(['permission:can_direct_publish'])->group(function () {
             Route::get('/create', 'create')->name('create');
             Route::post('/store-custom', 'storeCustom')->name('store-custom');
         });
 
-        // ২. AI ড্রাফট (can_ai)
+        // AI ড্রাফট পারমিশন
         Route::middleware(['permission:can_ai'])->group(function () {
             Route::get('/drafts', 'drafts')->name('drafts');
             Route::post('/{id}/publish-draft', 'publishDraft')->name('publish-draft');
             Route::post('/{id}/confirm-publish', 'confirmPublish')->name('confirm-publish');
         });
 
-        // ৩. স্টুডিও ডিজাইন (can_studio)
+        // স্টুডিও ডিজাইন পারমিশন
         Route::middleware(['permission:can_studio'])->group(function () {
             Route::get('/{id}/studio', 'studio')->name('studio');
             Route::post('/{id}/publish-studio', 'publishStudioDesign')->name('publish-studio');
         });
     });
 
-    // ১. নিউজ স্ক্র্যাপিং (can_scrape)
+    // নিউজ স্ক্র্যাপিং
     Route::middleware(['permission:can_scrape'])->group(function () {
         Route::resource('websites', WebsiteController::class)->only(['index', 'store', 'update']);
         Route::get('/websites/{id}/scrape', [WebsiteController::class, 'scrape'])->name('websites.scrape');
     });
     
-    // ইমেজ প্রক্সি
     Route::get('/proxy-image', [NewsController::class, 'proxyImage'])->name('proxy.image');
 
     // কানেকশন টেস্ট
@@ -152,12 +156,10 @@ Route::middleware(['auth', AdminMiddleware::class])->group(function () {
         Route::post('/permissions', [AdminController::class, 'updatePermissions'])->name('permissions');
     });
 
-
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
         Route::get('/post-history', [AdminController::class, 'postHistory'])->name('post-history');
 
-        // ইউজার ম্যানেজমেন্ট
         Route::prefix('users/{id}')->name('users.')->group(function () {
             Route::post('/toggle-status', [AdminController::class, 'toggleStatus'])->name('toggle');
             Route::post('/add-credits', [AdminController::class, 'addCredits'])->name('credits');
@@ -170,7 +172,6 @@ Route::middleware(['auth', AdminMiddleware::class])->group(function () {
         });
         Route::post('/users/create', [AdminController::class, 'store'])->name('users.store');
 
-        // পেমেন্ট অ্যাডমিন
         Route::controller(PaymentController::class)->prefix('payments')->name('payments.')->group(function () {
             Route::get('/', 'adminIndex')->name('index');
             Route::post('/{id}/approve', 'approve')->name('approve');

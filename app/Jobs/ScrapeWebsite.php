@@ -35,24 +35,47 @@ class ScrapeWebsite implements ShouldQueue
 
     public function handle(NewsScraperService $scraper)
     {
-		
-		\Illuminate\Support\Facades\Cache::put('scraping_user_' . $this->userId, true, now()->addMinutes(5));
+        \Illuminate\Support\Facades\Cache::put('scraping_user_' . $this->userId, true, now()->addMinutes(5));
+
         try {
             $realId = is_array($this->websiteId) ? ($this->websiteId['id'] ?? null) : $this->websiteId;
             $website = Website::withoutGlobalScopes()->find($realId);
 
-            if (!$website) {
-                Log::error("❌ Job Failed: Website ID {$realId} not found in DB.");
-                return;
-            }
+            if (!$website) return;
 
             Log::info("🚀 JOB STARTED: {$website->name} | URL: {$website->url}");
 
-            // ১. পেজ লোড
-            $listPageHtml = $scraper->runPuppeteer($website->url); 
-            
+            // ১. প্রক্সি লোড করা
+            $proxy = $scraper->getProxyConfig($this->userId);
+            if ($proxy) Log::info("🌐 Scraping with Proxy: " . parse_url($proxy, PHP_URL_HOST));
+
+            // ২. লিস্ট পেজ লোড (Raw HTML) - ফিক্সড (Try-Catch যুক্ত করা হয়েছে)
+            $listPageHtml = null;
+            try {
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                ])->withOptions([
+                    'proxy' => $proxy,
+                    'verify' => false,
+                    'connect_timeout' => 20,
+                ])->timeout(60)->get($website->url);
+
+                if ($response->successful()) {
+                    $listPageHtml = $response->body();
+                }
+            } catch (\Exception $e) {
+                // কানেকশন বা SSL এরর হলে লগ করবে, কিন্তু থামবে না
+                Log::warning("⚠️ Direct HTTP Failed (Will try Puppeteer): " . $e->getMessage());
+            }
+
+            // যদি সরাসরি না আসে, তবে Puppeteer ব্যবহার হবে
             if (!$listPageHtml || strlen($listPageHtml) < 500) {
-                Log::error("❌ Failed to load list page or content too short.");
+                Log::info("🔄 Falling back to Puppeteer with Proxy...");
+                $listPageHtml = $scraper->runPuppeteer($website->url, $this->userId); 
+            }
+
+            if (!$listPageHtml || strlen($listPageHtml) < 500) {
+                Log::error("❌ Failed to load list page content.");
                 return;
             }
 
@@ -64,7 +87,7 @@ class ScrapeWebsite implements ShouldQueue
             
             $strategies = [];
 
-            // ১. ড্যাশবোর্ড সিলেক্টর (Priority 1)
+            // ১. ড্যাশবোর্ড সিলেক্টর
             if (!empty($website->selector_container)) {
                 $strategies[] = [
                     'source'    => 'DASHBOARD',
@@ -73,7 +96,7 @@ class ScrapeWebsite implements ShouldQueue
                 ];
             }
 
-            // ২. কোড কনফিগ (Priority 2 - Fallback)
+            // ২. কোড কনফিগ
             $codeConfig = $this->getDomainConfig($website->url);
             if ($codeConfig) {
                 $strategies[] = [
@@ -83,11 +106,12 @@ class ScrapeWebsite implements ShouldQueue
                 ];
             }
 
+            // ৩. জেনেরিক স্মার্ট সিলেক্টর
             $strategies[] = [
-					'source'    => 'GENERIC (SMART)',
-					'container' => 'article a, .post a, .news a, h2 a, h3 a', // ✅ শুধু আর্টিকেলের লিংক খুঁজবে
-					'title'     => null
-				];
+                'source'    => 'GENERIC (SMART)',
+                'container' => 'article a, .post a, .news a, h2 a, h3 a', 
+                'title'     => null
+            ];
 
             $activeContainer = null;
             $activeTitleSelector = null;
@@ -102,7 +126,7 @@ class ScrapeWebsite implements ShouldQueue
                     $activeContainer = $tempItems;
                     $activeTitleSelector = $strat['title'];
                     $foundItems = $count;
-                    break; // কাজ হলে লুপ ব্রেক
+                    break; 
                 }
             }
 
@@ -112,18 +136,17 @@ class ScrapeWebsite implements ShouldQueue
             }
 
             $count = 0;
-            $limit = 5; // 👈 শর্ত অনুযায়ী ৫টি লিমিট সেট করা হলো
+            $limit = 5; // লিমিট
 
-            $activeContainer->each(function (Crawler $node, $i) use ($website, $scraper, &$count, $limit, $activeTitleSelector) {
+            $activeContainer->each(function (Crawler $node, $i) use ($website, &$count, $limit, $activeTitleSelector) {
                 
-                // ৫টি হয়ে গেলে লুপ ব্রেক করবে
                 if ($count >= $limit) return false; 
 
                 try {
                     $title = "";
                     $link = null;
 
-                    // A. যদি সরাসরি <a> ট্যাগ ধরা হয়
+                    // --- LINK & TITLE EXTRACTION LOGIC (PRESERVED FOR ACCURACY) ---
                     if ($node->nodeName() === 'a') {
                         $link = $node->attr('href');
                         $title = trim($node->text());
@@ -132,19 +155,16 @@ class ScrapeWebsite implements ShouldQueue
                             $title = trim($node->filter('h1, h2, h3, h4, h5, h6, span')->first()->text());
                         }
                     } 
-                    // B. যদি কন্টেইনার (div/article) ধরা হয়
                     else {
                         $titleNode = $node->filter($activeTitleSelector ?? 'h2');
                         if ($titleNode->count() > 0) {
                             $title = trim($titleNode->text());
-                            // লিংক খোঁজা
                             if ($titleNode->nodeName() === 'a') {
                                 $link = $titleNode->attr('href');
                             } elseif ($titleNode->filter('a')->count() > 0) {
                                 $link = $titleNode->filter('a')->attr('href');
                             }
                         }
-                        // টাইটেল সিলেক্টরে লিংক না পেলে বা টাইটেল সিলেক্টর না মিললে
                         if (!$link && $node->filter('a')->count() > 0) {
                             $link = $node->filter('a')->first()->attr('href');
                             if (empty($title)) $title = trim($node->text());
@@ -161,118 +181,61 @@ class ScrapeWebsite implements ShouldQueue
                         $link = $baseUrl . '/' . ltrim($link, '/');
                     }
 
-                    // Duplicate Check
-					if (NewsItem::where('original_link', $link)
-								->where('user_id', $this->userId) // ✅ এই লাইনটি মাস্ট
-								->exists()) {
-						return; // যদি এই ইউজার আগে নিয়ে থাকে, তবেই বাদ দিবে
-					}
+                    // Duplicate Check (Database এ চেক করে ডিসপ্যাচ এড়ানোর জন্য)
+                    if (NewsItem::where('original_link', $link)
+                                ->where('user_id', $this->userId)
+                                ->exists()) {
+                        return; 
+                    }
 
-                    Log::info("⚡ Found New: " . Str::limit($title, 30));
-
-                    // Image Logic (Updated with Filter)
+                    // Image Logic (লিস্ট পেজে ইমেজ থাকলে সেটা নিয়ে নেওয়া ভালো)
                     $listImage = null;
                     try {
                         $imgSelector = $website->selector_image ?? 'img';
                         $node->filter($imgSelector)->each(function ($imgNode) use (&$listImage) {
-                            if ($listImage) return; // ইতিমধ্যে ইমেজ পেলে আর দরকার নেই
+                            if ($listImage) return;
                             $src = $imgNode->attr('data-src') ?? $imgNode->attr('data-original') ?? $imgNode->attr('src');
-                            if (!$src) return;
-
-                            // Bad Keywords Filter (Garbage image rodh kora)
-                            $badKeywords = [
-								'logo', 'icon', 'svg', 'avatar', 'user', 'profile', 
-								'author', 'author_photos', 'desk', 'placeholder', 
-								'app-store', 'google-play', 'facebook', 'sites',
-								'small_201', 'authors', 'logo-fb', 'share', 'logo.png',
-							];
-							
-							foreach ($badKeywords as $bad) {
-                                if (stripos($src, $bad) !== false) return;
-                            }
-                            $listImage = $src;
+                            if ($src) $listImage = $src;
                         });
                     } catch (\Exception $e) {}
 
-                    // Detail Scrape
-                    $scrapedData = $scraper->scrape($link, ['content' => $website->selector_content]);
-
-                    if (!$scrapedData || empty($scrapedData['body'])) {
-                        Log::warning("❌ Empty Body: $link");
-                        return; 
-                    }
-
-                    $finalImage = $scrapedData['image'] ?? $listImage;
+                    // ==========================================
+                    // 🔥 DISPATCH SINGLE JOB
+                    // ==========================================
+                    Log::info("⚡ Dispatching Job for: " . Str::limit($title, 30));
                     
-                    if ($finalImage && !str_starts_with($finalImage, 'http')) {
-                        $parsedUrl = parse_url($website->url);
-                        $baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
-                        $finalImage = $baseUrl . '/' . ltrim($finalImage, '/');
-                    }
-                    if ($finalImage && strpos($finalImage, '/og/') !== false) {
-                        $finalImage = str_replace('/og/', '/', $finalImage);
-                    }
+                    // আপনার নতুন জবে প্যারামিটার হিসেবে যা যা লাগবে তা পাস করা হলো
+                    \App\Jobs\ProcessSingleNews::dispatch(
+                        $link, 
+                        $title, 
+                        $this->userId, 
+                        $website->id, 
+                        $listImage // অপশনাল: লিস্ট পেজের ইমেজ পাস করলে ভালো
+                    );
 
-                    // 🔥 RTV এবং নির্দিষ্ট ডোমেইনের ইমেজের নিচের ১৫% স্থায়ীভাবে ক্রপ করা
-                    if ($finalImage && str_contains($finalImage, 'rtvonline.com')) {
-                        try {
-                            $manager = new ImageManager(new Driver());
-                            $image = $manager->read(file_get_contents($finalImage));
-
-                            $width = $image->width();
-                            $height = $image->height();
-                            // নিচের ১৫% বাদ দিয়ে ৮৫% উচ্চতা রাখা হচ্ছে
-                            $newHeight = (int) ($height * 0.90);
-
-                            $image->crop($width, $newHeight, 0, 0);
-
-                            $filename = 'cropped_' . time() . '_' . Str::random(06) . '.jpg';
-                            $savePath = 'news_images/' . $filename;
-
-                            Storage::disk('public')->put($savePath, (string) $image->encodeByExtension('jpg'));
-                            $finalImage = asset('storage/' . $savePath);
-                            
-                            Log::info("✅ RTV Image Cropped: $filename");
-                        } catch (\Exception $e) {
-                            Log::error("❌ Image Cropping Error: " . $e->getMessage());
-                        }
-                    }
-
-                    $finalTitle = !empty($scrapedData['title']) && strlen($scrapedData['title']) > 10 
-                                  ? $scrapedData['title'] : $title;
-
-                    NewsItem::create([
-                        'user_id'       => $this->userId,
-                        'website_id'    => $website->id,
-                        'title'         => $finalTitle,
-                        'original_link' => $link,
-                        'thumbnail_url' => $finalImage,
-                        'content'       => $scrapedData['body'],
-                        'published_at'  => now(),
-                    ]);
-                    
-                    Log::info("✅ Saved DB: " . Str::limit($finalTitle, 30));
                     $count++;
 
                 } catch (\Exception $e) {
-                    // Silent fail for individual items
+                    Log::warning("⚠️ Loop Error: " . $e->getMessage());
                 }
             });
 
-            Log::info("🏁 JOB FINISHED. Total Saved: {$count}");
-			\Illuminate\Support\Facades\Cache::forget('scraping_user_' . $this->userId);
-			
-			if ($count > 0) {
-				$user = \App\Models\User::find($this->userId);
-				if ($user) {
-					$user->notify(new \App\Notifications\NewsScrapedNotification($count));
-				}
-			}
+            Log::info("🏁 MAIN JOB FINISHED. Queued: {$count} jobs.");
+            \Illuminate\Support\Facades\Cache::forget('scraping_user_' . $this->userId);
+            
+            // নোট: এখানে নোটিফিকেশন পাঠানো হচ্ছে যে "জব প্রসেসিং এ গেছে", 
+            // কমপ্লিট হওয়ার নোটিফিকেশন চাইলে এখান থেকে সরানো লাগতে পারে।
+            if ($count > 0) {
+                $user = \App\Models\User::find($this->userId);
+                if ($user) {
+                    // মেসেজ আপডেট: News Scraped এর বদলে Queued
+                     // $user->notify(new \App\Notifications\NewsScrapedNotification($count)); 
+                }
+            }
 
         } catch (\Exception $e) {
-			
-			\Illuminate\Support\Facades\Cache::forget('scraping_user_' . $this->userId);
-			Log::error("🔥 CRITICAL JOB ERROR: " . $e->getMessage());
+            \Illuminate\Support\Facades\Cache::forget('scraping_user_' . $this->userId);
+            Log::error("🔥 CRITICAL JOB ERROR: " . $e->getMessage());
         }
     }
 

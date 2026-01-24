@@ -28,7 +28,8 @@
     {{-- Grid Layout --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
     @foreach($drafts as $item)
-    <div class="group relative flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+    {{-- Polling এর জন্য data-news-id এবং data-status-msg যোগ করা হয়েছে --}}
+	<div data-news-id="{{ $item->id }}" data-status-msg="{{ $item->error_message }}" class="group relative flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
         
         <div class="absolute top-3 right-3 z-20">
             @if($item->status == 'published')
@@ -60,65 +61,88 @@
             <p class="text-xs text-gray-500 mb-4 line-clamp-3 font-bangla leading-relaxed flex-1">{{ Str::limit(strip_tags($item->ai_content ?? $item->content), 120) }}</p>
 
             <div class="mt-auto pt-4 border-t border-gray-100 space-y-2">
-                @if($item->status != 'processing' && $item->status != 'publishing')
-                <a href="{{ route('news.studio', $item->id) }}" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 rounded-lg text-xs font-bold hover:shadow-lg transition flex items-center justify-center gap-2 mb-2">🎨 ডিজাইন করুন</a>
-                @endif
+    
+				{{-- ১. ডিজাইন বাটন (প্রসেসিং বা পাবলিশিং না থাকলে দেখাবে) --}}
+				@if($item->status != 'processing' && $item->status != 'publishing')
+					<a href="{{ route('news.studio', $item->id) }}" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 rounded-lg text-xs font-bold hover:shadow-lg transition flex items-center justify-center gap-2 mb-2">
+						🎨 ডিজাইন করুন
+					</a>
+				@endif
 
-                @if($item->status == 'published')
-                    <div class="flex items-center justify-between bg-emerald-50/50 rounded-lg p-2 border border-emerald-100">
-                        <span class="text-xs text-emerald-600 font-bold flex items-center gap-1">Posted</span>
-                        @if($item->wp_post_id && optional($settings)->wp_url)
-                            <a href="{{ rtrim($settings->wp_url, '/') }}/?p={{ $item->wp_post_id }}" target="_blank" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 transition-colors">লাইভ দেখুন 🔗</a>
-                        @else <span class="text-[10px] text-gray-400 font-medium">No Link</span> @endif
-                    </div>
+				{{-- ২. স্ট্যাটাস ভিত্তিক অ্যাকশন এরিয়া --}}
+				<div class="space-y-2">
+    {{-- 🔥 বসের ফিডব্যাক বা সিস্টেম এরর মেসেজ প্রদর্শনী (নতুন সংযোজন) --}}
+    @if($item->error_message)
+        <div class="{{ $item->status == 'failed' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100' }} text-[10px] p-2 rounded border mb-2 font-bold text-center leading-tight" title="{{ $item->error_message }}">
+            {{ $item->status == 'failed' ? '⚠️ ' : '✅ ' }} {{ Str::limit($item->error_message, 50) }}
+        </div>
+    @endif
 
-                @elseif($item->status == 'processing' || $item->status == 'publishing')
-                    <div class="w-full bg-gray-50 text-gray-500 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 border border-gray-100 cursor-wait">
-                        <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> প্রসেসিং হচ্ছে...
-                    </div>
+    {{-- স্ট্যাটাস ভিত্তিক বাটন এবং অ্যাকশন এরিয়া --}}
+    @if($item->status == 'published')
+        {{-- পাবলিশড স্টেট: লাইভ লিঙ্ক দেখার সুবিধা --}}
+        <div class="flex items-center justify-between bg-emerald-50/50 rounded-lg p-2 border border-emerald-100">
+            <span class="text-xs text-emerald-600 font-bold flex items-center gap-1">Posted</span>
+            @if($item->wp_post_id && optional($settings)->wp_url)
+                <a href="{{ rtrim($settings->wp_url, '/') }}/?p={{ $item->wp_post_id }}" target="_blank" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 transition-colors">লাইভ দেখুন 🔗</a>
+            @else 
+                <span class="text-[10px] text-gray-400 font-medium">No Link</span> 
+            @endif
+        </div>
 
-                @elseif($item->status == 'failed')
-                    {{-- 🔥 FAILED STATE (RETRY & MANUAL FIX BUTTONS) --}}
-                    <div class="bg-red-50 text-red-600 text-[10px] p-2 rounded border border-red-100 mb-2 font-bold text-center leading-tight" title="{{ $item->error_message }}">
-                        ⚠️ {{ Str::limit($item->error_message ?? 'Unknown Error', 40) }}
-                    </div>
-                    
-                    <div class="flex gap-2">
-                        {{-- Retry AI Button --}}
-                        <form action="{{ route('news.process-ai', $item->id) }}" method="POST" class="flex-1">
-                            @csrf
-                            <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-xs font-bold shadow transition flex items-center justify-center gap-1">
-                                🔄 Retry AI
-                            </button>
-                        </form>
+    @elseif($item->status == 'processing' || $item->status == 'publishing')
+        {{-- লোডিং স্টেট: প্রসেসিং হওয়ার সময় দেখাবে --}}
+        <div class="w-full bg-gray-50 text-gray-500 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 border border-gray-100 cursor-wait">
+            <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
+            প্রসেসিং হচ্ছে...
+        </div>
 
-                        {{-- Manual Fix Button --}}
-                        <button type="button" 
-                            onclick="fetchDraftContent({{ $item->id }}, '{{ $item->thumbnail_url }}')" 
-                            class="px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow transition flex items-center justify-center" title="Manually Fix">
-                            📝
-                        </button>
-                    </div>
+    @elseif($item->status == 'failed')
+        {{-- ফেইলড বা রিজেক্টেড স্টেট: Retry AI এবং Manual Fix বাটন --}}
+        <div class="flex gap-2">
+            <form action="{{ route('news.process-ai', $item->id) }}" method="POST" class="flex-1">
+                @csrf
+                <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-xs font-bold shadow transition flex items-center justify-center gap-1">
+                    🔄 Retry AI
+                </button>
+            </form>
 
-                @else
-                    {{-- Normal Draft State (Updated with AI Rewrite Button) --}}
-                    <div class="flex gap-2">
-                        <button type="button" 
-                            onclick="fetchDraftContent({{ $item->id }}, '{{ $item->thumbnail_url }}')" 
-                            class="flex-1 group/btn relative flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg transition-all duration-300 text-xs font-bold shadow-md hover:shadow-lg hover:shadow-indigo-500/30 overflow-hidden">
-                            <span class="relative z-10 flex items-center gap-2">Edit & Publish</span>
-                        </button>
+            <button type="button" 
+                onclick="fetchDraftContent({{ $item->id }}, '{{ $item->thumbnail_url }}')" 
+                class="px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow transition flex items-center justify-center" title="Manually Fix">
+                📝
+            </button>
+        </div>
 
-                        {{-- 🔥 AI Rewrite Option for Existing Draft --}}
-                        <form action="{{ route('news.process-ai', $item->id) }}" method="POST" onsubmit="return confirm('এটি ১ ক্রেডিট কাটবে। আবার AI দিয়ে রিরাইট করতে চান?');">
-                            @csrf
-                            <button type="submit" class="px-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 py-2.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center" title="AI দিয়ে আবার লিখুন">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            </button>
-                        </form>
-                    </div>
-                @endif
-            </div>
+    @else
+        {{-- ড্রাফট বা অ্যাপ্রুভড স্টেট: এডিট এবং এআই রিরাইট বাটন --}}
+        <div class="flex gap-2">
+            <button type="button" 
+                onclick="fetchDraftContent({{ $item->id }}, '{{ $item->thumbnail_url }}')" 
+                class="flex-1 group/btn relative flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg transition-all duration-300 text-xs font-bold shadow-md hover:shadow-lg hover:shadow-indigo-500/30 overflow-hidden">
+                <span class="relative z-10 flex items-center gap-2">Edit & Publish</span>
+            </button>
+
+            <form action="{{ route('news.process-ai', $item->id) }}" method="POST" onsubmit="return confirm('এটি ১ ক্রেডিট কাটবে। আবার AI দিয়ে রিরাইট করতে চান?');">
+                @csrf
+                <button type="submit" class="px-4 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 py-2.5 rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center" title="AI দিয়ে আবার লিখুন">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </button>
+            </form>
+        </div>
+    @endif
+</div>
+				
+
+				{{-- ৩. কপি প্রিভিউ লিঙ্ক (শুধুমাত্র নিউজ পাবলিশ না হওয়া পর্যন্ত দেখাবে) --}}
+					@if($item->status != 'published')
+						<button onclick="copyBossLink({{ $item->id }})" 
+								class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-[11px] font-bold border border-blue-200 transition flex items-center justify-center gap-2">
+							🔗 লিঙ্ক কপি করুন
+						</button>
+					@endif
+				
+			</div>
         </div>
     </div>
     @endforeach
@@ -187,10 +211,16 @@
                 </div>
             </div>
         </div>
+		
+		
 
         <div class="bg-white px-6 py-4 border-t flex justify-end gap-3">
             <button onclick="closeRewriteModal()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition">Cancel</button>
-            <button onclick="publishDraft()" id="btnPublish" class="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg flex items-center gap-2 transition transform active:scale-95">
+            
+				<button onclick="saveDraftOnly()" id="btnSave" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow flex items-center gap-2 transition transform active:scale-95">
+			💾 Save Draft
+			</button>
+				<button onclick="publishDraft()" id="btnPublish" class="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg flex items-center gap-2 transition transform active:scale-95">
                 🚀 Publish Now
             </button>
         </div>
@@ -340,5 +370,104 @@
             tinymce.get('previewContent').setContent('');
         }
     }
+	
+	
+
+
+
+
+function copyBossLink(id) {
+    const previewUrl = "{{ url('/preview') }}/" + id;
+    navigator.clipboard.writeText(previewUrl).then(() => {
+        alert("✅ প্রিভিউ লিঙ্ক কপি হয়েছে! বসের হোয়াটসঅ্যাপ বা মেসেঞ্জারে পাঠিয়ে দিন।");
+    });
+}
+
+
+// 🔥 ড্রাফট স্ট্যাটাস অটো-আপডেট সিস্টেম
+/*
+function startStatusPolling() {
+    setInterval(() => {
+        const draftIds = Array.from(document.querySelectorAll('[data-news-id]'))
+                              .map(el => el.getAttribute('data-news-id'));
+
+        if (draftIds.length === 0) return;
+
+        fetch("{{ route('news.check-draft-updates') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ ids: draftIds })
+        })
+        .then(res => res.json())
+        .then(updates => {
+            updates.forEach(update => {
+                const card = document.querySelector(`[data-news-id="${update.id}"]`);
+                if (card) {
+                    // যদি স্ট্যাটাস বা মেসেজ পরিবর্তন হয়, তবে পেজটি রিলোড বা আপডেট করা
+                    // সহজ করার জন্য আমরা মেসেজটি চেক করছি
+                    const currentMsg = card.getAttribute('data-status-msg');
+                    if (update.error_message !== currentMsg) {
+                        window.location.reload(); // ডাটা পরিবর্তন হলে অটো রিফ্রেশ হবে
+                    }
+                }
+            });
+        });
+    }, 25000); // প্রতি 25 সেকেন্ড পর পর চেক করবে
+}
+
+document.addEventListener('DOMContentLoaded', startStatusPolling);
+*/
+
+
+
+function saveDraftOnly() {
+    const id = document.getElementById('previewNewsId').value;
+    const btn = document.getElementById('btnSave');
+    
+    let formData = new FormData();
+    formData.append('title', document.getElementById('previewTitle').value);
+    
+    let content = "";
+    if (tinymce.get('previewContent')) {
+        content = tinymce.get('previewContent').getContent();
+    } else {
+        content = document.getElementById('previewContent').value;
+    }
+    formData.append('content', content);
+
+    btn.innerText = "Saving...";
+    btn.disabled = true;
+
+    // web.php এ থাকা update-draft রাউটে হিট করবে
+    fetch(`/news/${id}/update-draft`, {
+        method: 'POST',
+        headers: { 
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json' 
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) {
+            alert("✅ " + data.message);
+            closeRewriteModal();
+            window.location.reload(); // পেজ রিফ্রেশ করে আপডেট দেখাবে
+        } else {
+            alert("❌ Failed: " + data.message);
+            btn.innerText = "💾 Save Draft";
+            btn.disabled = false;
+        }
+    })
+    .catch(err => {
+        alert("⚠️ Error: " + err.message);
+        btn.innerText = "💾 Save Draft";
+        btn.disabled = false;
+    });
+}
+
 </script>
 @endsection

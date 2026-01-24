@@ -98,11 +98,18 @@
                                 <span class="text-[10px] text-slate-400">{{ $item->created_at->diffForHumans() }}</span>
                             </td>
                             <td class="px-6 py-4">
-                                @if($item->is_posted)
+                                @if($item->is_posted && $item->live_url)
+                                    {{-- লাইভ লিঙ্ক থাকলে বাটন --}}
                                     <a href="{{ $item->live_url }}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wide border border-emerald-100 hover:bg-emerald-100 transition-colors">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
                                         পাবলিশড (লিঙ্ক দেখুন)
                                     </a>
+                                @elseif($item->is_posted)
+                                    {{-- পোস্ট হয়েছে কিন্তু লিঙ্ক আসেনি (ব্যাকআপ) --}}
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-wide border border-blue-100">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                        পাবলিশড
+                                    </span>
                                 @else
                                     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-wide border border-amber-100">
                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
@@ -112,8 +119,12 @@
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex justify-end gap-2">
-                                    {{-- নিউজ পাবলিশ হলে সরাসরি লাইভ লিঙ্ক বাটন --}}
+                                    {{-- নিউজ পাবলিশ হলে লাইভ লিঙ্ক ও কপি বাটন --}}
                                     @if($item->is_posted && $item->live_url)
+                                        <button onclick="copyToClipboard('{{ $item->live_url }}')" class="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 hover:text-indigo-600 transition-all shadow-sm" title="লিঙ্ক কপি করুন">
+                                            <i class="fa-solid fa-copy text-sm"></i>
+                                        </button>
+
                                         <a href="{{ $item->live_url }}" target="_blank" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm" title="লাইভ খবর দেখুন">
                                             <i class="fa-solid fa-earth-americas text-sm"></i>
                                         </a>
@@ -126,7 +137,14 @@
                             </td>
                         </tr>
                     @empty
-                        {{-- ... কোনো নিউজ না থাকলে খালি সেকশন (আগের কোড) ... --}}
+                        <tr>
+                            <td colspan="5" class="text-center py-8">
+                                <div class="flex flex-col items-center justify-center text-slate-400">
+                                    <i class="fa-regular fa-folder-open text-4xl mb-3 opacity-50"></i>
+                                    <p class="text-sm font-medium">কোনো খবর পাওয়া যায়নি</p>
+                                </div>
+                            </td>
+                        </tr>
                     @endforelse
                 </tbody>
             </table>
@@ -140,4 +158,17 @@
         @endif
     </div>
 </div>
+
+{{-- লিঙ্ক কপি করার স্ক্রিপ্ট --}}
+<script>
+function copyToClipboard(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        // একটি ছোট টোস্ট বা অ্যালার্ট দেখাতে পারেন (ঐচ্ছিক)
+        alert("✅ লিঙ্ক কপি করা হয়েছে: " + text);
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+    });
+}
+</script>
 @endsection

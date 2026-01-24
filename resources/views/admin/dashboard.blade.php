@@ -377,7 +377,7 @@
             </form>
         </div>
     </div>
-	
+	<!--Developer Kawsar Ahmed Bappi-->
 	
 	{{-- Permission Modal --}}
 		<div id="permissionModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 backdrop-blur-sm">
@@ -393,6 +393,7 @@
 					@php
 						$perms = [
 						'can_scrape'       => '🌐 News Scraper Access',
+						'can_direct_publish' => '📝 Direct Create (News Feed)',
 						'can_ai'           => '🤖 AI Content Rewriter',
 						'can_studio'       => '🎨 Studio Design Access',
 						'can_auto_post'    => '🚀 Automation & Auto Post',

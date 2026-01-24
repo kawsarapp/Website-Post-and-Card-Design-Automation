@@ -30,9 +30,17 @@ class SettingsController extends Controller
     /**
      * ২. সেটিংস আপডেট (FIX: Attempt to assign property on null)
      */
+    /**
+     * ২. সেটিংস আপডেট (FIXED)
+     */
     public function update(Request $request)
     {
-        // ভ্যালিডেশন
+        // ১. সবার আগে পারমিশন চেক (সিকিউরিটির জন্য)
+        if (Auth::user()->role !== 'super_admin' && !Auth::user()->hasPermission('can_settings')) {
+            return abort(403, 'Unauthorized');
+        }
+
+        // ২. ভ্যালিডেশন
         $request->validate([
             'brand_name' => 'required|string|max:50',
             'wp_url' => 'nullable|url',
@@ -45,17 +53,23 @@ class SettingsController extends Controller
             'laravel_site_url' => 'nullable|url',
             'laravel_api_token' => 'nullable|string',
             'laravel_route_prefix' => 'nullable|string|max:20',
+            // প্রক্সি ভ্যালিডেশন
+            'proxy_username' => 'nullable|string',
+            'proxy_password' => 'nullable|string',
+            'proxy_host' => 'nullable|string',
+            'proxy_port' => 'nullable|string',
         ]);
-
-        // পারমিশন চেক
-        if (Auth::user()->role !== 'super_admin' && !Auth::user()->hasPermission('can_settings')) {
-            return abort(403);
-        }
-
-        // 🔥 এই লাইনটি নিশ্চিত করে যে $settings কখনো null হবে না
+        
+        // ৩. সেটিংস লোড করা (একবারই)
         $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
 
-        // সাধারণ সেটিংস
+        // ৪. প্রক্সি সেটিংস অ্যাসাইন করা
+        $settings->proxy_username = $request->proxy_username;
+        $settings->proxy_password = $request->proxy_password;
+        $settings->proxy_host = $request->proxy_host;
+        $settings->proxy_port = $request->proxy_port;
+
+        // ৫. সাধারণ সেটিংস
         $settings->brand_name = $request->brand_name;
         $settings->default_theme_color = $request->default_theme_color ?? 'red';
         
@@ -72,8 +86,7 @@ class SettingsController extends Controller
         $settings->fb_page_id = $request->fb_page_id;
         $settings->fb_access_token = $request->fb_access_token;
         $settings->post_to_fb = $request->has('post_to_fb');
-		
-		$settings->fb_comment_link = $request->has('fb_comment_link');
+        $settings->fb_comment_link = $request->has('fb_comment_link');
 
         // টেলিগ্রাম সেটিংস
         $settings->telegram_bot_token = $request->telegram_bot_token;
@@ -91,9 +104,10 @@ class SettingsController extends Controller
             $settings->category_mapping = $request->category_mapping;
         }
 
+        // ৬. সবশেষে একবারই সেভ করা
         $settings->save();
 
-        return back()->with('success', 'সব সেটিংস সফলভাবে সেভ করা হয়েছে!');
+        return back()->with('success', 'সব সেটিংস (প্রক্সিসহ) সফলভাবে সেভ করা হয়েছে!');
     }
 
     /**

@@ -81,10 +81,12 @@
         </div>
        
        <div class="flex flex-wrap justify-center md:justify-end gap-2 items-center w-full md:w-auto">
-            <label class="flex items-center gap-1 cursor-pointer bg-white border border-gray-300 px-2 py-1.5 rounded-lg text-[10px] md:text-xs font-bold hover:bg-gray-50 select-none">
+            <!--
+			<label class="flex items-center gap-1 cursor-pointer bg-white border border-gray-300 px-2 py-1.5 rounded-lg text-[10px] md:text-xs font-bold hover:bg-gray-50 select-none">
                 <input type="checkbox" id="socialOnlyCheck" class="w-3 h-3 md:w-4 md:h-4 text-indigo-600 rounded focus:ring-indigo-500">
                 <span>Social Only</span>
             </label>
+			-->
 
             <button type="button" onclick="restoreSavedDesign()" class="btn btn-warning text-white px-2 py-1.5 rounded-lg text-xs" title="Restore">
                 <i class="fas fa-undo"></i>

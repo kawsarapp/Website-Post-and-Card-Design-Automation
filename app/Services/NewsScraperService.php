@@ -5,79 +5,151 @@ namespace App\Services;
 use Symfony\Component\DomCrawler\Crawler;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use App\Models\UserSetting;
 
 class NewsScraperService
 {
     /**
-     * Main Scrape Method
+     * ==========================================
+     * 🚀 MAIN SCRAPING FUNCTION (ULTRA MERGED)
+     * ==========================================
      */
-    public function scrape($url, $customSelectors = [])
+    public function scrape($url, $customSelectors = [], $userId = null)
     {
-        // 1️⃣ STEP 1: Python Scraper
-        $pythonData = $this->runPythonScraper($url);
+        // ১. প্রক্সি কনফিগারেশন
+        $proxy = $this->getProxyConfig($userId);
+        $proxyLog = $proxy ? parse_url($proxy, PHP_URL_HOST) : "Direct";
+        Log::info("🚀 START SCRAPE: $url | via $proxyLog");
+
+        // ২. হার্ড সাইট চেকিং (Smart Identification)
+        $hardSites = ['jamuna.tv', 'kalerkantho.com', 'somoynews.tv', 'dailyamardesh.com']; 
+        $isHardSite = false;
+        foreach ($hardSites as $site) {
+            if (str_contains($url, $site)) {
+                $isHardSite = true;
+                break;
+            }
+        }
+
+        // =========================================================
+        // 🐍 STEP 1: PYTHON SCRAPER (PRIORITY #1 - FASTEST)
+        // =========================================================
+        // হার্ড সাইট হলেও আগে Python দিয়ে চেষ্টা করব। কারণ আমাদের নতুন scraper.py
+        // ক্লাউডফ্লেয়ার বাইপাস করতে পারে। এটি সফল হলে সময় লাগবে ৩-৫ সেকেন্ড।
+        
+        $pythonData = $this->runPythonScraper($url, $userId);
 
         if ($pythonData && !empty($pythonData['body'])) {
-            Log::info("✅ Python Scraper Successful: $url");
+            Log::info("✅ Python Scraper Success");
             
-            // ফিক্স করা হচ্ছে
+            // GitHub এর ইমেজ ফিক্সিং লজিক
             $fixedImage = $this->fixVendorImages($pythonData['image'] ?? null);
 
             return [
                 'title'      => $pythonData['title'] ?? null,
-                'image'      => $fixedImage, // ✅ সংশোধন: এখানে $fixedImage ব্যবহার করতে হবে
+                'image'      => $fixedImage,
                 'body'       => $this->cleanHtml($pythonData['body']), 
                 'source_url' => $url
             ];
         }
 
-        Log::info("⚠️ Python failed/blocked, trying PHP HTTP fallback...");
+        Log::info("⚠️ Python failed. Checking fallback strategy...");
 
-        // 2️⃣ STEP 2: PHP HTTP Request
+        // =========================================================
+        // 🐘 STEP 2: PHP HTTP REQUEST (Skip if Hard Site)
+        // =========================================================
         $htmlContent = null;
-        try {
-            $response = Http::withHeaders([
-                'User-Agent' => $this->getRandomUserAgent(),
-                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            ])->timeout(20)->get($url);
 
-            if ($response->successful()) {
-                $htmlContent = $response->body();
+        // যদি হার্ড সাইট না হয়, তবেই কেবল PHP দিয়ে চেষ্টা করব।
+        // হার্ড সাইট (যেমন যমুনা) PHP তে 403 দেয়, তাই চেষ্টা করে লাভ নেই।
+        if (!$isHardSite) {
+            try {
+                $timeout = $proxy ? 20 : 15; 
+                $httpRequest = Http::withHeaders($this->getRealBrowserHeaders())
+                    ->timeout($timeout)
+                    ->withOptions([
+                        'verify' => false,
+                        'connect_timeout' => 10,
+                    ]);
+
+                if ($proxy) {
+                    $httpRequest->withOptions(['proxy' => $proxy]);
+                }
+
+                $response = $httpRequest->get($url);
+
+                if ($response->successful()) {
+                    $htmlContent = $response->body();
+                } else {
+                    Log::warning("PHP HTTP Status: " . $response->status());
+                }
+            } catch (\Exception $e) {
+                Log::warning("PHP HTTP Failed: " . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            Log::warning("HTTP Scrape Failed: " . $e->getMessage());
+        } else {
+            Log::info("🛡️ Skipping PHP fallback for Hard Site (Cloudflare protected).");
         }
 
-        // 3️⃣ STEP 3: Puppeteer Node.js
+        // =========================================================
+        // 🤖 STEP 3: PUPPETEER (Last Resort)
+        // =========================================================
+        // যদি PHP ফেইল করে অথবা Hard Site হওয়ার কারণে স্কিপ করা হয়, তবেই পাপেটিয়ার
         if (empty($htmlContent) || str_contains($htmlContent, 'Just a moment') || strlen($htmlContent) < 600) {
-            Log::info("🔄 Switching to Puppeteer for: $url");
-            for ($j = 0; $j < 2; $j++) {
-                $htmlContent = $this->runPuppeteer($url);
-                if ($htmlContent && strlen($htmlContent) > 1000) break;
-                sleep(2);
+            Log::info("🔄 All Fast Methods Failed. Engaging Puppeteer Engine...");
+            return $this->scrapeWithPuppeteer($url, $customSelectors, $userId);
+        }
+
+        // 4️⃣ FINAL PROCESSING (For PHP Data)
+        if ($htmlContent && strlen($htmlContent) > 500) {
+            $scrapedData = $this->processHtml($htmlContent, $url, $customSelectors);
+            
+            if (isset($scrapedData['image'])) {
+                $scrapedData['image'] = $this->fixVendorImages($scrapedData['image']);
             }
+            
+            // টাইটেল বা বডি না পেলে ফেইল হিসেবে ধরব এবং পাপেটিয়ারে পাঠাব
+            if (empty($scrapedData['title']) || empty($scrapedData['body'])) {
+                 Log::warning("⚠️ Content Parsing Failed. Retrying with Puppeteer...");
+                 return $this->scrapeWithPuppeteer($url, $customSelectors, $userId);
+            }
+
+            return $scrapedData;
         }
 
-        // 4️⃣ FINAL CHECK
-        if (!$htmlContent || strlen($htmlContent) < 500) {
-            Log::error("❌ All scraping methods failed for: $url");
-            return null;
-        }
-
-        // 5️⃣ PROCESS HTML
-        // প্রথমে ডাটা প্রসেস করে একটি ভেরিয়েবলে নেওয়া হলো
-        $scrapedData = $this->processHtml($htmlContent, $url, $customSelectors);
-
-        // তারপর ইমেজ ফিক্স করা হলো
-        if (isset($scrapedData['image'])) {
-            $scrapedData['image'] = $this->fixVendorImages($scrapedData['image']);
-        }
-
-        // ✅ সংশোধন: এখন ফিক্স করা ভেরিয়েবলটিই রিটার্ন করতে হবে
-        return $scrapedData;
+        Log::error("❌ CRITICAL: Scrape totally failed for: $url");
+        return null;
     }
 
-    public function runPythonScraper($url)
+    /**
+     * ==========================================
+     * 🛠️ PROXY & RUNNER FUNCTIONS
+     * ==========================================
+     */
+     
+    public function getProxyConfig($userId = null)
     {
+        $uid = $userId ?? Auth::id();
+        if (!$uid) return null;
+
+        $settings = \App\Models\UserSetting::where('user_id', $uid)->first();
+
+        if ($settings && $settings->proxy_host && $settings->proxy_port) {
+            $auth = "";
+            if ($settings->proxy_username && $settings->proxy_password) {
+                // সেশন রোটেশন: প্রতি মিনিটে নতুন আইপি
+                $sessionId = date('Hi'); 
+                $rotatingUser = $settings->proxy_username . "-session-" . $sessionId;
+                $auth = "{$rotatingUser}:{$settings->proxy_password}@";
+            }
+            return "http://{$auth}{$settings->proxy_host}:{$settings->proxy_port}";
+        }
+        return null;
+    }
+
+    public function runPythonScraper($url, $userId = null)
+    {
+        $proxy = $this->getProxyConfig($userId);
         $scriptPath = base_path("scraper.py"); 
         if (!file_exists($scriptPath)) return null;
 
@@ -86,32 +158,48 @@ class NewsScraperService
             $pythonCmd = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'python' : 'python3';
         }
 
-        $command = "$pythonCmd " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " 2>&1";
+        // প্রক্সি সহ কমান্ড রান
+        $command = "$pythonCmd " . escapeshellarg($scriptPath) . " " . escapeshellarg($url);
+        if ($proxy) $command .= " " . escapeshellarg($proxy);
+        $command .= " 2>&1";
+
         $output = shell_exec($command);
-        
         $data = json_decode($output, true);
         
-        if (json_last_error() !== JSON_ERROR_NONE) return null;
-
-        return (isset($data['body']) && !empty($data['body'])) ? $data : null;
+        return (json_last_error() === JSON_ERROR_NONE && isset($data['body'])) ? $data : null;
     }
 
-    public function runPuppeteer($url)
+    private function scrapeWithPuppeteer($url, $customSelectors, $userId)
     {
+        // Retry logic: ১ বার চেষ্টা করাই যথেষ্ট কারণ scraper-engine.js এখন অনেক স্মার্ট
+        $htmlContent = $this->runPuppeteer($url, $userId);
+
+        if ($htmlContent && strlen($htmlContent) > 500) {
+            $scrapedData = $this->processHtml($htmlContent, $url, $customSelectors);
+            if (isset($scrapedData['image'])) {
+                $scrapedData['image'] = $this->fixVendorImages($scrapedData['image']);
+            }
+            return $scrapedData;
+        }
+        return null;
+    }
+
+    public function runPuppeteer($url, $userId = null)
+    {
+        $proxy = $this->getProxyConfig($userId);
         $scriptPath = base_path("scraper-engine.js");
         if (!file_exists($scriptPath)) return null;
 
         $tempFile = storage_path("app/public/temp_" . uniqid() . "_" . rand(1000,9999) . ".html");
-        $nodeCmd = env('NODE_PATH');
         
+        $nodeCmd = env('NODE_PATH');
         if (!$nodeCmd) {
             $nodeCmd = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'node' : 'node';
-            if ($nodeCmd === 'node' && strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') {
-                $nodeCmd = trim(shell_exec('which node') ?: 'node');
-            }
         }
 
-        $command = "$nodeCmd " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " " . escapeshellarg($tempFile) . " 2>&1";
+        $command = "$nodeCmd " . escapeshellarg($scriptPath) . " " . escapeshellarg($url) . " " . escapeshellarg($tempFile) . " " . escapeshellarg($proxy ?? '') . " 2>&1";
+        
+        Log::info("🔄 Engaging Node Engine...");
         shell_exec($command);
         
         $htmlContent = null;
@@ -139,9 +227,9 @@ class NewsScraperService
             'source_url' => $url
         ];
 
+        // 1. JSON-LD Extraction
         $jsonLdData = $this->extractFromJsonLD($crawler);
         if (!empty($jsonLdData['articleBody']) && strlen($jsonLdData['articleBody']) > 200) {
-            // JSON-LD ডাটাকেও ফরম্যাট করা হচ্ছে যাতে প্যারাগ্রাফ থাকে
             $data['body'] = $this->formatText($jsonLdData['articleBody']);
             
             if (empty($data['image']) && !empty($jsonLdData['image'])) {
@@ -150,6 +238,7 @@ class NewsScraperService
             }
         }
 
+        // 2. Manual Extraction
         if (empty($data['body'])) {
             $data['body'] = $this->extractBodyManually($crawler, $customSelectors);
         }
@@ -158,32 +247,31 @@ class NewsScraperService
     }
 
     // ==========================================
-    // 🛠️ HELPER FUNCTIONS
+    // 🛠️ HELPER FUNCTIONS (Preserved from GitHub)
     // ==========================================
 
-    /**
-     * 🔥 MISSING FUNCTION ADDED: cleanHtml
-     * এটি স্ক্রিপ্ট ট্যাগ রিমুভ করে কিন্তু প্যারাগ্রাফ ট্যাগ রাখে।
-     */
     private function cleanHtml($html) {
-        // শুধুমাত্র নির্দিষ্ট ট্যাগগুলো রাখা হবে, বাকি সব রিমুভ (যেমন script, style, iframe)
         return strip_tags($html, '<p><br><h3><h4><h5><h6><ul><li><b><strong><blockquote><img><a>');
     }
 
     private function extractBodyManually(Crawler $crawler, $customSelectors)
     {
         $selectors = [
+            // User Custom
+            $customSelectors['content'] ?? null,
+
+            // Specific Sites
+            '.story-element-text', '.article-details-body', '.jw_article_body',
+            '.content-details', '.news-article-text', '#news-content',
+            '.details-text', '.article-content',
+
+            // Standards
             'div[itemprop="articleBody"]', '.article-details', '#details', '.details', 
-            '.content-details', 'article', '#content', '.news-content', 
-            '.story-element-text', '.jw_article_body', '.description', 
-            '.post-content', '.entry-content', '.section-content',
-            '.post-body', '.td-post-content', '.main-content'
+            'article', '#content', '.news-content', '.post-content', '.entry-content', 
+            '.section-content', '.post-body', '.td-post-content', '.main-content'
         ];
-
-        if (!empty($customSelectors['content'])) {
-            array_unshift($selectors, $customSelectors['content']);
-        }
-
+        
+        $selectors = array_unique(array_filter($selectors));
         $bestContent = "";
         $maxLength = 0;
 
@@ -193,11 +281,9 @@ class NewsScraperService
                 $this->removeJunkElements($container);
 
                 $text = "";
-                // প্যারাগ্রাফ এবং হেডিং আলাদা করে ধরা
-                $container->filter('p, h3, h4, h5, h6, ul, blockquote')->each(function (Crawler $node) use (&$text) {
+                $container->filter('p, h3, h4, h5, h6, ul, blockquote, div.content-text')->each(function (Crawler $node) use (&$text) {
                     $tag = $node->nodeName();
                     $rawHtml = trim($node->html());
-                    // ভেতরের বোল্ড বা লিংক ট্যাগ রাখা হচ্ছে
                     $cleanText = strip_tags($rawHtml, '<b><strong><a><i><em>'); 
 
                     if (strlen(strip_tags($cleanText)) < 5 || $this->isGarbageText(strip_tags($cleanText))) return;
@@ -258,49 +344,46 @@ class NewsScraperService
         if ($crawler->filter('title')->count() > 0) return trim($crawler->filter('title')->text());
         return "Untitled News";
     }
-	
-	
     
-	
-	private function fixVendorImages($imageUrl)
+    // 🔥 GitHub Version's Image Fix Logic Kept Intact
+    private function fixVendorImages($imageUrl)
     {
         if (!$imageUrl) return null;
 
-        // 🔥 NPB News Logic
         if (str_contains($imageUrl, 'npbnews.com') && str_contains($imageUrl, 'cache-images')) {
             $imageUrl = str_replace('cache-images', 'assets', $imageUrl);
             $imageUrl = preg_replace('/resize-[0-9x]+-/', '', $imageUrl);
         }
 
-        // 🔥 Jugantor Logic
-        // '/social-thumbnail/' ফোল্ডার রিমুভ করে অরিজিনাল ইমেজে নেওয়া
         if (str_contains($imageUrl, 'jugantor.com') && str_contains($imageUrl, '/social-thumbnail/')) {
             $imageUrl = str_replace('/social-thumbnail/', '/', $imageUrl);
         }
 
         return $imageUrl;
     }
-	
-	
-	
-	
 
     private function extractImage(Crawler $crawler, $url)
     {
         $imageUrl = null;
-        $crawler->filter('img')->each(function (Crawler $node) use (&$imageUrl) {
-            if ($imageUrl) return; 
+        
+        if ($crawler->filter('meta[property="og:image"]')->count() > 0) {
+            $imageUrl = $crawler->filter('meta[property="og:image"]')->attr('content');
+        }
 
-            $src = $node->attr('data-original') ?? $node->attr('data-src') ?? $node->attr('src');
-            
-            $width = $node->attr('width');
-            // Check if width is a number before comparing
-            if ($width && is_numeric($width) && $width < 300) return;
+        if (!$imageUrl) {
+            $crawler->filter('img')->each(function (Crawler $node) use (&$imageUrl) {
+                if ($imageUrl) return; 
 
-            if ($src && strlen($src) > 20 && !$this->isGarbageImage($src)) {
-                $imageUrl = $src;
-            }
-        });
+                $src = $node->attr('data-original') ?? $node->attr('data-src') ?? $node->attr('src');
+                $width = $node->attr('width');
+                
+                if ($width && is_numeric($width) && $width < 300) return;
+
+                if ($src && strlen($src) > 20 && !$this->isGarbageImage($src)) {
+                    $imageUrl = $src;
+                }
+            });
+        }
 
         if ($imageUrl && !filter_var($imageUrl, FILTER_VALIDATE_URL)) {
             $parsedUrl = parse_url($url);
@@ -327,7 +410,7 @@ class NewsScraperService
     }
 
     private function isGarbageText($text) {
-        $garbage = ['শেয়ার করুন', 'Advertisement', 'Subscribe', 'Follow us', 'Read more', 'বিজ্ঞাপন', 'আরো পড়ুন'];
+        $garbage = ['শেয়ার করুন', 'Advertisement', 'Subscribe', 'Follow us', 'Read more', 'বিজ্ঞাপন', 'আরো পড়ুন'];
         foreach ($garbage as $g) {
             if (stripos($text, $g) !== false && strlen($text) < 50) return true;
         }
@@ -339,10 +422,24 @@ class NewsScraperService
     }
 
     private function formatText($text) {
-        return "<p>" . str_replace("\n", "</p><p>", trim($text)) . "</p>";
+        return "<p>" . str_replace(["\r\n", "\r", "\n"], "</p><p>", trim($text)) . "</p>";
     }
 
-    private function getRandomUserAgent() {
-        return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    // 🔥 ULTRA FEATURE: Real Browser Headers
+    private function getRealBrowserHeaders() {
+        return [
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language' => 'bn-BD,bn;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Upgrade-Insecure-Requests' => '1',
+            'Sec-Ch-Ua' => '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'Sec-Ch-Ua-Mobile' => '?0',
+            'Sec-Ch-Ua-Platform' => '"Windows"',
+            'Sec-Fetch-Dest' => 'document',
+            'Sec-Fetch-Mode' => 'navigate',
+            'Sec-Fetch-Site' => 'none',
+            'Sec-Fetch-User' => '?1',
+            'Connection' => 'keep-alive'
+        ];
     }
 }

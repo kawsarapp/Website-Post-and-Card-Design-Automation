@@ -36,6 +36,10 @@ class UserSetting extends Model
 		'laravel_api_token',  // সিকিউরিটি টোকেন
 		'post_to_laravel',
 		'fb_comment_link',
+		'proxy_host',
+		'proxy_port',
+		'proxy_username',
+		'proxy_password',
 
     ];
 

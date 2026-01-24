@@ -61,6 +61,40 @@ class WordPressService
             $featuredMediaId
         );
     }
+	
+	
+	
+	// app/Services/WordPressService.php এর ভেতরে এই মেথডটি যোগ করুন
+public function updatePost($postId, $news, $user, $customTitle, $customContent, $customCategories, $customImage)
+{
+    $settings = $user->settings;
+    $postTitle = $customTitle ?? $news->ai_title ?? $news->title;
+    $postContent = $customContent ?? $news->ai_content ?? $news->content;
+
+    // ইমেজ আপলোড (যদি নতুন ইমেজ থাকে)
+    $featuredMediaId = null;
+    if ($customImage) {
+        $upload = $this->uploadImage($customImage, $postTitle, $settings->wp_url, $settings->wp_username, $settings->wp_app_password);
+        if ($upload['success']) $featuredMediaId = $upload['id'];
+    }
+
+    // ওয়ার্ডপ্রেস এপিআই-তে PUT রিকোয়েস্ট পাঠানো (আপডেটের জন্য)
+    $url = rtrim($settings->wp_url, '/') . '/wp-json/wp/v2/posts/' . $postId;
+    $data = [
+        'title'   => $postTitle,
+        'content' => $postContent,
+        'categories' => $customCategories,
+        'status'  => 'publish',
+    ];
+    if ($featuredMediaId) $data['featured_media'] = $featuredMediaId;
+
+    $response = Http::withBasicAuth($settings->wp_username, $settings->wp_app_password)->post($url, $data);
+
+    if ($response->successful()) {
+        return ['success' => true, 'post_id' => $response->json()['id']];
+    }
+    return ['success' => false, 'message' => $response->body()];
+}
 
     /**
      * Helper: Publish Post to WordPress

@@ -80,45 +80,47 @@
         }
     }
 	
-    function initCanvas() {
-        canvas = new fabric.Canvas('newsCanvas', { 
-            backgroundColor: '#fff', 
-            preserveObjectStacking: true, 
-            selection: true 
-        });
-        
+    // scripts.blade.php এর initCanvas ফাংশনটি এভাবে আপডেট করুন
+		function initCanvas() {
+    canvas = new fabric.Canvas('newsCanvas', { 
+        backgroundColor: '#fff', 
+        preserveObjectStacking: true, 
+        selection: true,
+        renderOnAddRemove: false // পারফরম্যান্স বাড়াতে এটি যোগ করা হয়েছে
+    });
+
+    // ১. ফন্ট লোড ব্যাকগ্রাউন্ডে পাঠিয়ে দিন
+    setTimeout(() => {
         loadStoredCustomFont();
         loadFonts();
-        
-        if (newsData.image) {
-            var imgObj = new Image();
-            imgObj.crossOrigin = "anonymous";
-            imgObj.src = newsData.image;
-            imgObj.onload = function() {
-                fabric.Image.fromURL(newsData.image, function(img) {
-                    setupMainImage(img); 
-                    restoreSavedDesign(); 
-                }, { crossOrigin: 'anonymous' });
-            };
-            imgObj.onerror = function() {
-                restoreSavedDesign(); 
-            };
-        } else {
-            restoreSavedDesign();
-        }
+    }, 10);
 
-        canvas.on('selection:created', updateSidebarValues);
-        canvas.on('selection:updated', updateSidebarValues);
-        canvas.on('object:added', saveHistory);
-        canvas.on('object:modified', saveHistory);
-        
-        initKeyboardEvents();
-        activateDebugTools();
-
-        setTimeout(fitToScreen, 100); 
-        window.addEventListener('resize', fitToScreen);
+    // ২. ইমেজ লোডিং সাথে সাথে শুরু করুন
+    if (newsData.image) {
+        fabric.Image.fromURL(newsData.image, function(img) {
+            if (img) {
+                setupMainImage(img); 
+                canvas.requestRenderAll();
+            }
+            restoreSavedDesign(); // ডিজাইন রিস্টোর
+            canvas.set('renderOnAddRemove', true);
+            canvas.requestRenderAll();
+        }, { crossOrigin: 'anonymous' });
+    } else {
+        restoreSavedDesign();
+        canvas.set('renderOnAddRemove', true);
     }
 
+    // ইভেন্ট লিসেনার...
+    canvas.on('selection:created', updateSidebarValues);
+    canvas.on('selection:updated', updateSidebarValues);
+    
+    initKeyboardEvents();
+    activateDebugTools();
+
+    setTimeout(fitToScreen, 50); 
+    window.addEventListener('resize', fitToScreen);
+}
     
     window.uploadCustomFont = function(input) {
         if (input.files && input.files[0]) {
@@ -320,7 +322,13 @@
 				title: { ...commonDefaults, top: 770, left: 545, width: 1050, textAlign: 'center', originX: 'center', fill: '#ffffff' },
 				date:  { ...commonDefaults, top: 45, left: 120, originX: 'center', fill: '#000000', fontSize: 30 },
 				image: { ...commonDefaults, left: 1, top: 160, width: 1080, height: 540, zoom: 1.0 }
+			},
+			'Bangladeshmail24': { 
+				title: { ...commonDefaults, top: 650, left: 545, width: 1050, textAlign: 'center', originX: 'center', fill: '#000' },
+				date:  { ...commonDefaults, top: 520, left: 120, originX: 'center', fill: '#000000', fontSize: 30 },
+				image: { ...commonDefaults, left: 1, top: 20, width: 1080, height: 530, zoom: 1.0 }
 			}
+			
 			
 			
 
@@ -1010,5 +1018,9 @@
     function deleteActive() { const obj = canvas.getActiveObject(); if (obj) canvas.remove(obj); }
     function activateDebugTools() { const debugBox = document.createElement('div'); debugBox.id = 'pos-finder'; debugBox.style.cssText = "position:fixed; bottom:20px; left:20px; background:rgba(0,0,0,0.8); color:#00ff00; padding:15px; z-index:9999; font-family:monospace; font-size:14px; border-radius:8px; pointer-events:none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"; debugBox.innerHTML = "Select text to see pos"; document.body.appendChild(debugBox); function updatePositionDisplay() { const obj = canvas.getActiveObject(); if (!obj) { debugBox.innerHTML = "Select object"; return; } debugBox.innerHTML = `Top: ${Math.round(obj.top)}<br>Left: ${Math.round(obj.left)}<br>OriginX: ${obj.originX}`; } canvas.on('object:moving', updatePositionDisplay); canvas.on('selection:created', updatePositionDisplay); }
 
-    window.onload = initCanvas;
+    
+	// ফাইলের একদম নিচে এটি পরিবর্তন করুন
+document.addEventListener("DOMContentLoaded", function() {
+    initCanvas();
+});
 </script>
