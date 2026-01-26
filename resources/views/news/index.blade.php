@@ -106,7 +106,7 @@
                             {{-- AI Button --}}
                             <button onclick="startAiProcess({{ $item->id }}, this)" class="bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 border border-slate-700">
                                 <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                AI MAGIC
+                                Rewrite
                             </button>
 
                             {{-- Manual Edit Button --}}

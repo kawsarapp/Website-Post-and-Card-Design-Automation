@@ -269,11 +269,35 @@
                 date:  { ...commonDefaults, top: 20, left: 975, originX: 'center', fill: '#000', fontSize: 30 },
                 image: { ...commonDefaults, left: 40, top: 130, width: 1000, height: 430, zoom: 1.3 }
             },
-            'todayevents': { 
-                title: { ...commonDefaults, top: 710, left: 540, originX: 'center', textAlign: 'center', width: 1000, fill: '#000000' }, 
-                date:  { ...commonDefaults, top: 1015, left: 1050, originX: 'right', fill: '#000000', fontSize: 26 },
+			
+            //'todayevents': { 
+             //   title: { ...commonDefaults, top: 710, left: 540, originX: 'center', textAlign: 'center', 
+			//	width: 1000, fill: '#000000', fontFamily: 'Noto Serif Cond Black', originX: 'center', originY: 'center', }, 
+               // date:  { ...commonDefaults, top: 28, left: 1050, originX: 'right', fill: '#ffffff', fontSize: 26 },
+             //   image: { ...commonDefaults, left: 40, top: 120, width: 1000, height: 430, zoom: 1.1 }
+           // },
+
+			
+			
+			
+			'todayevents': { 
+                title: { 
+                    ...commonDefaults, 
+                    top: 760, 
+                    // 🔥 বামে বেশি সরে গেছে, তাই ৫৪০ থেকে বাড়িয়ে ৫৬০ করা হলো (ডানে সরবে)
+                    left: 560, 
+                    originX: 'center', 
+                    originY: 'center', 
+                    textAlign: 'center', 
+                    // 🔥 উইডথ একটু কমানো হলো যাতে ডানদিকের বাড়তি স্পেস কমে
+                    width: 900, 
+                    fontFamily: 'Noto Serif Cond Black' 
+                }, 
+                date:  { ...commonDefaults, top: 28, left: 1050, originX: 'right', fill: '#ffffff', fontSize: 26 },
                 image: { ...commonDefaults, left: 40, top: 120, width: 1000, height: 430, zoom: 1.1 }
             },
+			
+			
             'bottom': { 
                 title: { ...commonDefaults, top: 800, left: 540, width: 980, textAlign: 'center', originX: 'center', fill: '#ffffff' }, 
                 date: { ...commonDefaults, top: 50, left: 50, originX: 'left' },

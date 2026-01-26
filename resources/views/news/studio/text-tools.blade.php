@@ -76,4 +76,26 @@
             }
         }, 500);
     }
+	
+	
+	
+	// 🔥 Force Center Function
+    function forceCenterText() {
+        const obj = canvas.getActiveObject();
+        if (!obj) return;
+
+        // ক্যানভাসের একদম মাঝখানে নিয়ে আসবে
+        obj.set({
+            left: canvas.width / 2,
+            originX: 'center',
+            textAlign: 'center'
+        });
+        
+        // যদি তাও মনে হয় বামে সরে আছে, তবে ম্যানুয়ালি একটু ডানে ঠেলে দিন
+        // obj.set('left', (canvas.width / 2) + 10); // ১০ পিক্সেল ডানে
+
+        obj.setCoords();
+        canvas.requestRenderAll();
+        saveHistory();
+    }
 </script>

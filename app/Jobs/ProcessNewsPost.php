@@ -63,11 +63,9 @@ class ProcessNewsPost implements ShouldQueue
             $finalTitle = $this->customData['title'] ?? $news->ai_title ?? $news->title;
             $finalContent = $this->customData['content'] ?? $news->ai_content ?? $news->content;
             
-            // ইমেজ সেপারেশন
             $websiteImage = $this->customData['website_image'] ?? $news->thumbnail_url;
             $socialImage = $this->customData['social_image'] ?? $websiteImage;
             
-            // ফ্ল্যাগ চেক
             $socialOnly = $this->customData['social_only'] ?? false;
             $skipSocial = $this->customData['skip_social'] ?? false;
             
@@ -76,7 +74,6 @@ class ProcessNewsPost implements ShouldQueue
 
             $categories = $this->customData['category_ids'] ?? [1];
             
-            // OG ক্লিনআপ
             if (!empty($websiteImage) && strpos($websiteImage, '/og/') !== false) {
                 $websiteImage = str_replace('/og/', '/', $websiteImage);
             }
@@ -84,13 +81,14 @@ class ProcessNewsPost implements ShouldQueue
             $wpSuccess = false;
             $laravelSuccess = false;
             $remotePostId = $news->wp_post_id; 
-            $publishedUrl = $news->live_url; // আগের ইউআরএল ডিফল্ট হিসেবে রাখা হলো
+            
+            // ডিফল্ট লিংক (যদি পোস্ট ফেইল করে তবে সোর্স লিংক থাকবে)
+            $publishedUrl = $news->live_url; 
 
             // ==========================================
-            // ১. ওয়ার্ডপ্রেস পোস্টিং (Create or Update)
+            // ১. ওয়ার্ডপ্রেস পোস্টিং
             // ==========================================
             if (!$socialOnly && $settings && $settings->wp_url && $settings->wp_username) {
-                
                 if ($news->wp_post_id) {
                     Log::info("🔄 Updating existing WordPress post: ID {$news->wp_post_id}");
                     $postResult = $wpService->updatePost(
@@ -106,8 +104,8 @@ class ProcessNewsPost implements ShouldQueue
                 if ($postResult['success']) {
                     $wpSuccess = true;
                     $remotePostId = $postResult['post_id'];
-                    $publishedUrl = $postResult['url'] ?? $publishedUrl; // WP থেকে আসা লিঙ্ক সংরক্ষণ
-                    Log::info("✅ WP Action Success: ID {$remotePostId}");
+                    $publishedUrl = $postResult['link'] ?? $publishedUrl; // WP লিংক সেট
+                    Log::info("✅ WP Action Success: ID {$remotePostId} | Link: {$publishedUrl}");
                 } else {
                     $errorMsg = $postResult['message'] ?? 'Unknown WP Error';
                     Log::error("❌ WP Action Failed: " . $errorMsg);
@@ -116,7 +114,7 @@ class ProcessNewsPost implements ShouldQueue
             }
 
             // ==========================================
-            // ২. লারাভেল / নোড / এপিআই পোস্টিং (Create or Update)
+            // ২. লারাভেল / নোড / এপিআই পোস্টিং (Fixed Logic)
             // ==========================================
             if (!$socialOnly && $settings && $settings->post_to_laravel && $settings->laravel_site_url) {
                 try {
@@ -143,11 +141,22 @@ class ProcessNewsPost implements ShouldQueue
                         $laravelSuccess = true;
                         $respData = $response->json();
                         
-                        // টার্গেট এপিআই থেকে আসা ID এবং লাইভ লিঙ্ক ক্যাপচার
                         $remotePostId = $respData['post_id'] ?? $respData['id'] ?? $remotePostId;
-                        $publishedUrl = $respData['live_url'] ?? $publishedUrl; // ডাইনামিক লাইভ লিঙ্ক
                         
-                        Log::info("✅ API Action Success. Remote ID: {$remotePostId}");
+                        // 🔥🔥 FIX: API থেকে আসা 'live_url' বা 'link' বা 'url' চেক করা হচ্ছে
+                        if (!empty($respData['live_url'])) {
+                            $publishedUrl = $respData['live_url'];
+                        } elseif (!empty($respData['link'])) {
+                            $publishedUrl = $respData['link'];
+                        } elseif (!empty($respData['url'])) {
+                            $publishedUrl = $respData['url'];
+                        } else {
+                            // যদি API লিংক না দেয়, তবে ম্যানুয়ালি তৈরি করা হবে
+                            $prefix = trim($settings->laravel_route_prefix ?? 'news', '/');
+                            $publishedUrl = rtrim($settings->laravel_site_url, '/') . '/' . $prefix . '/' . $remotePostId;
+                        }
+                        
+                        Log::info("✅ API Action Success. Remote ID: {$remotePostId} | Link: {$publishedUrl}");
                     } else {
                         Log::error("❌ API Action Failed: " . $response->body());
                     }
@@ -157,7 +166,7 @@ class ProcessNewsPost implements ShouldQueue
             }
 
             // ==========================================
-            // ৩. ফাইনাল আপডেট (DB Save)
+            // ৩. ফাইনাল আপডেট & সোশ্যাল পোস্টিং
             // ==========================================
             if ($wpSuccess || $laravelSuccess || $socialOnly) {
 
@@ -166,21 +175,16 @@ class ProcessNewsPost implements ShouldQueue
                         'is_posted' => true,
                         'posted_at' => now(),
                         'status' => 'published',
-                        'live_url' => $publishedUrl, // ডাটাবেসে নতুন লিঙ্ক সেভ হচ্ছে
+                        'live_url' => $publishedUrl, // ডাটাবেসে সঠিক লিংক সেভ হবে
                         'error_message' => null
                     ];
 
-                    if ($remotePostId) {
-                        $updateData['wp_post_id'] = $remotePostId;
-                    }
-
-                    if (!$socialOnly) {
-                        $updateData['thumbnail_url'] = $websiteImage;
-                    }
+                    if ($remotePostId) $updateData['wp_post_id'] = $remotePostId;
+                    if (!$socialOnly) $updateData['thumbnail_url'] = $websiteImage;
 
                     $news->update($updateData);
 
-                    // ক্রেডিট ডিডাকশন
+                    // ক্রেডিট লজিক
                     if (!$this->skipCreditDeduction && $user->role !== 'super_admin') {
                         if ($user->credits > 0) {
                             $user->decrement('credits');
@@ -196,7 +200,7 @@ class ProcessNewsPost implements ShouldQueue
                 });
 
                 // ==========================================
-                // সোশ্যাল মিডিয়া পোস্টিং লজিক
+                // 🔥 ফিক্সড সোশ্যাল মিডিয়া পোস্টিং
                 // ==========================================
                 
                 if (!$skipSocial && ($settings->post_to_fb || $settings->post_to_telegram)) {
@@ -213,7 +217,6 @@ class ProcessNewsPost implements ShouldQueue
                         $originalUrl = $imageToPost;
                         $foundLocal = false;
                         $appUrl = config('app.url');
-
                         if (strpos($imageToPost, $appUrl) !== false) {
                             $relativePath = str_replace($appUrl, '', $imageToPost);
                             $relativePath = ltrim(strtok($relativePath, '?'), '/');
@@ -229,17 +232,22 @@ class ProcessNewsPost implements ShouldQueue
                         }
                     }
                     
-                    // সোশ্যাল মিডিয়ার জন্য লিঙ্ক নির্বাচন (ডাইনামিক লিঙ্ককে অগ্রাধিকার দেওয়া হয়েছে)
-                    $newsLink = $publishedUrl ?? $news->original_link; 
+                    // 🔥 LINK SELECTION LOGIC 🔥
+                    $newsLink = $publishedUrl; // এখানে এখন সঠিক লিংক থাকার কথা
 
-                    // যদি ডাইনামিক লিঙ্ক না থাকে তবে ম্যানুয়ালি তৈরি করা হবে
-                    if (!$publishedUrl) {
-                        if ($settings->wp_url && $remotePostId) {
+                    // যদি কোনো কারণে লিংক না থাকে, তবে ম্যানুয়াল ফলব্যাক
+                    if (empty($newsLink) && $remotePostId) {
+                        if ($settings->wp_url) {
                             $newsLink = rtrim($settings->wp_url, '/') . '/?p=' . $remotePostId;
-                        } elseif ($settings->post_to_laravel && $settings->laravel_site_url) {
+                        } elseif ($settings->laravel_site_url) {
                              $prefix = trim($settings->laravel_route_prefix ?? 'news', '/');
                              $newsLink = rtrim($settings->laravel_site_url, '/') . '/' . $prefix . '/' . $remotePostId;
                         }
+                    }
+                    
+                    // যদি তাও না থাকে, তবে সোর্স লিংক (কাস্টম সাইটের ক্ষেত্রে এটা এড়ানো উচিত)
+                    if (empty($newsLink)) {
+                        $newsLink = $news->original_link;
                     }
 
                     $captionToPost = $this->customData['social_caption'] ?? $finalTitle;
@@ -253,7 +261,6 @@ class ProcessNewsPost implements ShouldQueue
                         $news->update(['tg_status' => $tgResult['success'] ? 'success' : 'failed', 'tg_error' => $tgResult['message'] ?? null]);
                     }
 
-                    // ক্লিনআপ
                     if ($localCardPath && file_exists($localCardPath)) unlink($localCardPath);
                     if (isset($this->customData['social_image']) && file_exists($imageToPost) && strpos($imageToPost, 'news-cards/studio') !== false) unlink($imageToPost);
                 }

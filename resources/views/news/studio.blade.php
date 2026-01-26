@@ -281,6 +281,25 @@
                         </div>
                     </div>
                 </div>
+				
+				
+				<div class="mt-3 bg-gray-50 p-2 rounded border border-gray-200">
+					<label class="label-title text-center mb-1">↕ পজিশন ও অ্যালাইনমেন্ট</label>
+					
+					<div class="grid grid-cols-3 gap-2 mb-2">
+						<div></div>
+						<button onclick="moveActiveText('up')" class="bg-white border hover:bg-indigo-50 p-1.5 rounded shadow-sm font-bold">⬆️</button>
+						<div></div>
+						
+						<button onclick="moveActiveText('left')" class="bg-white border hover:bg-indigo-50 p-1.5 rounded shadow-sm font-bold">⬅️</button>
+						<button onclick="forceCenterText()" class="bg-indigo-100 text-indigo-700 border border-indigo-200 p-1.5 rounded shadow-sm font-bold text-[10px]">🎯 CENTER</button>
+						<button onclick="moveActiveText('right')" class="bg-white border hover:bg-indigo-50 p-1.5 rounded shadow-sm font-bold">➡️</button>
+						
+						<div></div>
+						<button onclick="moveActiveText('down')" class="bg-white border hover:bg-indigo-50 p-1.5 rounded shadow-sm font-bold">⬇️</button>
+						<div></div>
+					</div>
+				</div>
 
                 <div id="tab-image" class="space-y-6 hidden">
                     <label class="w-full cursor-pointer bg-white border border-gray-300 text-gray-700 px-3 py-3 rounded-lg shadow-sm text-sm font-bold hover:bg-gray-50 text-center block transition transform hover:-translate-y-0.5">
