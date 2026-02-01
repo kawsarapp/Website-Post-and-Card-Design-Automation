@@ -45,8 +45,9 @@ class AuthController extends Controller
 			$request->session()->invalidate();
 			$request->session()->regenerateToken();
 
-			return redirect()->route('/login')
-				->with('success', 'You have been logged out successfully! 👋');
+				return redirect()->route('login') // ✅ সঠিক: শুধু রুটের নাম হবে
+					->with('success', 'You have been logged out successfully! 👋');
+				
 		}
 		
 		

@@ -284,17 +284,15 @@
                 title: { 
                     ...commonDefaults, 
                     top: 760, 
-                    // 🔥 বামে বেশি সরে গেছে, তাই ৫৪০ থেকে বাড়িয়ে ৫৬০ করা হলো (ডানে সরবে)
                     left: 560, 
                     originX: 'center', 
                     originY: 'center', 
                     textAlign: 'center', 
-                    // 🔥 উইডথ একটু কমানো হলো যাতে ডানদিকের বাড়তি স্পেস কমে
                     width: 900, 
                     fontFamily: 'Noto Serif Cond Black' 
                 }, 
-                date:  { ...commonDefaults, top: 28, left: 1050, originX: 'right', fill: '#ffffff', fontSize: 26 },
-                image: { ...commonDefaults, left: 40, top: 120, width: 1000, height: 430, zoom: 1.1 }
+                date:  { ...commonDefaults, top: 28, left: 1050, originX: 'right', fill: '#000000', fontSize: 26, backgroundColor: 'red', fontFamily: 'SolaimanLipi',padding: 6 },
+                image: { ...commonDefaults, left: 40, top: 120, width: 1000, height: 430, zoom: 1.2 }
             },
 			
 			
@@ -703,10 +701,7 @@
             // Li Series
             'Li Alinur Banglaborno', 'Li Alinur Kuyasha', 'Li Alinur Sangbadpatra', 'Li Alinur Tumatul',
             'Li MA Hai', 'Li Purno Pran', 'Li Sabbir Sorolota', 'Li Shohid Abu Sayed',
-            'Li Abu JM Akkas', 'Li Mehdi Ekushey', 'Li Shadhinata',
-            
-            // Others
-            'SolaimanLipi'
+            'Li Abu JM Akkas', 'Li Mehdi Ekushey', 'Li Shadhinata','SolaimanLipi'
         ];
 
         WebFont.load({

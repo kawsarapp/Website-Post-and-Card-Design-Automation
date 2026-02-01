@@ -5,7 +5,66 @@
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+/* ১. ফন্ট ভেরিয়েবল ডিক্লারেশন (Tailwind v4) */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* --- Custom Fonts --- */
+    --font-solaiman: 'SolaimanLipi', sans-serif;
+    
+    /* Noto Series */
+    --font-noto: 'Noto Serif Cond Regular', serif;
+    --font-noto-bold: 'Noto Serif Cond Bold', serif;
+    --font-noto-black: 'Noto Serif Cond Black', serif;
+
+    /* Li Alinur Series */
+    --font-alinur-bangla: 'Li Alinur Banglaborno', sans-serif;
+    --font-alinur-kuyasha: 'Li Alinur Kuyasha', sans-serif;
+    --font-alinur-sangbad: 'Li Alinur Sangbadpatra', sans-serif;
+    --font-alinur-tumatul: 'Li Alinur Tumatul', sans-serif;
+
+    /* Li Others Series */
+    --font-li-akkas: 'Li Abu J M Akkas', sans-serif;
+    --font-li-hai: 'Li M. A. Hai', sans-serif;
+    --font-li-mehdi: 'Li Mehdi Ekushey', sans-serif;
+    --font-li-purno: 'Li Purno Pran', sans-serif;
+    --font-li-sabbir: 'Li Sabbir Sorolota', sans-serif;
+    --font-li-shadhinata: 'Li Shadhinata2 2.0', sans-serif;
+    --font-li-shohid: 'Li Shohid Abu Sayed', sans-serif;
+}
+
+/* ২. ফন্ট লোডিং (@font-face) */
+@layer base {
+    /* --- SolaimanLipi --- */
+    @font-face {
+        font-family: 'SolaimanLipi';
+        src: url('/fonts/SolaimanLipi.ttf') format('truetype');
+        font-weight: normal; font-style: normal; font-display: swap;
+    }
+
+    /* --- Noto Serif Bengali Condensed (All Weights) --- */
+    @font-face { font-family: 'Noto Serif Cond Thin'; src: url('/fonts/NotoSerifBengali_Condensed-Thin.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Noto Serif Cond ExtraLight'; src: url('/fonts/NotoSerifBengali_Condensed-ExtraLight.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Noto Serif Cond Light'; src: url('/fonts/NotoSerifBengali_Condensed-Light.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Noto Serif Cond Regular'; src: url('/fonts/NotoSerifBengali_Condensed-Regular.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Noto Serif Cond Medium'; src: url('/fonts/NotoSerifBengali_Condensed-Medium.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Noto Serif Cond SemiBold'; src: url('/fonts/NotoSerifBengali_Condensed-SemiBold.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Noto Serif Cond Bold'; src: url('/fonts/NotoSerifBengali_Condensed-Bold.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Noto Serif Cond ExtraBold'; src: url('/fonts/NotoSerifBengali_Condensed-ExtraBold.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Noto Serif Cond Black'; src: url('/fonts/NotoSerifBengali_Condensed-Black.ttf') format('truetype'); font-display: swap; }
+
+    /* --- Li Alinur Series --- */
+    @font-face { font-family: 'Li Alinur Banglaborno'; src: url('/fonts/Li%20Alinur%20Banglaborno%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li Alinur Kuyasha'; src: url('/fonts/Li%20Alinur%20Kuyasha%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li Alinur Sangbadpatra'; src: url('/fonts/Li%20Alinur%20Sangbadpatra%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li Alinur Tumatul'; src: url('/fonts/Li%20Alinur%20Tumatul%20Unicode.ttf') format('truetype'); font-display: swap; }
+
+    /* --- Li Others Series --- */
+    @font-face { font-family: 'Li Abu J M Akkas'; src: url('/fonts/Li%20Abu%20J%20M%20Akkas%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li M. A. Hai'; src: url('/fonts/Li%20M.%20A.%20Hai%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li Mehdi Ekushey'; src: url('/fonts/Li%20Mehdi%20Ekushey%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li Purno Pran'; src: url('/fonts/Li%20Purno%20Pran%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li Sabbir Sorolota'; src: url('/fonts/Li%20Sabbir%20Sorolota%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li Shadhinata2 2.0'; src: url('/fonts/Li%20Shadhinata2%202.0%20Unicode.ttf') format('truetype'); font-display: swap; }
+    @font-face { font-family: 'Li Shohid Abu Sayed'; src: url('/fonts/Li%20Shohid%20Abu%20Sayed%20Unicode.ttf') format('truetype'); font-display: swap; }
 }

@@ -2,6 +2,32 @@
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
+	
+	
+	<IfModule mod_expires.c>
+    ExpiresActive On
+    # ডিফল্ট ক্যাশ ২ দিন
+    ExpiresDefault "access plus 2 days"
+    
+    # ইমেজের জন্য ১ মাস
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    
+    # ফন্টের জন্য ১ বছর (যেহেতু এগুলো পরিবর্তন হয় না)
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+    
+    # CSS এবং JS এর জন্য ১ মাস
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
 
     RewriteEngine On
 

@@ -19,6 +19,7 @@ use App\Jobs\GenerateAIContent;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 
+
 class NewsController extends Controller
 {
     private $scraper, $aiWriter, $wpService, $telegram;
@@ -78,11 +79,21 @@ class NewsController extends Controller
         $settings = UserSetting::firstOrCreate(['user_id' => $user->id]);
 
         $allTemplates = [
-            ['key' => 'ntv', 'name' => 'NTV News', 'image' => 'templates/ntv.png', 'layout' => 'ntv'],
-            ['key' => 'rtv', 'name' => 'RTV News', 'image' => 'templates/rtv.png', 'layout' => 'rtv'],
-            ['key' => 'dhakapost', 'name' => 'Dhaka Post', 'image' => 'templates/dhakapost.png', 'layout' => 'dhakapost'],
-            ['key' => 'todayevents', 'name' => 'Today Events', 'image' => 'templates/todayevents.png', 'layout' => 'todayevents'],
-        ];
+        ['key' => 'ntv', 'name' => 'NTV News', 'image' => 'templates/ntv.png', 'layout' => 'ntv'],
+        ['key' => 'rtv', 'name' => 'RTV News', 'image' => 'templates/rtv.png', 'layout' => 'rtv'],
+        ['key' => 'dhakapost', 'name' => 'Dhaka Post', 'image' => 'templates/dhakapost.png', 'layout' => 'dhakapost'],
+        ['key' => 'dhakapost_new', 'name' => 'Dhaka Post Dark', 'image' => 'templates/dhakapost-new.png', 'layout' => 'dhakapost_new'],
+        ['key' => 'todayevents', 'name' => 'Today Events', 'image' => 'templates/todayevents.png', 'layout' => 'todayevents'],
+        ['key' => 'BanglaLiveNews', 'name' => 'Bangla Live News', 'image' => 'templates/BanglaLiveNews.png', 'layout' => 'BanglaLiveNews'],
+        ['key' => 'BanglaLiveNews1', 'name' => 'Bangla Live News 1', 'image' => 'templates/BanglaLiveNews1.png', 'layout' => 'BanglaLiveNews1'],
+        ['key' => 'ShotterKhoje', 'name' => 'Shotter Khoje', 'image' => 'templates/ShotterKhoje.png', 'layout' => 'ShotterKhoje'],
+        ['key' => 'Jaijaidin1', 'name' => 'Jaijaidin 1', 'image' => 'templates/Jaijaidin1.png', 'layout' => 'Jaijaidin1'],
+        ['key' => 'Jaijaidin2', 'name' => 'Jaijaidin 2', 'image' => 'templates/Jaijaidin2.png', 'layout' => 'Jaijaidin2'],
+        ['key' => 'Jaijaidin3', 'name' => 'Jaijaidin 3', 'image' => 'templates/Jaijaidin3.png', 'layout' => 'Jaijaidin3'],
+        ['key' => 'Jaijaidin4', 'name' => 'Jaijaidin 4', 'image' => 'templates/Jaijaidin4.png', 'layout' => 'Jaijaidin4'],
+        ['key' => 'jonomot', 'name' => 'jonomot', 'image' => 'templates/jonomot.png', 'layout' => 'jonomot'],
+        ['key' => 'Bangladeshmail24', 'name' => 'Bangladeshmail24', 'image' => 'templates/Bangladeshmail24.png', 'layout' => 'Bangladeshmail24'],
+    ];
 
         // ডাইনামিক টেমপ্লেট লোড
         try {
@@ -120,14 +131,38 @@ class NewsController extends Controller
     }
 
     public function proxyImage(Request $request)
-    {
-        $url = $request->query('url');
-        if (!$url) abort(404);
-        try {
-            $response = Http::withHeaders(['User-Agent' => 'Mozilla/5.0'])->timeout(10)->get($url);
-            return response($response->body())->header('Content-Type', $response->header('Content-Type'));
-        } catch (\Exception $e) { abort(404); }
-    }
+		{
+			$url = $request->query('url');
+			if (!$url) abort(404);
+
+			$cacheKey = 'proxy_img_' . md5($url);
+
+			$imageData = Cache::remember($cacheKey, now()->addDays(7), function () use ($url) {
+				try {
+					$response = Http::withHeaders([
+						'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+					])->timeout(15)->get($url); // টাইমআউট ১৫ সেকেন্ড করা হলো
+
+					if ($response->successful()) {
+						return [
+							'body' => base64_encode($response->body()), // বাইনারি ডাটা সেফলি রাখার জন্য এনকোড
+							'type' => $response->header('Content-Type')
+						];
+					}
+				} catch (\Exception $e) {
+					\Log::error("Proxy Image Error for URL [{$url}]: " . $e->getMessage());
+				}
+				return null;
+			});
+
+			if (!$imageData) abort(404);
+
+			// ৩. রেসপন্স পাঠানো এবং ব্রাউজারকেও ৩০ দিন ক্যাশ করতে বলা
+			return response(base64_decode($imageData['body']))
+				->header('Content-Type', $imageData['type'])
+				->header('Cache-Control', 'public, max-age=2592000, immutable')
+				->header('Access-Control-Allow-Origin', '*'); // ক্যানভাসে ড্র করার জন্য দরকার
+		}
     
     public function toggleQueue($id)
     {
