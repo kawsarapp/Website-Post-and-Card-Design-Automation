@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\Log;
 
 class WordPressService
 {
-    public function createPost($news, $user, $customTitle = null, $customContent = null, $customCategories = [], $customImage = null)
+    // ======================================================
+    // 1. CREATE POST (Updated with Hashtags)
+    // ======================================================
+    public function createPost($news, $user, $customTitle = null, $customContent = null, $customCategories = [], $customImage = null, $hashtags = null)
     {
         // ১. সেটিংস লোড করা
         $settings = $user->settings;
@@ -28,18 +31,20 @@ class WordPressService
         $postTitle = $customTitle ?? $news->ai_title ?? $news->title;
         $postContent = $customContent ?? $news->ai_content ?? $news->content;
 
-        // 🔥 ক্যাটাগরি হ্যান্ডলিং (Array নিশ্চিত করা)
+        // ৩. ক্যাটাগরি হ্যান্ডলিং
         $finalCategories = !empty($customCategories) ? $customCategories : [1];
-        
-        // যদি অ্যারে না হয়, অ্যারে বানিয়ে নেওয়া
         if (!is_array($finalCategories)) {
             $finalCategories = [$finalCategories];
         }
-        
-        // ইন্টিজারে কনভার্ট করা (নিরাপত্তার জন্য)
         $finalCategories = array_map('intval', $finalCategories);
 
-        // ৪. ইমেজ আপলোড
+        // ৪. 🔥 হ্যাসট্যাগ প্রসেসিং (Tag ID তে কনভার্ট করা)
+        $tagIds = [];
+        if (!empty($hashtags)) {
+            $tagIds = $this->processTags($domain, $username, $appPassword, $hashtags);
+        }
+
+        // ৫. ইমেজ আপলোড
         $imageUrlToUpload = $customImage ?? $news->thumbnail_url;
         $featuredMediaId = null;
 
@@ -50,67 +55,87 @@ class WordPressService
             }
         }
 
-        // ৫. ফাইনাল পোস্ট পাবলিশ করা
+        // ৬. ফাইনাল পোস্ট পাবলিশ করা
         return $this->publishPost(
             $postTitle,
             $postContent,
             $domain,
             $username,
             $appPassword,
-            $finalCategories, // ✅ Array পাঠানো হচ্ছে
+            $finalCategories,
+            $tagIds, // 🔥 ট্যাগ পাঠানো হচ্ছে
             $featuredMediaId
         );
     }
-	
-	
-	
-	// app/Services/WordPressService.php এর ভেতরে এই মেথডটি যোগ করুন
-public function updatePost($postId, $news, $user, $customTitle, $customContent, $customCategories, $customImage)
-{
-    $settings = $user->settings;
-    $postTitle = $customTitle ?? $news->ai_title ?? $news->title;
-    $postContent = $customContent ?? $news->ai_content ?? $news->content;
 
-    // ইমেজ আপলোড (যদি নতুন ইমেজ থাকে)
-    $featuredMediaId = null;
-    if ($customImage) {
-        $upload = $this->uploadImage($customImage, $postTitle, $settings->wp_url, $settings->wp_username, $settings->wp_app_password);
-        if ($upload['success']) $featuredMediaId = $upload['id'];
+    // ======================================================
+    // 2. UPDATE POST (Updated with Hashtags)
+    // ======================================================
+    public function updatePost($postId, $news, $user, $customTitle, $customContent, $customCategories, $customImage, $hashtags = null)
+    {
+        $settings = $user->settings;
+        $postTitle = $customTitle ?? $news->ai_title ?? $news->title;
+        $postContent = $customContent ?? $news->ai_content ?? $news->content;
+
+        $domain = $settings->wp_url;
+        $username = $settings->wp_username;
+        $appPassword = $settings->wp_app_password;
+
+        // ইমেজ আপলোড (যদি নতুন ইমেজ থাকে)
+        $featuredMediaId = null;
+        if ($customImage) {
+            $upload = $this->uploadImage($customImage, $postTitle, $domain, $username, $appPassword);
+            if ($upload['success']) $featuredMediaId = $upload['id'];
+        }
+
+        // 🔥 হ্যাসট্যাগ প্রসেসিং
+        $tagIds = [];
+        if (!empty($hashtags)) {
+            $tagIds = $this->processTags($domain, $username, $appPassword, $hashtags);
+        }
+
+        // ওয়ার্ডপ্রেস এপিআই-তে রিকোয়েস্ট
+        $url = rtrim($domain, '/') . '/wp-json/wp/v2/posts/' . $postId;
+        
+        $data = [
+            'title'      => $postTitle,
+            'content'    => $postContent,
+            'categories' => $customCategories,
+            'status'     => 'publish',
+        ];
+
+        // ট্যাগ ও ইমেজ থাকলে যোগ হবে
+        if ($featuredMediaId) $data['featured_media'] = $featuredMediaId;
+        if (!empty($tagIds)) $data['tags'] = $tagIds; // 🔥 ট্যাগ আপডেট
+
+        $response = Http::withBasicAuth($username, $appPassword)->post($url, $data);
+
+        if ($response->successful()) {
+            return ['success' => true, 'post_id' => $response->json()['id']];
+        }
+        return ['success' => false, 'message' => $response->body()];
     }
-
-    // ওয়ার্ডপ্রেস এপিআই-তে PUT রিকোয়েস্ট পাঠানো (আপডেটের জন্য)
-    $url = rtrim($settings->wp_url, '/') . '/wp-json/wp/v2/posts/' . $postId;
-    $data = [
-        'title'   => $postTitle,
-        'content' => $postContent,
-        'categories' => $customCategories,
-        'status'  => 'publish',
-    ];
-    if ($featuredMediaId) $data['featured_media'] = $featuredMediaId;
-
-    $response = Http::withBasicAuth($settings->wp_username, $settings->wp_app_password)->post($url, $data);
-
-    if ($response->successful()) {
-        return ['success' => true, 'post_id' => $response->json()['id']];
-    }
-    return ['success' => false, 'message' => $response->body()];
-}
 
     /**
      * Helper: Publish Post to WordPress
      */
-    public function publishPost($title, $content, $domain, $username, $password, $categoryIds = [1], $featuredMediaId = null)
+    public function publishPost($title, $content, $domain, $username, $password, $categoryIds = [1], $tagIds = [], $featuredMediaId = null)
     {
         $domain = rtrim($domain, '/');
         $endpoint = "$domain/wp-json/wp/v2/posts";
 
         // ডাটা প্রিপারেশন
         $data = [
-            'title'    => $title,
-            'content'  => $content,
-            'status'   => 'publish',
-            'categories' => $categoryIds, // ✅ এখন নামের বানান ঠিক আছে ($categoryIds)
+            'title'      => $title,
+            'content'    => $content,
+            'status'     => 'publish',
+            'categories' => $categoryIds,
         ];
+
+        // ট্যাগ যোগ করা
+        if (!empty($tagIds)) {
+            $data['tags'] = $tagIds; // 🔥 ট্যাগ যুক্ত করা হলো
+        }
 
         if ($featuredMediaId) {
             $data['featured_media'] = $featuredMediaId;
@@ -143,6 +168,63 @@ public function updatePost($postId, $news, $user, $customTitle, $customContent, 
                 'message' => $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * 🔥 Helper: Convert Hashtags String to WP Tag IDs
+     * WP API সরাসরি ট্যাগ নেম নেয় না, আইডি চায়। তাই চেক করে আইডি বের করতে হয়।
+     */
+    public function processTags($domain, $username, $password, $hashtagsString)
+    {
+        $domain = rtrim($domain, '/');
+        $tagsEndpoint = "$domain/wp-json/wp/v2/tags";
+        $tagIds = [];
+
+        // ১. স্ট্রিং থেকে ট্যাগ অ্যারে বানানো (# কেটে দেওয়া)
+        // #News #Tech -> ['News', 'Tech']
+        $tagsArray = array_filter(array_map(function($tag) {
+            return trim(str_replace(['#', ','], '', $tag));
+        }, explode(' ', $hashtagsString)));
+
+        if (empty($tagsArray)) return [];
+
+        foreach ($tagsArray as $tagName) {
+            try {
+                // ২. ট্যাগটি আছে কি না চেক করা
+                $checkResponse = Http::withBasicAuth($username, $password)
+                    ->get($tagsEndpoint, ['search' => $tagName]);
+
+                if ($checkResponse->successful() && !empty($checkResponse->json())) {
+                    // ট্যাগ পাওয়া গেলে আইডি নেওয়া
+                    // এক্সাক্ট ম্যাচ চেক (কারণ search পার্শিয়াল রেজাল্ট দিতে পারে)
+                    $existingTags = $checkResponse->json();
+                    $foundId = null;
+                    foreach ($existingTags as $t) {
+                        if (strtolower($t['name']) === strtolower($tagName)) {
+                            $foundId = $t['id'];
+                            break;
+                        }
+                    }
+                    if ($foundId) {
+                        $tagIds[] = $foundId;
+                        continue;
+                    }
+                }
+
+                // ৩. ট্যাগ না থাকলে নতুন তৈরি করা
+                $createResponse = Http::withBasicAuth($username, $password)
+                    ->post($tagsEndpoint, ['name' => $tagName]);
+
+                if ($createResponse->successful()) {
+                    $tagIds[] = $createResponse->json()['id'];
+                }
+
+            } catch (\Exception $e) {
+                Log::warning("Failed to process tag: $tagName - " . $e->getMessage());
+            }
+        }
+
+        return $tagIds;
     }
 
     /**

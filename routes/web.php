@@ -10,7 +10,8 @@ use App\Http\Controllers\{
     PaymentController,
     TelegramBotController,
     ReporterController,
-    ReporterManagementController
+    ReporterManagementController,
+    AdminTemplateController // ✅ ১. এটি মিসিং ছিল, যোগ করা হলো
 };
 use App\Http\Middleware\AdminMiddleware;
 
@@ -106,7 +107,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{id}/update-draft', 'updateDraft')->name('update-draft');
         Route::post('/{id}/process-ai', 'sendToAiQueue')->name('process-ai');
 
-        // ম্যানুয়াল পাবলিশ পারমিশন
+        // ম্যানুয়াল পাবলিশ পারমিশন
         Route::middleware(['permission:can_direct_publish'])->group(function () {
             Route::get('/create', 'create')->name('create');
             Route::post('/store-custom', 'storeCustom')->name('store-custom');
@@ -152,6 +153,14 @@ Route::middleware(['auth'])->group(function () {
 // --- ৫. সুপার অ্যাডমিন রুটস ---
 Route::middleware(['auth', AdminMiddleware::class])->group(function () {
     
+    // ✅ ২. টেমপ্লেট বিল্ডার রুটস (সিকিউর জোনে মুভ করা হয়েছে)
+    Route::prefix('admin/templates')->name('admin.templates.')->group(function () {
+        Route::get('/', [AdminTemplateController::class, 'index'])->name('index');
+        Route::get('/builder', [AdminTemplateController::class, 'builder'])->name('builder'); // ড্র্যাগ-ড্রপ বিল্ডার
+        Route::post('/store', [AdminTemplateController::class, 'store'])->name('store');
+        Route::delete('/{id}', [AdminTemplateController::class, 'destroy'])->name('destroy');
+    });
+
     Route::prefix('admin/users/{id}')->name('admin.users.')->group(function () {
         Route::post('/permissions', [AdminController::class, 'updatePermissions'])->name('permissions');
     });

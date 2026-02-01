@@ -117,7 +117,7 @@
                         @endif
                         
                         @if(auth()->user()->hasPermission('can_ai'))
-                        <a href="{{ route('news.drafts') }}" class="px-4 py-1.5 text-sm font-semibold {{ request()->routeIs('news.drafts') ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-indigo-600' }}">AI Drafts</a>
+                        <a href="{{ route('news.drafts') }}" class="px-4 py-1.5 text-sm font-semibold {{ request()->routeIs('news.drafts') ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-indigo-600' }}">Drafts</a>
                         @endif
 
                         @if(auth()->user()->hasPermission('can_scrape'))
@@ -183,11 +183,17 @@
                                 <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl">
                                     <i class="fa-solid fa-shield-halved text-rose-500 w-5"></i> Dashboard
                                 </a>
-                                @endif
-                                <a href="{{ route('settings.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl">
+								<div class="my-2 border-t border-slate-100"></div>
+								<a href="{{ route('admin.post-history') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl">
+                                    <i class="fa-solid fa-shield-halved text-rose-500 w-5"></i> History
+                                </a>
+								<div class="my-2 border-t border-slate-100"></div>
+								<a href="{{ route('settings.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl">
                                     <i class="fa-solid fa-sliders text-slate-400 w-5"></i> Settings
                                 </a>
-                                <div class="my-2 border-t border-slate-100"></div>
+                                @endif
+                                
+                                
                             @endif
 
                             <form action="{{ route('logout') }}" method="POST">

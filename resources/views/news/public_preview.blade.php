@@ -5,11 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>নিউজ প্রিভিউ - সাব-এডিটর বিডি</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;700&display=swap');
-        body { font-family: 'Hind Siliguri', sans-serif; background: #f4f7f6; padding-top: 50px; }
-        .preview-container { max-width: 800px; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-    </style>
+	
+	<style>
+    /* SolaimanLipi Font Import */
+    @import url('https://fonts.maateen.me/solaiman-lipi/font.css');
+
+    /* Font Family Update */
+    .font-bangla { 
+        font-family: 'SolaimanLipi', Arial, sans-serif; 
+    }
+
+    /* অন্যান্য স্টাইল অপরিবর্তিত রাখা হয়েছে */
+    @keyframes shimmer { 
+        0% { background-position: -200% 0; } 
+        100% { background-position: 200% 0; } 
+    }
+    
+    .skeleton { 
+        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%); 
+        background-size: 200% 100%; 
+        animation: shimmer 1.5s infinite; 
+    }
+    
+    .tox-tinymce-aux { 
+        z-index: 99999 !important; 
+    }
+	.preview-container { max-width: 800px; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+
+</style>
+
+
 </head>
 <body>
     <div class="container preview-container">

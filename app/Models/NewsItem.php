@@ -37,7 +37,8 @@ class NewsItem extends Model
 		'tags',
 		'reporter_name_manual',
 		'locked_at',
-		'locked_by_user_id'
+		'locked_by_user_id',
+		'hashtags'
     ];
 
     protected $casts = [

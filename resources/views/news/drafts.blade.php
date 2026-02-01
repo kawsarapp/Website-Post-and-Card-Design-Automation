@@ -5,9 +5,29 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
 
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap');
-    .font-bangla { font-family: 'Hind Siliguri', sans-serif; }
-    .tox-tinymce-aux { z-index: 99999 !important; }
+    /* SolaimanLipi Font Import */
+    @import url('https://fonts.maateen.me/solaiman-lipi/font.css');
+
+    /* Font Family Update */
+    .font-bangla { 
+        font-family: 'SolaimanLipi', Arial, sans-serif; 
+    }
+
+    /* অন্যান্য স্টাইল অপরিবর্তিত রাখা হয়েছে */
+    @keyframes shimmer { 
+        0% { background-position: -200% 0; } 
+        100% { background-position: 200% 0; } 
+    }
+    
+    .skeleton { 
+        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%); 
+        background-size: 200% 100%; 
+        animation: shimmer 1.5s infinite; 
+    }
+    
+    .tox-tinymce-aux { 
+        z-index: 99999 !important; 
+    }
 </style>
 
 <div class="max-w-7xl mx-auto py-6">
@@ -28,8 +48,8 @@
     {{-- Grid Layout --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
     @foreach($drafts as $item)
-    {{-- Polling এর জন্য data-news-id এবং data-status-msg যোগ করা হয়েছে --}}
-	<div data-news-id="{{ $item->id }}" data-status-msg="{{ $item->error_message }}" class="group relative flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+    
+    <div data-news-id="{{ $item->id }}" data-status-msg="{{ $item->error_message }}" class="group relative flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
         
         <div class="absolute top-3 right-3 z-20">
             @if($item->status == 'published')
@@ -54,7 +74,7 @@
                 <button type="submit" class="bg-white/90 hover:bg-red-500 hover:text-white text-red-500 p-2 rounded-full shadow-lg backdrop-blur-sm transition-colors duration-200"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path></svg></button>
             </form>
         </div>
-       
+        
         <div class="p-5 flex flex-col flex-1">
             <div class="mb-3"><span class="inline-block bg-indigo-50 text-indigo-600 border border-indigo-100 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">{{ $item->website->name ?? '📌 Custom' }}</span></div>
             <h3 class="text-[17px] font-bold leading-tight text-gray-900 font-bangla line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors duration-200" title="{{ $item->ai_title ?? $item->title }}">{{ $item->ai_title ?? $item->title }}</h3>
@@ -62,25 +82,22 @@
 
             <div class="mt-auto pt-4 border-t border-gray-100 space-y-2">
     
-				{{-- ১. ডিজাইন বাটন (প্রসেসিং বা পাবলিশিং না থাকলে দেখাবে) --}}
-				@if($item->status != 'processing' && $item->status != 'publishing')
-					<a href="{{ route('news.studio', $item->id) }}" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 rounded-lg text-xs font-bold hover:shadow-lg transition flex items-center justify-center gap-2 mb-2">
-						🎨 ডিজাইন করুন
-					</a>
-				@endif
+                {{-- ১. ডিজাইন বাটন --}}
+                @if($item->status != 'processing' && $item->status != 'publishing')
+                    <a href="{{ route('news.studio', $item->id) }}" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 rounded-lg text-xs font-bold hover:shadow-lg transition flex items-center justify-center gap-2 mb-2">
+                        🎨 ডিজাইন করুন
+                    </a>
+                @endif
 
-				{{-- ২. স্ট্যাটাস ভিত্তিক অ্যাকশন এরিয়া --}}
-				<div class="space-y-2">
-    {{-- 🔥 বসের ফিডব্যাক বা সিস্টেম এরর মেসেজ প্রদর্শনী (নতুন সংযোজন) --}}
+                {{-- ২. স্ট্যাটাস ভিত্তিক অ্যাকশন এরিয়া --}}
+                <div class="space-y-2">
     @if($item->error_message)
         <div class="{{ $item->status == 'failed' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100' }} text-[10px] p-2 rounded border mb-2 font-bold text-center leading-tight" title="{{ $item->error_message }}">
             {{ $item->status == 'failed' ? '⚠️ ' : '✅ ' }} {{ Str::limit($item->error_message, 50) }}
         </div>
     @endif
 
-    {{-- স্ট্যাটাস ভিত্তিক বাটন এবং অ্যাকশন এরিয়া --}}
     @if($item->status == 'published')
-        {{-- পাবলিশড স্টেট: লাইভ লিঙ্ক দেখার সুবিধা --}}
         <div class="flex items-center justify-between bg-emerald-50/50 rounded-lg p-2 border border-emerald-100">
             <span class="text-xs text-emerald-600 font-bold flex items-center gap-1">Posted</span>
             @if($item->wp_post_id && optional($settings)->wp_url)
@@ -91,14 +108,12 @@
         </div>
 
     @elseif($item->status == 'processing' || $item->status == 'publishing')
-        {{-- লোডিং স্টেট: প্রসেসিং হওয়ার সময় দেখাবে --}}
         <div class="w-full bg-gray-50 text-gray-500 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 border border-gray-100 cursor-wait">
             <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
             প্রসেসিং হচ্ছে...
         </div>
 
     @elseif($item->status == 'failed')
-        {{-- ফেইলড বা রিজেক্টেড স্টেট: Retry AI এবং Manual Fix বাটন --}}
         <div class="flex gap-2">
             <form action="{{ route('news.process-ai', $item->id) }}" method="POST" class="flex-1">
                 @csrf
@@ -115,7 +130,6 @@
         </div>
 
     @else
-        {{-- ড্রাফট বা অ্যাপ্রুভড স্টেট: এডিট এবং এআই রিরাইট বাটন --}}
         <div class="flex gap-2">
             <button type="button" 
                 onclick="fetchDraftContent({{ $item->id }}, '{{ $item->thumbnail_url }}')" 
@@ -132,17 +146,16 @@
         </div>
     @endif
 </div>
-				
-
-				{{-- ৩. কপি প্রিভিউ লিঙ্ক (শুধুমাত্র নিউজ পাবলিশ না হওয়া পর্যন্ত দেখাবে) --}}
-					@if($item->status != 'published')
-						<button onclick="copyBossLink({{ $item->id }})" 
-								class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-[11px] font-bold border border-blue-200 transition flex items-center justify-center gap-2">
-							🔗 লিঙ্ক কপি করুন
-						</button>
-					@endif
-				
-			</div>
+                
+                {{-- ৩. কপি প্রিভিউ লিঙ্ক --}}
+                    @if($item->status != 'published')
+                        <button onclick="copyBossLink({{ $item->id }})" 
+                                class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-[11px] font-bold border border-blue-200 transition flex items-center justify-center gap-2">
+                            🔗 লিঙ্ক কপি করুন
+                        </button>
+                    @endif
+                
+            </div>
         </div>
     </div>
     @endforeach
@@ -150,22 +163,24 @@
     <div class="mt-8">{{ $drafts->links() }}</div>
 </div>
 
-{{-- ... বাকি সব কোড (Modal এবং Script) অপরিবর্তিত রাখা হয়েছে ... --}}
 
-{{-- PUBLISH MODAL (TinyMCE Enabled) --}}
+{{-- PUBLISH MODAL --}}
 <div id="rewriteModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
         
         <div class="mb-5 bg-white p-3 rounded-lg border border-gray-200">
             <label class="block text-sm font-bold text-gray-700 mb-2">Feature Image</label>
             <div class="flex gap-4 items-start">
-                <div class="w-24 h-24 flex-shrink-0 bg-gray-100 rounded overflow-hidden border">
+                <div class="w-24 h-24 flex-shrink-0 bg-gray-100 rounded overflow-hidden border relative group">
                     <img id="previewImageDisplay" src="" class="w-full h-full object-cover">
+                    {{-- 🔥 ইমেজ রিসেট বাটন --}}
+                    <button onclick="resetImage()" class="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full text-xs opacity-0 group-hover:opacity-100 transition shadow">✕</button>
                 </div>
                 <div class="flex-1">
-                    <input type="file" id="newImageFile" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-2">
+                    {{-- 🔥 অনচেঞ্জ ইভেন্ট যোগ করা হয়েছে --}}
+                    <input type="file" id="newImageFile" onchange="previewSelectedImage(this)" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-2">
                     <div class="text-xs text-gray-400 text-center mb-2">- OR -</div>
-                    <input type="url" id="newImageUrl" placeholder="Paste image link here..." class="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-green-500">
+                    <input type="url" id="newImageUrl" oninput="previewImageUrl(this.value)" placeholder="Paste image link here..." class="w-full border border-gray-300 rounded p-2 text-xs focus:ring-2 focus:ring-green-500">
                 </div>
             </div>
         </div>
@@ -178,49 +193,49 @@
                 <input type="text" id="previewTitle" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 font-bangla text-lg text-gray-900 shadow-sm transition">
             </div>
 
+            {{-- ✅ নতুন হ্যাসট্যাগ ইনপুট --}}
+            <div class="mb-5">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Hashtags</label>
+                <input type="text" id="previewHashtags" placeholder="#News #Latest #Bangladesh" class="w-full border border-gray-300 rounded-lg p-3 text-sm text-blue-600 focus:ring-2 focus:ring-indigo-500 shadow-sm transition">
+            </div>
+
             <div class="mb-5">
                 <label class="block text-sm font-bold text-gray-700 mb-2">News Content (Rich Text)</label>
-                {{-- 🔥 TinyMCE Editor Target --}}
                 <textarea id="previewContent" rows="15" class="w-full border border-gray-300 rounded-lg"></textarea>
             </div>
             
             <div class="mb-2">
                 <div class="flex justify-between items-center mb-2">
-                    <label class="block text-sm font-bold text-gray-700">Categories</label>
-                    <button type="button" onclick="fetchLiveCategories()" class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200 transition font-bold">🔄 Refresh</button>
+                    <label class="block text-sm font-bold text-gray-700">Categories (Auto Loaded)</label>
                 </div>
-                <p class="text-xs text-gray-400 mb-2" id="catStatusText">লাইভ ক্যাটাগরি পেতে Refresh বাটনে ক্লিক করুন।</p>
 
                 <div class="mb-3">
                     <label class="text-xs font-bold text-indigo-600 block mb-1">Primary Category</label>
                     <select id="previewCategory" class="wp-cat-dropdown w-full border border-gray-300 rounded-lg p-2.5 text-gray-900 shadow-sm bg-white">
-                        <option value="">-- Primary Category --</option>
-                        @if(isset($settings->category_mapping) && is_array($settings->category_mapping))
-                            @foreach($settings->category_mapping as $aiCat => $wpId)
-                                @if(!empty($wpId)) <option value="{{ $wpId }}">{{ $aiCat }} (ID: {{ $wpId }})</option> @endif
-                            @endforeach
-                        @endif
+                        <option value="">Loading...</option>
                     </select>
                 </div>
 
                 <label class="text-xs font-bold text-gray-500 block mb-1">Additional Categories</label>
                 <div class="grid grid-cols-2 gap-3 p-3 bg-gray-100 rounded-lg border border-gray-200">
                     @for ($i = 1; $i <= 4; $i++) 
-                        <div><select id="extraCategory{{ $i }}" class="wp-cat-dropdown w-full border border-gray-300 rounded p-1.5 text-xs bg-white"><option value="">-- Select --</option></select></div>
+                        <div>
+                            <select id="extraCategory{{ $i }}" class="wp-cat-dropdown w-full border border-gray-300 rounded p-1.5 text-xs bg-white">
+                                <option value="">-- Select --</option>
+                            </select>
+                        </div>
                     @endfor
                 </div>
             </div>
         </div>
-		
-		
-
+        
         <div class="bg-white px-6 py-4 border-t flex justify-end gap-3">
             <button onclick="closeRewriteModal()" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition">Cancel</button>
             
-				<button onclick="saveDraftOnly()" id="btnSave" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow flex items-center gap-2 transition transform active:scale-95">
-			💾 Save Draft
-			</button>
-				<button onclick="publishDraft()" id="btnPublish" class="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg flex items-center gap-2 transition transform active:scale-95">
+            <button onclick="saveDraftOnly()" id="btnSave" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow flex items-center gap-2 transition transform active:scale-95">
+                💾 Save Draft
+            </button>
+            <button onclick="publishDraft()" id="btnPublish" class="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg flex items-center gap-2 transition transform active:scale-95">
                 🚀 Publish Now
             </button>
         </div>
@@ -228,7 +243,9 @@
 </div>
 
 <script>
-    // TinyMCE Init
+    let globalCategories = [];
+    let originalImageSrc = ''; // অরিজিনাল ইমেজ সেভ রাখার জন্য
+
     document.addEventListener("DOMContentLoaded", function() {
         tinymce.init({
             selector: '#previewContent',
@@ -239,12 +256,74 @@
             statusbar: true,
             branding: false
         });
+        loadCategoriesOnce();
     });
+
+    // 🔥 নতুন ইমেজ প্রিভিউ ফাংশন
+    function previewSelectedImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('previewImageDisplay').src = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+            
+            // URL ইনপুট ক্লিয়ার করে দেওয়া যাতে কনফ্লিক্ট না হয়
+            document.getElementById('newImageUrl').value = '';
+        }
+    }
+
+    // 🔥 URL দিয়ে প্রিভিউ
+    function previewImageUrl(url) {
+        if(url) {
+            document.getElementById('previewImageDisplay').src = url;
+            // ফাইল ইনপুট ক্লিয়ার করে দেওয়া
+            document.getElementById('newImageFile').value = '';
+        }
+    }
+
+    // 🔥 রিসেট ইমেজ
+    function resetImage() {
+        document.getElementById('previewImageDisplay').src = originalImageSrc;
+        document.getElementById('newImageFile').value = '';
+        document.getElementById('newImageUrl').value = '';
+    }
+
+    function loadCategoriesOnce() {
+        fetch("{{ route('settings.fetch-categories') }}")
+            .then(res => res.json())
+            .then(data => {
+                if(!data.error) {
+                    globalCategories = data;
+                    populateAllDropdowns();
+                }
+            })
+            .catch(err => console.error("❌ Category Auto-load failed:", err));
+    }
+
+    function populateAllDropdowns() {
+        const allDropdowns = document.querySelectorAll('.wp-cat-dropdown');
+        if (globalCategories.length === 0) return;
+
+        allDropdowns.forEach(select => {
+            if (select.options.length > 1) return;
+            const defaultText = select.id === 'previewCategory' ? '-- Primary Category --' : '-- Select --';
+            select.innerHTML = `<option value="">${defaultText}</option>`;
+            globalCategories.forEach(cat => {
+                let option = document.createElement('option');
+                option.value = cat.id;
+                option.text = `${cat.name} (ID: ${cat.id})`;
+                select.appendChild(option);
+            });
+        });
+    }
 
     function fetchDraftContent(id, imageUrl) {
         const modal = document.getElementById('rewriteModal');
         const titleInput = document.getElementById('previewTitle');
-        
+        const hashtagsInput = document.getElementById('previewHashtags'); // ✅ হ্যাসট্যাগ ইনপুট
+        populateAllDropdowns();
+
         titleInput.value = "Loading...";
         if (tinymce.get('previewContent')) {
             tinymce.get('previewContent').setContent("<p>Fetching content...</p>");
@@ -254,13 +333,22 @@
         modal.classList.add('flex');
 
         document.getElementById('previewNewsId').value = id;
-        document.getElementById('previewImageDisplay').src = imageUrl ? imageUrl : 'https://via.placeholder.com/150';
+        
+        // ইমেজ সেট করা
+        originalImageSrc = imageUrl ? imageUrl : 'https://via.placeholder.com/150';
+        document.getElementById('previewImageDisplay').src = originalImageSrc;
+        
+        // ইনপুট ফিল্ড রিসেট
+        document.getElementById('newImageFile').value = '';
+        document.getElementById('newImageUrl').value = '';
 
         fetch(`/news/${id}/get-draft`)
             .then(res => res.json())
             .then(data => {
                 if(data.success) {
                     titleInput.value = data.title;
+                    hashtagsInput.value = data.hashtags || ''; // ✅ ডাটাবেস থেকে হ্যাসট্যাগ লোড করা
+
                     if (tinymce.get('previewContent')) {
                         tinymce.get('previewContent').setContent(data.content);
                     } else {
@@ -279,6 +367,7 @@
         let formData = new FormData();
         
         formData.append('title', document.getElementById('previewTitle').value);
+        formData.append('hashtags', document.getElementById('previewHashtags').value); // ✅ হ্যাসট্যাগ পাঠানো
         
         let content = "";
         if (tinymce.get('previewContent')) {
@@ -294,11 +383,16 @@
             if (el && el.value) formData.append('extra_categories[]', el.value);
         }
 
+        // 🔥 ইমেজ আপলোড ফিক্স
         const fileInput = document.getElementById('newImageFile');
-        if (fileInput && fileInput.files[0]) formData.append('image_file', fileInput.files[0]);
+        if (fileInput && fileInput.files[0]) {
+            formData.append('image_file', fileInput.files[0]);
+        }
         
         const urlInput = document.getElementById('newImageUrl');
-        if (urlInput && urlInput.value) formData.append('image_url', urlInput.value);
+        if (urlInput && urlInput.value) {
+            formData.append('image_url', urlInput.value);
+        }
 
         btn.innerText = "Publishing...";
         btn.disabled = true;
@@ -329,40 +423,6 @@
         });
     }
 
-    function fetchLiveCategories() {
-        const btn = document.querySelector('button[onclick="fetchLiveCategories()"]');
-        const statusText = document.getElementById('catStatusText');
-        const allDropdowns = document.querySelectorAll('.wp-cat-dropdown');
-
-        btn.innerText = "⏳ Loading...";
-        btn.disabled = true;
-
-        fetch('/settings/fetch-categories')
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    alert('Error: ' + data.error);
-                    statusText.innerText = "❌ ক্যাটাগরি লোড করা যায়নি।";
-                } else {
-                    allDropdowns.forEach(select => {
-                        const defaultText = select.id === 'previewCategory' ? '-- Primary Category --' : '-- Select --';
-                        select.innerHTML = `<option value="">${defaultText}</option>`;
-                        data.forEach(cat => {
-                            let option = document.createElement('option');
-                            option.value = cat.id;
-                            option.text = `${cat.name} (ID: ${cat.id})`;
-                            select.appendChild(option);
-                        });
-                    });
-                    statusText.innerText = "✅ ওয়ার্ডপ্রেস থেকে ক্যাটাগরি লোড হয়েছে।";
-                }
-            })
-            .finally(() => {
-                btn.innerText = "🔄 Refresh WP Categories";
-                btn.disabled = false;
-            });
-    }
-
     function closeRewriteModal() {
         document.getElementById('rewriteModal').classList.add('hidden');
         document.getElementById('rewriteModal').classList.remove('flex');
@@ -370,104 +430,69 @@
             tinymce.get('previewContent').setContent('');
         }
     }
-	
-	
+    
+    function copyBossLink(id) {
+        const previewUrl = "{{ url('/preview') }}/" + id;
+        navigator.clipboard.writeText(previewUrl).then(() => {
+            alert("✅ প্রিভিউ লিঙ্ক কপি হয়েছে! বসের হোয়াটসঅ্যাপ বা মেসেঞ্জারে পাঠিয়ে দিন।");
+        });
+    }
 
+    function saveDraftOnly() {
+        const id = document.getElementById('previewNewsId').value;
+        const btn = document.getElementById('btnSave');
+        
+        let formData = new FormData();
+        formData.append('title', document.getElementById('previewTitle').value);
+        formData.append('hashtags', document.getElementById('previewHashtags').value); // ✅ হ্যাসট্যাগ পাঠানো
+        
+        let content = "";
+        if (tinymce.get('previewContent')) {
+            content = tinymce.get('previewContent').getContent();
+        } else {
+            content = document.getElementById('previewContent').value;
+        }
+        formData.append('content', content);
 
+        // 🔥 ড্রাফট সেভ করার সময়ও ইমেজ পাঠানো (যদি থাকে)
+        const fileInput = document.getElementById('newImageFile');
+        if (fileInput && fileInput.files[0]) {
+            formData.append('image_file', fileInput.files[0]);
+        }
+        
+        const urlInput = document.getElementById('newImageUrl');
+        if (urlInput && urlInput.value) {
+            formData.append('image_url', urlInput.value);
+        }
 
+        btn.innerText = "Saving...";
+        btn.disabled = true;
 
-function copyBossLink(id) {
-    const previewUrl = "{{ url('/preview') }}/" + id;
-    navigator.clipboard.writeText(previewUrl).then(() => {
-        alert("✅ প্রিভিউ লিঙ্ক কপি হয়েছে! বসের হোয়াটসঅ্যাপ বা মেসেঞ্জারে পাঠিয়ে দিন।");
-    });
-}
-
-
-// 🔥 ড্রাফট স্ট্যাটাস অটো-আপডেট সিস্টেম
-/*
-function startStatusPolling() {
-    setInterval(() => {
-        const draftIds = Array.from(document.querySelectorAll('[data-news-id]'))
-                              .map(el => el.getAttribute('data-news-id'));
-
-        if (draftIds.length === 0) return;
-
-        fetch("{{ route('news.check-draft-updates') }}", {
+        fetch(`/news/${id}/update-draft`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            headers: { 
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json' 
             },
-            body: JSON.stringify({ ids: draftIds })
+            body: formData
         })
         .then(res => res.json())
-        .then(updates => {
-            updates.forEach(update => {
-                const card = document.querySelector(`[data-news-id="${update.id}"]`);
-                if (card) {
-                    // যদি স্ট্যাটাস বা মেসেজ পরিবর্তন হয়, তবে পেজটি রিলোড বা আপডেট করা
-                    // সহজ করার জন্য আমরা মেসেজটি চেক করছি
-                    const currentMsg = card.getAttribute('data-status-msg');
-                    if (update.error_message !== currentMsg) {
-                        window.location.reload(); // ডাটা পরিবর্তন হলে অটো রিফ্রেশ হবে
-                    }
-                }
-            });
-        });
-    }, 25000); // প্রতি 25 সেকেন্ড পর পর চেক করবে
-}
-
-document.addEventListener('DOMContentLoaded', startStatusPolling);
-*/
-
-
-
-function saveDraftOnly() {
-    const id = document.getElementById('previewNewsId').value;
-    const btn = document.getElementById('btnSave');
-    
-    let formData = new FormData();
-    formData.append('title', document.getElementById('previewTitle').value);
-    
-    let content = "";
-    if (tinymce.get('previewContent')) {
-        content = tinymce.get('previewContent').getContent();
-    } else {
-        content = document.getElementById('previewContent').value;
-    }
-    formData.append('content', content);
-
-    btn.innerText = "Saving...";
-    btn.disabled = true;
-
-    // web.php এ থাকা update-draft রাউটে হিট করবে
-    fetch(`/news/${id}/update-draft`, {
-        method: 'POST',
-        headers: { 
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Accept': 'application/json' 
-        },
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.success) {
-            alert("✅ " + data.message);
-            closeRewriteModal();
-            window.location.reload(); // পেজ রিফ্রেশ করে আপডেট দেখাবে
-        } else {
-            alert("❌ Failed: " + data.message);
+        .then(data => {
+            if(data.success) {
+                alert("✅ " + data.message);
+                closeRewriteModal();
+                window.location.reload();
+            } else {
+                alert("❌ Failed: " + data.message);
+                btn.innerText = "💾 Save Draft";
+                btn.disabled = false;
+            }
+        })
+        .catch(err => {
+            alert("⚠️ Error: " + err.message);
             btn.innerText = "💾 Save Draft";
             btn.disabled = false;
-        }
-    })
-    .catch(err => {
-        alert("⚠️ Error: " + err.message);
-        btn.innerText = "💾 Save Draft";
-        btn.disabled = false;
-    });
-}
-
+        });
+    }
 </script>
 @endsection

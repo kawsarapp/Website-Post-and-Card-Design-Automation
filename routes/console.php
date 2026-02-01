@@ -112,7 +112,7 @@ Artisan::command('news:autopost', function () {
 Schedule::command('news:autopost')->everyMinute();
 
 Schedule::call(function () {
-    $hours = 6;
+    $hours = 745;
     $count = NewsItem::where('created_at', '<', now()->subHours($hours))
         ->where('is_queued', false) 
         ->delete();

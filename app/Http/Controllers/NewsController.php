@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\NewsItem;
 use App\Models\UserSetting;
+use App\Models\Template;
 use App\Services\NewsScraperService;
 use App\Services\AIWriterService;
 use App\Services\WordPressService;
@@ -80,18 +81,26 @@ class NewsController extends Controller
             ['key' => 'ntv', 'name' => 'NTV News', 'image' => 'templates/ntv.png', 'layout' => 'ntv'],
             ['key' => 'rtv', 'name' => 'RTV News', 'image' => 'templates/rtv.png', 'layout' => 'rtv'],
             ['key' => 'dhakapost', 'name' => 'Dhaka Post', 'image' => 'templates/dhakapost.png', 'layout' => 'dhakapost'],
-            ['key' => 'dhakapost_new', 'name' => 'Dhaka Post Dark', 'image' => 'templates/dhakapost-new.png', 'layout' => 'dhakapost_new'],
             ['key' => 'todayevents', 'name' => 'Today Events', 'image' => 'templates/todayevents.png', 'layout' => 'todayevents'],
-            ['key' => 'BanglaLiveNews', 'name' => 'Bangla Live News', 'image' => 'templates/BanglaLiveNews.png', 'layout' => 'BanglaLiveNews'],
-            ['key' => 'BanglaLiveNews1', 'name' => 'Bangla Live News 1', 'image' => 'templates/BanglaLiveNews1.png', 'layout' => 'BanglaLiveNews1'],
-            ['key' => 'ShotterKhoje', 'name' => 'Shotter Khoje', 'image' => 'templates/ShotterKhoje.png', 'layout' => 'ShotterKhoje'],
-            ['key' => 'Jaijaidin1', 'name' => 'Jaijaidin 1', 'image' => 'templates/Jaijaidin1.png', 'layout' => 'Jaijaidin1'],
-            ['key' => 'Jaijaidin2', 'name' => 'Jaijaidin 2', 'image' => 'templates/Jaijaidin2.png', 'layout' => 'Jaijaidin2'],
-            ['key' => 'Jaijaidin3', 'name' => 'Jaijaidin 3', 'image' => 'templates/Jaijaidin3.png', 'layout' => 'Jaijaidin3'],
-            ['key' => 'Jaijaidin4', 'name' => 'Jaijaidin 4', 'image' => 'templates/Jaijaidin4.png', 'layout' => 'Jaijaidin4'],
-            ['key' => 'jonomot', 'name' => 'jonomot', 'image' => 'templates/jonomot.png', 'layout' => 'jonomot'],
-            ['key' => 'Bangladeshmail24', 'name' => 'Bangladeshmail24', 'image' => 'templates/Bangladeshmail24.png', 'layout' => 'Bangladeshmail24'],
         ];
+
+        // ডাইনামিক টেমপ্লেট লোড
+        try {
+            $dbTemplates = Template::where('is_active', true)->latest()->get()->map(function($t) {
+                return [
+                    'key' => 'custom_db_' . $t->id,
+                    'name' => $t->name,
+                    'image' => $t->thumbnail_url,
+                    'layout' => 'dynamic', 
+                    'layout_data' => $t->layout_data,
+                    'frame_url' => $t->frame_url
+                ];
+            })->toArray();
+
+            $allTemplates = array_merge($dbTemplates, $allTemplates); 
+        } catch (\Exception $e) {
+            Log::error("Template Fetch Error: " . $e->getMessage());
+        }
 
         $allowed = $settings->allowed_templates ?? [];
         $availableTemplates = [];
@@ -100,7 +109,7 @@ class NewsController extends Controller
             $availableTemplates = $allTemplates;
         } else {
             foreach ($allTemplates as $template) {
-                if (in_array($template['key'], $allowed)) {
+                if ($template['layout'] === 'dynamic' || in_array($template['key'], $allowed)) {
                     $availableTemplates[] = $template;
                 }
             }
@@ -167,7 +176,9 @@ class NewsController extends Controller
         return response()->json(['status' => 'on', 'next_post_time' => $nextPost->format('Y-m-d H:i:s')]);
     }
     
-    // 🔥 Final Publish (From Draft or Published Page)
+    // ==========================================
+    // 🔥 FIXED: Publish Draft with Hashtags & Images
+    // ==========================================
     public function publishDraft(Request $request, $id)
     {
         $request->validate([
@@ -176,13 +187,13 @@ class NewsController extends Controller
             'category' => 'nullable',
             'extra_categories' => 'nullable|array',
             'image_file' => 'nullable|image|max:5120',
-            'image_url' => 'nullable|url'
+            'image_url' => 'nullable|url',
+            'hashtags' => 'nullable|string' // ✅ ভ্যালিডেশন অ্যাড করা হলো
         ]);
 
         $news = NewsItem::findOrFail($id);
         $user = Auth::user();
 
-        // 🔥 ক্রেডিট লজিক: পাবলিশড নিউজ আপডেট করলে ১ ক্রেডিট কাটবে
         if ($news->status == 'published' && $user->role !== 'super_admin') {
             if($user->credits <= 0) {
                 return response()->json(['success' => false, 'message' => '❌ ক্রেডিট নেই!']);
@@ -199,7 +210,6 @@ class NewsController extends Controller
             });
         } 
         elseif ($user->role !== 'super_admin') {
-            // সাধারণ পাবলিশের জন্য লিমিট চেক
             if($user->credits <= 0) return response()->json(['success' => false, 'message' => '❌ ক্রেডিট শেষ!']);
             if (method_exists($user, 'hasDailyLimitRemaining') && !$user->hasDailyLimitRemaining()) {
                  return response()->json(['success' => false, 'message' => '❌ আজকের ডেইলি পোস্ট লিমিট শেষ!']);
@@ -214,6 +224,7 @@ class NewsController extends Controller
             $finalImage = $request->image_url;
         }
 
+        // ✅ ডাটাবেসে আপডেট (হ্যাসট্যাগ সহ)
         $news->update([
             'status'        => 'publishing',
             'title'         => $request->title,
@@ -221,6 +232,7 @@ class NewsController extends Controller
             'ai_title'      => $request->title,
             'ai_content'    => $request->content,
             'thumbnail_url' => $finalImage,
+            'hashtags'      => $request->hashtags, // 🔥 এটি মিসিং ছিল
             'error_message' => null,
             'updated_at'    => now()
         ]);
@@ -233,17 +245,19 @@ class NewsController extends Controller
         $categories = array_values(array_unique($categories));
         if(empty($categories)) $categories = [1];
 
+        // ✅ জবের জন্য কাস্টম ডাটা
         $customData = [
             'title'          => $request->title,
             'content'        => $request->content,
             'category_ids'   => $categories,
             'featured_image' => $finalImage,
+            'hashtags'       => $request->hashtags, // 🔥 জবে পাঠানো হচ্ছে
             'skip_social'    => true
         ];
 
         \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
 
-        return response()->json(['success' => true, 'message' => 'আপডেট শুরু হয়েছে! কিছুক্ষণের মধ্যে লাইভ হবে।']);
+        return response()->json(['success' => true, 'message' => 'আপডেট শুরু হয়েছে! কিছুক্ষণের মধ্যে লাইভ হবে।']);
     }
 
     public function sendToAiQueue($id)
@@ -302,7 +316,6 @@ class NewsController extends Controller
                   })
                   ->orWhereIn('status', ['processing', 'publishing', 'failed']);
             })
-            // 🔥 পাবলিশড নিউজগুলো ড্রাফট পেজ থেকে সরিয়ে ফেলা হলো
             ->where('status', '!=', 'published') 
             ->orderBy('updated_at', 'desc')
             ->paginate(20);
@@ -328,20 +341,42 @@ class NewsController extends Controller
 
     public function updateDraft(Request $request, $id)
     {
-        $request->validate(['title' => 'required', 'content' => 'required']);
-        $news = NewsItem::findOrFail($id);
-        
-        $news->update([
-            'title'         => $request->title,
-            'content'       => $request->content,
-            'ai_title'      => $request->title,
-            'ai_content'    => $request->content,
-            'is_rewritten'  => 1,
-            'status'        => 'draft',
-            'updated_at'    => now()
+        $request->validate([
+            'title' => 'required|string',
+            'content' => 'required|string',
+            'image_file' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'image_url' => 'nullable|url',
+            'hashtags' => 'nullable|string'
         ]);
 
-        return response()->json(['success' => true, 'message' => 'ড্রাফট সফলভাবে সেভ হয়েছে।']);
+        $news = auth()->user()->newsItems()->findOrFail($id);
+        
+        if ($request->hasFile('image_file')) {
+            try {
+                $file = $request->file('image_file');
+                $filename = 'news_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('news-images', $filename, 'public');
+                $news->thumbnail_url = asset('storage/' . $path);
+            } catch (\Exception $e) {
+                Log::error("Image Upload Failed: " . $e->getMessage());
+            }
+        } 
+        elseif ($request->filled('image_url')) {
+            $news->thumbnail_url = $request->image_url;
+        }
+
+        $news->title = $request->title;
+        $news->ai_title = $request->title; 
+        $news->content = $request->content;
+        $news->ai_content = $request->content;
+        $news->hashtags = $request->hashtags; // ✅ ড্রাফটে সেভ
+        $news->is_rewritten = 1;
+        $news->status = 'draft';
+        $news->updated_at = now();
+        
+        $news->save();
+
+        return response()->json(['success' => true, 'message' => 'ড্রাফট এবং ইমেজ সফলভাবে সেভ হয়েছে।']);
     }
     
     public function getDraftContent($id)
@@ -371,6 +406,7 @@ class NewsController extends Controller
             'success'      => true,
             'title'        => $title,
             'content'      => $content,
+            'hashtags'     => $news->hashtags, // ✅ ড্রাফট লোড করার সময় হ্যাসট্যাগ পাঠানো
             'image_url'    => $news->thumbnail_url,
             'extra_images' => $extraImages,
             'location'     => $news->location,
@@ -461,7 +497,7 @@ class NewsController extends Controller
         $hasWP = $settings->wp_url && $settings->wp_username;
         $hasLaravel = $settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token;
 
-        if (!$settings || (!$hasWP && !$hasLaravel)) return back()->with('error', 'সেটিংসে গিয়ে কানেক্ট করুন।');
+        if (!$settings || (!$hasWP && !$hasLaravel)) return back()->with('error', 'সেটিংসে গিয়ে কানেক্ট করুন।');
 
         $news = NewsItem::with(['website' => function ($query) { $query->withoutGlobalScopes(); }])->findOrFail($id);
         if ($news->status == 'published') return back()->with('error', 'ইতিমধ্যে পোস্ট করা হয়েছে!');
@@ -491,7 +527,7 @@ class NewsController extends Controller
 
         $news->update(['status' => 'publishing']);
         ProcessNewsPost::dispatch($news->id, $user->id, [], true);
-        return back()->with('success', 'প্রসেসিং শুরু হয়েছে!');
+        return back()->with('success', 'প্রসেসিং শুরু হয়েছে!');
     }
     
     public function destroy($id)
@@ -530,7 +566,7 @@ class NewsController extends Controller
                 return redirect()->route('news.index')->with('success', 'পাবলিশিং শুরু!');
             }
 
-            return redirect()->route('news.drafts')->with('success', 'ড্রাফটে সেভ হয়েছে!');
+            return redirect()->route('news.drafts')->with('success', 'ড্রাফটে সেভ হয়েছে!');
         } catch (\Exception $e) { return back()->with('error', 'সেভ করতে সমস্যা।')->withInput(); }
     }
 
@@ -555,8 +591,8 @@ class NewsController extends Controller
         }
 
         $isSocialOnly = $request->has('social_only') && $request->social_only == '1';
-        if ($news->status == 'published' && !$isSocialOnly) return response()->json(['success' => false, 'message' => '⚠️ এটি ইতিমধ্যেই পাবলিশড! রিশেয়ারের জন্য Only Social ব্যবহার করুন।']);
-        if ($news->status != 'published' && $isSocialOnly) return response()->json(['success' => false, 'message' => '⚠️ আগে ওয়েবসাইটে পাবলিশ করুন।']);
+        if ($news->status == 'published' && !$isSocialOnly) return response()->json(['success' => false, 'message' => '⚠️ এটি ইতিমধ্যেই পাবলিশড! রিশেয়ারের জন্য Only Social ব্যবহার করুন।']);
+        if ($news->status != 'published' && $isSocialOnly) return response()->json(['success' => false, 'message' => '⚠️ আগে ওয়েবসাইটে পাবলিশ করুন।']);
 
         try {
             if ($request->hasFile('design_image')) {
@@ -571,7 +607,7 @@ class NewsController extends Controller
                 ];
 
                 \App\Jobs\ProcessNewsPost::dispatch($news->id, $user->id, $customData, true);
-                return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
+                return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
             }
             return response()->json(['success' => false, 'message' => 'ইমেজ নেই।']);
         } catch (\Exception $e) { return response()->json(['success' => false, 'message' => 'সার্ভার এরর।']); }

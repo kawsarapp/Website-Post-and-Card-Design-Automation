@@ -5,11 +5,29 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
 
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap');
-    .font-bangla { font-family: 'Hind Siliguri', sans-serif; }
-    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-    .skeleton { background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
-    .tox-tinymce-aux { z-index: 99999 !important; }
+    /* SolaimanLipi Font Import */
+    @import url('https://fonts.maateen.me/solaiman-lipi/font.css');
+
+    /* Font Family Update */
+    .font-bangla { 
+        font-family: 'SolaimanLipi', Arial, sans-serif; 
+    }
+
+    /* অন্যান্য স্টাইল অপরিবর্তিত রাখা হয়েছে */
+    @keyframes shimmer { 
+        0% { background-position: -200% 0; } 
+        100% { background-position: 200% 0; } 
+    }
+    
+    .skeleton { 
+        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%); 
+        background-size: 200% 100%; 
+        animation: shimmer 1.5s infinite; 
+    }
+    
+    .tox-tinymce-aux { 
+        z-index: 99999 !important; 
+    }
 </style>
 
 {{-- Header --}}

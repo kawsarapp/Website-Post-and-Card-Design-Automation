@@ -410,12 +410,17 @@ class NewsScraperService
     }
 
     private function isGarbageText($text) {
-        $garbage = ['শেয়ার করুন', 'Advertisement', 'Subscribe', 'Follow us', 'Read more', 'বিজ্ঞাপন', 'আরো পড়ুন'];
+        $garbage = ['শেয়ার করুন', 'Advertisement', 'Subscribe', 'Follow us', 'Read more', 'বিজ্ঞাপন', 'আরো পড়ুন',
+		'গুগল নিউজ চ্যানেল ফলো করুন','ফরহাদুজ্জামান ফারুক/আরএআর','এমটিআই', 'ঢাকা পোস্ট','আমার দেশের খবর'
+		];
         foreach ($garbage as $g) {
-            if (stripos($text, $g) !== false && strlen($text) < 50) return true;
+        // mb_strlen ব্যবহার করা হয়েছে যাতে বাংলা ক্যারেক্টার ঠিকমতো কাউন্ট হয়
+        if (stripos($text, $g) !== false && mb_strlen($text, 'UTF-8') < 150) {
+            return true;
         }
-        return false;
     }
+    return false;
+	}
 
     private function isGarbageImage($url) {
         return preg_match('/(logo|icon|svg|avatar|profile|ad-|banner|share|button|facebook|twitter)/i', $url);

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Cache;
 
 class SettingsController extends Controller
 {
@@ -224,37 +225,60 @@ class SettingsController extends Controller
     /**
      * ৬. ক্যাটাগরি ফেচ করা (WP/Laravel)
      */
-    public function fetchCategories(WordPressService $wpService)
-    {
-        $user = Auth::user();
-        $settings = $user->settings;
+    
+	public function fetchCategories(WordPressService $wpService)
+{
+    $user = Auth::user();
+    $settings = $user->settings;
 
-        if (!$settings) {
-            return response()->json(['error' => 'Settings not found'], 400);
-        }
+    if (!$settings) {
+        return response()->json(['error' => 'Settings not found'], 400);
+    }
 
+    // ইউজার ভিত্তিক আলাদা ক্যাশ কি (Cache Key) তৈরি
+    $cacheKey = 'user_categories_' . $user->id;
+
+    // যদি ইউজার 'ফোর্স রিফ্রেশ' করতে চায় (যেমন: নতুন ক্যাটাগরি এড করার পর)
+    if (request()->has('refresh')) {
+        Cache::forget($cacheKey);
+    }
+
+    // ক্যাশ থেকে ডাটা নেওয়া, না থাকলে নতুন করে ফেচ করে ২৪ ঘণ্টার জন্য সেভ করা
+    $categories = Cache::remember($cacheKey, now()->addHours(24), function () use ($settings, $wpService) {
+        
+        // ১. লারাভেল সাইট থেকে ফেচ করা
         if ($settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token) {
             try {
                 $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/get-categories';
-                $response = Http::get($apiUrl, ['token' => $settings->laravel_api_token]);
-                if ($response->successful()) return response()->json($response->json());
-            } catch (\Exception $e) {}
+                $response = Http::timeout(10)->get($apiUrl, ['token' => $settings->laravel_api_token]);
+                if ($response->successful()) return $response->json();
+            } catch (\Exception $e) {
+                Log::error("Laravel Category Fetch Error: " . $e->getMessage());
+            }
         }
 
+        // ২. ওয়ার্ডপ্রেস থেকে ফেচ করা
         if ($settings->wp_url && $settings->wp_username && $settings->wp_app_password) {
             try {
-                $categories = $wpService->getCategories(
+                return $wpService->getCategories(
                     $settings->wp_url,
                     $settings->wp_username,
                     $settings->wp_app_password
                 );
-                return response()->json($categories);
             } catch (\Exception $e) {
-                return response()->json(['error' => 'WP Error: ' . $e->getMessage()], 500);
+                Log::error("WP Category Fetch Error: " . $e->getMessage());
             }
         }
-        return response()->json(['error' => 'No Connection Found'], 400);
+
+        return [];
+    });
+
+    if (empty($categories)) {
+        return response()->json(['error' => 'No Categories Found or Connection Failed'], 400);
     }
+
+    return response()->json($categories);
+}
 
     /**
      * ৭. লোগো আপলোড

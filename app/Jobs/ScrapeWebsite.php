@@ -25,7 +25,7 @@ class ScrapeWebsite implements ShouldQueue
 
     protected $websiteId;
     protected $userId;
-    public $timeout = 1200; 
+    public $timeout = 600; 
 
     public function __construct($websiteId, $userId)
     {

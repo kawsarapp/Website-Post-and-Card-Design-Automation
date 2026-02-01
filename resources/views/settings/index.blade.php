@@ -289,14 +289,14 @@
                 <h2 class="text-xl font-bold text-gray-700 flex items-center gap-2">
                     📂 ক্যাটাগরি ম্যাপিং
                 </h2>
-                <button type="button" onclick="fetchWPCategories()" class="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-100 border border-indigo-200 transition flex items-center gap-1">
+                <button type="button" id="refresh-cat-btn" onclick="fetchWPCategories(true)" class="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-100 border border-indigo-200 transition flex items-center gap-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                     Refresh Categories
                 </button>
             </div>
 
             <p class="text-sm text-gray-500 mb-6 bg-blue-50 p-3 rounded border border-blue-100">
-                💡 বাম পাশে আমাদের AI ক্যাটাগরি এবং ডান পাশে আপনার ওয়ার্ডপ্রেসের ক্যাটাগরি সিলেক্ট করুন। যাতে নিউজ সঠিক জায়গায় পোস্ট হয়।
+                💡 বাম পাশে আমাদের ক্যাটাগরি এবং ডান পাশে আপনার ওয়েবসাইটের ক্যাটাগরি সিলেক্ট করুন। যাতে নিউজ সঠিক জায়গায় পোস্ট হয়।
             </p>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
@@ -357,512 +357,47 @@
 </div>
 
 <script>
-    // ==========================================
-    // 🔥 1. WordPress Category Fetch
-    // ==========================================
-    function fetchWPCategories() {
-        const btn = document.querySelector('button[onclick="fetchWPCategories()"]');
-        const originalText = btn.innerHTML; // আগের টেক্সট সেভ রাখা
-        btn.innerHTML = '⏳ Loading...';
-        btn.disabled = true;
-        
-        fetch("{{ route('settings.fetch-categories') }}")
-            .then(res => res.json())
-            .then(data => {
-                if(data.error) {
-                    alert(data.error);
-                    btn.innerHTML = '❌ Error';
-                } else {
-                    populateDropdowns(data);
-                    btn.innerHTML = '✅ Updated';
-                }
-                
-                // ২ সেকেন্ড পর বাটন রিসেট
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 2000);
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Failed to connect to WordPress or Laravel. Please check Settings.');
-                btn.innerHTML = '❌ Failed';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 2000);
-            });
-    }
-
-    // ড্রপডাউন পপুলেট করার হেল্পার ফাংশন
-    function populateDropdowns(categories) {
-        const selectors = document.querySelectorAll('.wp-cat-selector');
-        
-        selectors.forEach(select => {
-            const savedVal = select.nextElementSibling.value; // হিডেন ইনপুট থেকে সেভ করা ভ্যালু
-            
-            let options = '<option value="">Select Category</option>';
-            
-            if (Array.isArray(categories)) {
-                categories.forEach(cat => {
-                    const isSelected = (cat.id == savedVal) ? 'selected' : '';
-                    options += `<option value="${cat.id}" ${isSelected}>${cat.name} (ID: ${cat.id})</option>`;
-                });
-            }
-            
-            select.innerHTML = options;
-        });
-    }
-
-    // ==========================================
-    // 🔥 2. Facebook Test Connection
-    // ==========================================
-    function testFacebook() {
-        const pageId = document.getElementById('fb_page_id').value;
-        const token = document.getElementById('fb_access_token').value;
-        const statusMsg = document.getElementById('fb_status_msg');
-        const btn = document.querySelector('button[onclick="testFacebook()"]');
-
-        if (!pageId || !token) {
-            alert("Please enter Page ID and Token first.");
-            return;
-        }
-
-        // UI Loading State
-        btn.innerHTML = "Checking...";
-        btn.disabled = true;
-        statusMsg.innerHTML = "⏳ Connecting to Facebook...";
-        statusMsg.className = "text-xs mt-2 font-bold text-gray-500";
-
-        fetch("{{ route('settings.test-facebook') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ fb_page_id: pageId, fb_access_token: token })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                statusMsg.innerText = data.message;
-                statusMsg.className = "text-xs mt-2 font-bold text-green-600 whitespace-pre-line"; 
-                alert("Success! Connected to Facebook.");
-            } else {
-                statusMsg.innerText = data.message;
-                statusMsg.className = "text-xs mt-2 font-bold text-red-600 whitespace-pre-line";
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            statusMsg.innerText = "❌ System Error. Check Console.";
-            statusMsg.className = "text-xs mt-2 font-bold text-red-600";
-        })
-        .finally(() => {
-            btn.innerHTML = "⚡ Test Connection";
-            btn.disabled = false;
-        });
-    }
-
-    // ==========================================
-    // 🔥 3. Auto Load Categories (On Page Load)
-    // ==========================================
-    document.addEventListener('DOMContentLoaded', () => {
-        // যদি সেটিংস থাকে, তবে অটোমেটিক ফেচ করবে
-        @if(($settings->wp_url && $settings->wp_username) || ($settings->laravel_site_url && $settings->laravel_api_token))
-            fetchWPCategories();
-        @endif
-    });
-
-    function testWordPress() {
-        const url = document.getElementById('wp_url').value;
-        const username = document.getElementById('wp_username').value;
-        const pass = document.getElementById('wp_app_password').value;
-        const statusMsg = document.getElementById('wp_status_msg');
-        const btn = document.querySelector('button[onclick="testWordPress()"]');
-
-        if (!url || !username || !pass) {
-            alert("Please fill all WordPress fields first.");
-            return;
-        }
-
-        btn.innerHTML = "Checking...";
-        btn.disabled = true;
-        statusMsg.innerHTML = "⏳ Connecting to WordPress...";
-        statusMsg.className = "text-xs font-bold mb-4 text-gray-500";
-
-        fetch("{{ route('settings.test-wordpress') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ wp_url: url, wp_username: username, wp_app_password: pass })
-        })
-        .then(res => res.json())
-        .then(data => {
-            statusMsg.innerText = data.message;
-            statusMsg.className = data.success 
-                ? "text-xs font-bold mb-4 text-green-600 whitespace-pre-line" 
-                : "text-xs font-bold mb-4 text-red-600 whitespace-pre-line";
-            
-            if(data.success) alert("Success! WordPress Connected.");
-        })
-        .catch(err => {
-            statusMsg.innerText = "❌ System Error.";
-            statusMsg.className = "text-xs font-bold mb-4 text-red-600";
-        })
-        .finally(() => {
-            btn.innerHTML = "⚡ Test Connection";
-            btn.disabled = false;
-        });
-    }
-
-    // ==========================================
-    // ✈️ 3. Telegram Test
-    // ==========================================
-    function testTelegram() {
-        const token = document.getElementById('telegram_bot_token').value;
-        const channel = document.getElementById('telegram_channel_id').value;
-        const statusMsg = document.getElementById('tg_status_msg');
-        const btn = document.querySelector('button[onclick="testTelegram()"]');
-
-        if (!token || !channel) {
-            alert("Please enter Bot Token and Channel ID.");
-            return;
-        }
-
-        btn.innerHTML = "Checking...";
-        btn.disabled = true;
-        statusMsg.innerHTML = "⏳ Connecting...";
-        statusMsg.className = "text-xs mt-2 font-bold text-gray-500";
-
-        fetch("{{ route('settings.test-telegram') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ telegram_bot_token: token, telegram_channel_id: channel })
-        })
-        .then(res => res.json())
-        .then(data => {
-            statusMsg.innerText = data.message;
-            statusMsg.className = data.success 
-                ? "text-xs mt-2 font-bold text-green-600 whitespace-pre-line"
-                : "text-xs mt-2 font-bold text-red-600 whitespace-pre-line";
-            
-            if(data.success) alert("Success! Telegram Connected.");
-        })
-        .catch(err => {
-            statusMsg.innerText = "❌ Error.";
-            statusMsg.className = "text-xs mt-2 font-bold text-red-600";
-        })
-        .finally(() => {
-            btn.innerHTML = "⚡ Test Connection";
-            btn.disabled = false;
-        });
-    }
-</script>
-
-
-
-<script>
-    // ==========================================
-    // 🔥 1. WordPress Category Fetch
-    // ==========================================
-    function fetchWPCategories() {
-        const btn = document.querySelector('button[onclick="fetchWPCategories()"]');
-        const originalText = btn.innerHTML; // আগের টেক্সট সেভ রাখা
-        btn.innerHTML = '⏳ Loading...';
-        btn.disabled = true;
-        
-        fetch("{{ route('settings.fetch-categories') }}")
-            .then(res => res.json())
-            .then(data => {
-                if(data.error) {
-                    alert(data.error);
-                    btn.innerHTML = '❌ Error';
-                } else {
-                    populateDropdowns(data);
-                    btn.innerHTML = '✅ Updated';
-                }
-                
-                // ২ সেকেন্ড পর বাটন রিসেট
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 2000);
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Failed to connect to WordPress or Laravel. Please check Settings.');
-                btn.innerHTML = '❌ Failed';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 2000);
-            });
-    }
-
-    // ড্রপডাউন পপুলেট করার হেল্পার ফাংশন
-    function populateDropdowns(categories) {
-        const selectors = document.querySelectorAll('.wp-cat-selector');
-        
-        selectors.forEach(select => {
-            const savedVal = select.nextElementSibling.value; // হিডেন ইনপুট থেকে সেভ করা ভ্যালু
-            
-            let options = '<option value="">Select Category</option>';
-            
-            if (Array.isArray(categories)) {
-                categories.forEach(cat => {
-                    const isSelected = (cat.id == savedVal) ? 'selected' : '';
-                    options += `<option value="${cat.id}" ${isSelected}>${cat.name} (ID: ${cat.id})</option>`;
-                });
-            }
-            
-            select.innerHTML = options;
-        });
-    }
-
-    // ==========================================
-    // 🔥 2. Facebook Test Connection
-    // ==========================================
-    function testFacebook() {
-        const pageId = document.getElementById('fb_page_id').value;
-        const token = document.getElementById('fb_access_token').value;
-        const statusMsg = document.getElementById('fb_status_msg');
-        const btn = document.querySelector('button[onclick="testFacebook()"]');
-
-        if (!pageId || !token) {
-            alert("Please enter Page ID and Token first.");
-            return;
-        }
-
-        // UI Loading State
-        btn.innerHTML = "Checking...";
-        btn.disabled = true;
-        statusMsg.innerHTML = "⏳ Connecting to Facebook...";
-        statusMsg.className = "text-xs mt-2 font-bold text-gray-500";
-
-        fetch("{{ route('settings.test-facebook') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ fb_page_id: pageId, fb_access_token: token })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                statusMsg.innerText = data.message;
-                statusMsg.className = "text-xs mt-2 font-bold text-green-600 whitespace-pre-line"; 
-                alert("Success! Connected to Facebook.");
-            } else {
-                statusMsg.innerText = data.message;
-                statusMsg.className = "text-xs mt-2 font-bold text-red-600 whitespace-pre-line";
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            statusMsg.innerText = "❌ System Error. Check Console.";
-            statusMsg.className = "text-xs mt-2 font-bold text-red-600";
-        })
-        .finally(() => {
-            btn.innerHTML = "⚡ Test Connection";
-            btn.disabled = false;
-        });
-    }
-
-    // ==========================================
-    // 🔥 3. Auto Load Categories (On Page Load)
-    // ==========================================
-    document.addEventListener('DOMContentLoaded', () => {
-        // যদি সেটিংস থাকে, তবে অটোমেটিক ফেচ করবে
-        @if(($settings->wp_url && $settings->wp_username) || ($settings->laravel_site_url && $settings->laravel_api_token))
-            fetchWPCategories();
-        @endif
-    });
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-
-    function testWordPress() {
-        const url = document.getElementById('wp_url').value;
-        const username = document.getElementById('wp_username').value;
-        const pass = document.getElementById('wp_app_password').value;
-        const statusMsg = document.getElementById('wp_status_msg');
-        const btn = document.querySelector('button[onclick="testWordPress()"]');
-
-        if (!url || !username || !pass) {
-            alert("Please fill all WordPress fields first.");
-            return;
-        }
-
-        btn.innerHTML = "Checking...";
-        btn.disabled = true;
-        statusMsg.innerHTML = "⏳ Connecting to WordPress...";
-        statusMsg.className = "text-xs font-bold mb-4 text-gray-500";
-
-        fetch("{{ route('settings.test-wordpress') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ wp_url: url, wp_username: username, wp_app_password: pass })
-        })
-        .then(res => res.json())
-        .then(data => {
-            statusMsg.innerText = data.message;
-            statusMsg.className = data.success 
-                ? "text-xs font-bold mb-4 text-green-600 whitespace-pre-line" 
-                : "text-xs font-bold mb-4 text-red-600 whitespace-pre-line";
-            
-            if(data.success) alert("Success! WordPress Connected.");
-        })
-        .catch(err => {
-            statusMsg.innerText = "❌ System Error.";
-            statusMsg.className = "text-xs font-bold mb-4 text-red-600";
-        })
-        .finally(() => {
-            btn.innerHTML = "⚡ Test Connection";
-            btn.disabled = false;
-        });
-    }
-
-    // ==========================================
-    // 📘 2. Facebook Test
-    // ==========================================
-    function testFacebook() {
-        const pageId = document.getElementById('fb_page_id').value;
-        const token = document.getElementById('fb_access_token').value;
-        const statusMsg = document.getElementById('fb_status_msg');
-        const btn = document.querySelector('button[onclick="testFacebook()"]');
-
-        if (!pageId || !token) {
-            alert("Please enter FB Page ID and Token.");
-            return;
-        }
-
-        btn.innerHTML = "Checking...";
-        btn.disabled = true;
-        statusMsg.innerHTML = "⏳ Connecting...";
-        statusMsg.className = "text-xs mt-2 font-bold text-gray-500";
-
-        fetch("{{ route('settings.test-facebook') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ fb_page_id: pageId, fb_access_token: token })
-        })
-        .then(res => res.json())
-        .then(data => {
-            statusMsg.innerText = data.message;
-            statusMsg.className = data.success 
-                ? "text-xs mt-2 font-bold text-green-600 whitespace-pre-line"
-                : "text-xs mt-2 font-bold text-red-600 whitespace-pre-line";
-            
-            if(data.success) alert("Success! Facebook Connected.");
-        })
-        .catch(err => {
-            statusMsg.innerText = "❌ Error.";
-            statusMsg.className = "text-xs mt-2 font-bold text-red-600";
-        })
-        .finally(() => {
-            btn.innerHTML = "⚡ Test Connection";
-            btn.disabled = false;
-        });
-    }
-
-    // ==========================================
-    // ✈️ 3. Telegram Test
-    // ==========================================
-    function testTelegram() {
-        const token = document.getElementById('telegram_bot_token').value;
-        const channel = document.getElementById('telegram_channel_id').value;
-        const statusMsg = document.getElementById('tg_status_msg');
-        const btn = document.querySelector('button[onclick="testTelegram()"]');
-
-        if (!token || !channel) {
-            alert("Please enter Bot Token and Channel ID.");
-            return;
-        }
-
-        btn.innerHTML = "Checking...";
-        btn.disabled = true;
-        statusMsg.innerHTML = "⏳ Connecting...";
-        statusMsg.className = "text-xs mt-2 font-bold text-gray-500";
-
-        fetch("{{ route('settings.test-telegram') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ telegram_bot_token: token, telegram_channel_id: channel })
-        })
-        .then(res => res.json())
-        .then(data => {
-            statusMsg.innerText = data.message;
-            statusMsg.className = data.success 
-                ? "text-xs mt-2 font-bold text-green-600 whitespace-pre-line"
-                : "text-xs mt-2 font-bold text-red-600 whitespace-pre-line";
-            
-            if(data.success) alert("Success! Telegram Connected.");
-        })
-        .catch(err => {
-            statusMsg.innerText = "❌ Error.";
-            statusMsg.className = "text-xs mt-2 font-bold text-red-600";
-        })
-        .finally(() => {
-            btn.innerHTML = "⚡ Test Connection";
-            btn.disabled = false;
-        });
-    }
-
-    // ==========================================
-    // 🔄 4. WP Categories & Auto Load
-    // ==========================================
-    function fetchWPCategories() {
-        const btn = document.querySelector('button[onclick="fetchWPCategories()"]');
+    // ১. ক্যাটাগরি ফেচ করা (Cache logic সহ)
+    function fetchWPCategories(forceRefresh = false) {
+        const btn = document.getElementById('refresh-cat-btn');
         const originalText = btn.innerHTML;
+        
         btn.innerHTML = '⏳ Loading...';
         btn.disabled = true;
+
+        // যদি forceRefresh true হয়, তবে URL-এ refresh=1 যোগ হবে
+        let url = "{{ route('settings.fetch-categories') }}";
+        if (forceRefresh) {
+            url += "?refresh=1";
+        }
         
-        fetch("{{ route('settings.fetch-categories') }}")
+        fetch(url)
             .then(res => res.json())
             .then(data => {
                 if(data.error) {
                     alert(data.error);
-                    btn.innerHTML = '❌ Error';
                 } else {
                     populateDropdowns(data);
-                    btn.innerHTML = '✅ Updated';
+                    if(forceRefresh) alert('✅ ক্যাটাগরি লিস্ট আপডেট করা হয়েছে!');
                 }
-                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
             })
             .catch(err => {
-                btn.innerHTML = '❌ Failed';
-                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+                console.error(err);
+                alert('Connection Failed! Please check Settings.');
+            })
+            .finally(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             });
     }
 
+    // ২. ড্রপডাউন পপুলেট করা
     function populateDropdowns(categories) {
         const selectors = document.querySelectorAll('.wp-cat-selector');
         selectors.forEach(select => {
             const savedVal = select.nextElementSibling.value;
             let options = '<option value="">Select Category</option>';
+            
             if (Array.isArray(categories)) {
                 categories.forEach(cat => {
                     const isSelected = (cat.id == savedVal) ? 'selected' : '';
@@ -873,12 +408,63 @@
         });
     }
 
+    // ৩. কানেকশন টেস্ট ফাংশনগুলো (WordPress, FB, Telegram)
+    function genericTest(type, data, statusId, btn) {
+        const statusMsg = document.getElementById(statusId);
+        const originalBtnText = btn.innerHTML;
+
+        btn.innerHTML = "Checking...";
+        btn.disabled = true;
+        statusMsg.innerHTML = "⏳ Connecting...";
+
+        fetch(`/settings/test/${type}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(data => {
+            statusMsg.innerText = data.message;
+            statusMsg.className = data.success ? "text-xs font-bold mt-2 text-green-600" : "text-xs font-bold mt-2 text-red-600";
+        })
+        .finally(() => {
+            btn.innerHTML = originalBtnText;
+            btn.disabled = false;
+        });
+    }
+
+    // বাটন ক্লিক ইভেন্টগুলো
+    function testWordPress() {
+        genericTest('wordpress', {
+            wp_url: document.getElementById('wp_url').value,
+            wp_username: document.getElementById('wp_username').value,
+            wp_app_password: document.getElementById('wp_app_password').value
+        }, 'wp_status_msg', document.activeElement);
+    }
+
+    function testFacebook() {
+        genericTest('facebook', {
+            fb_page_id: document.getElementById('fb_page_id').value,
+            fb_access_token: document.getElementById('fb_access_token').value
+        }, 'fb_status_msg', document.activeElement);
+    }
+
+    function testTelegram() {
+        genericTest('telegram', {
+            telegram_bot_token: document.getElementById('telegram_bot_token').value,
+            telegram_channel_id: document.getElementById('telegram_channel_id').value
+        }, 'tg_status_msg', document.activeElement);
+    }
+
+    // ৪. পেজ লোড হলে অটোমেটিক ক্যাটাগরি লোড (ক্যাশ থেকে আসবে)
     document.addEventListener('DOMContentLoaded', () => {
         @if(($settings->wp_url && $settings->wp_username) || ($settings->laravel_site_url && $settings->laravel_api_token))
-            fetchWPCategories();
+            fetchWPCategories(false); 
         @endif
     });
-
-
 </script>
+
 @endsection
