@@ -1,0 +1,14 @@
+@font-face {
+  font-family: 'NotoSerif-WatchBangladesh';
+  src: url('/fonts/NotoSerifBengali_Condensed-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'NotoSerif-TodayEvents';
+  src: url('/fonts/NotoSerifBengali_Condensed-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'NotoSerif-EditorA';
+  src: url('/fonts/NotoSerifBengali_Condensed-SemiBold.ttf') format('truetype');
+}

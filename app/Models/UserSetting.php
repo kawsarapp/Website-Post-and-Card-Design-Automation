@@ -73,6 +73,10 @@ class UserSetting extends Model
 		'Jaijaidin4' => 'Jaijaidin 4',
 		'ShotterKhoje' => 'Shotter Khoje',
 		'jonomot' => 'jonomot',
+		'Bangladeshmail24' => 'Bangladeshmail24',
+		'WatchBangladesh' => 'WatchBangladesh',
+		'TodayEventsDualFrame' => 'TodayEventsDualFrame',
+		
     ];
 
     public function user()

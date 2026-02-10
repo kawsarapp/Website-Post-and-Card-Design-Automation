@@ -242,7 +242,7 @@
 
         // ডিফল্ট ফন্ট সেটিংস
         const commonDefaults = {
-            fontFamily: "'Hind Siliguri', sans-serif",
+            fontFamily: "'Hind Siliguri', 'sans-serif', 'SolaimanLipi', 'Noto Serif Cond SemiBold'",
             fill: '#000000',
             backgroundColor: '',
             fontSize: 60
@@ -269,15 +269,6 @@
                 date:  { ...commonDefaults, top: 20, left: 975, originX: 'center', fill: '#000', fontSize: 30 },
                 image: { ...commonDefaults, left: 40, top: 130, width: 1000, height: 430, zoom: 1.3 }
             },
-			
-            //'todayevents': { 
-             //   title: { ...commonDefaults, top: 710, left: 540, originX: 'center', textAlign: 'center', 
-			//	width: 1000, fill: '#000000', fontFamily: 'Noto Serif Cond Black', originX: 'center', originY: 'center', }, 
-               // date:  { ...commonDefaults, top: 28, left: 1050, originX: 'right', fill: '#ffffff', fontSize: 26 },
-             //   image: { ...commonDefaults, left: 40, top: 120, width: 1000, height: 430, zoom: 1.1 }
-           // },
-
-			
 			
 			
 			'todayevents': { 
@@ -345,11 +336,58 @@
 				date:  { ...commonDefaults, top: 45, left: 120, originX: 'center', fill: '#000000', fontSize: 30 },
 				image: { ...commonDefaults, left: 1, top: 160, width: 1080, height: 540, zoom: 1.0 }
 			},
+			
 			'Bangladeshmail24': { 
-				title: { ...commonDefaults, top: 650, left: 545, width: 1050, textAlign: 'center', originX: 'center', fill: '#000' },
-				date:  { ...commonDefaults, top: 520, left: 120, originX: 'center', fill: '#000000', fontSize: 30 },
-				image: { ...commonDefaults, left: 1, top: 20, width: 1080, height: 530, zoom: 1.0 }
-			}
+                title: { 
+                    ...commonDefaults, 
+                    top: 650, 
+                    left: 545, 
+                    originX: 'center', 
+                    originY: 'center', 
+                    textAlign: 'center', 
+                    width: 1050, 
+					fill: '#000',
+                    fontFamily: 'Noto Serif Cond Black' 
+                }, 
+                date:  { ...commonDefaults, top: 520, left: 120, originX: 'center', fill: '#000000', fontSize: 30, fontFamily: "'Noto Serif Cond Black'" },
+                image: { ...commonDefaults, left: 1, top: 20, width: 1080, height: 530, zoom: 1.0 }
+            },
+			
+			
+			'WatchBangladesh': { 
+                title: { 
+                    ...commonDefaults, 
+                    top: 650, 
+                    left: 555, 
+                    originX: 'center', 
+                    originY: 'center', 
+                    textAlign: 'center', 
+                    width: 1050, 
+					fill: '#000',
+                    fontFamily: "'Noto Serif Cond Black'"
+                }, 
+				date:  { ...commonDefaults, top: 524, left: 649, originX: 'right', fill: '#fff', fontSize: 30, fontFamily: "'Noto Serif Cond Black'" ,padding: 6 },
+                image: { ...commonDefaults, left: 1, top: 20, width: 1080, height: 530, zoom: 1.0 }
+            },
+			
+			
+			'TodayEventsDualFrame': { 
+                title: { 
+                    ...commonDefaults, 
+                    top: 650, 
+                    left: 545, 
+                    originX: 'center', 
+                    originY: 'center', 
+                    textAlign: 'center', 
+                    width: 1050, 
+					fill: '#000',
+                    fontFamily: "'Noto Serif Cond Black'"
+                }, 
+                date:  { ...commonDefaults, top: 1020, left: 600, originX: 'center', fill: '#000000', fontSize: 30, fontFamily: "'Noto Serif Cond Black'" },
+                image: { ...commonDefaults, left: 1, top: 20, width: 1080, height: 530, zoom: 1.0 }
+            },
+			
+			
 			
 			
 			
@@ -428,7 +466,8 @@
                 const dConfig = targetLayout.date;
                 dateObj.set({
                     top: dConfig.top, left: dConfig.left, originX: dConfig.originX,
-                    fontSize: dConfig.fontSize, fill: dConfig.fill, backgroundColor: dConfig.backgroundColor
+                    fontSize: dConfig.fontSize, fill: dConfig.fill, backgroundColor: dConfig.backgroundColor,
+					fontFamily: dConfig.fontFamily
                 });
             }
             dateObj.setCoords();
@@ -715,7 +754,8 @@
                     'Tiro Bangla', 
                     'Mina', 
                     'Noto Serif Bengali:400,700', 
-                    'Atma:300,400,500,600,700'
+                    'Atma:300,400,500,600,700',
+					'Noto Serif Bengali Condensed'
                 ] 
             },
             custom: {
@@ -750,7 +790,7 @@
                 'Noto Serif Cond Thin', 'Noto Serif Cond ExtraLight', 'Noto Serif Cond Light', 
                 'Noto Serif Cond Regular', 'Noto Serif Cond Medium', 'Noto Serif Cond SemiBold', 
                 'Noto Serif Cond Bold', 'Noto Serif Cond ExtraBold', 'Noto Serif Cond Black',
-                'SolaimanLipi', 
+                'SolaimanLipi', 'Noto Serif Bengali Condensed SemiBold',
                 'Li Alinur Banglaborno', 'Li Alinur Kuyasha', 'Li Alinur Sangbadpatra', 'Li Alinur Tumatul',
                 'Li MA Hai', 'Li Purno Pran', 'Li Sabbir Sorolota', 'Li Shohid Abu Sayed',
                 'Li Abu JM Akkas', 'Li Mehdi Ekushey', 'Li Shadhinata'

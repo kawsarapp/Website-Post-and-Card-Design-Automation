@@ -93,6 +93,8 @@ class NewsController extends Controller
         ['key' => 'Jaijaidin4', 'name' => 'Jaijaidin 4', 'image' => 'templates/Jaijaidin4.png', 'layout' => 'Jaijaidin4'],
         ['key' => 'jonomot', 'name' => 'jonomot', 'image' => 'templates/jonomot.png', 'layout' => 'jonomot'],
         ['key' => 'Bangladeshmail24', 'name' => 'Bangladeshmail24', 'image' => 'templates/Bangladeshmail24.png', 'layout' => 'Bangladeshmail24'],
+        ['key' => 'WatchBangladesh', 'name' => 'WatchBangladesh', 'image' => 'templates/WatchBangladesh.png', 'layout' => 'WatchBangladesh'],
+        ['key' => 'TodayEventsDualFrame', 'name' => 'TodayEventsDualFrame', 'image' => 'templates/TodayEventsDualFrame.png', 'layout' => 'TodayEventsDualFrame'],
     ];
 
         // ডাইনামিক টেমপ্লেট লোড
