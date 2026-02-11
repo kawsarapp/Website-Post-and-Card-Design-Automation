@@ -19,7 +19,8 @@ class User extends Authenticatable
         'credits', 
         'total_credits_limit', 
         'daily_post_limit',
-        'is_active'
+        'is_active',
+        'permissions'
     ];
 
     /**

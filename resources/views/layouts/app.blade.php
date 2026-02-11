@@ -163,46 +163,52 @@
                         </button>
                         
                         <div id="dotDropdown" class="hidden absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-[100]">
-                            
-                            {{-- ADMIN: REPORTER MANAGEMENT --}}
-                            @if(auth()->user()->role === 'super_admin' || auth()->user()->hasPermission('manage_reporters'))
-                                <p class="text-[10px] font-black text-slate-400 uppercase px-3 py-2 tracking-widest">Reporter Management</p>
-                                <a href="{{ route('manage.reporters.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-xl">
-                                    <i class="fa-solid fa-users text-indigo-500 w-5"></i> Reporter List
-                                </a>
-                                <a href="{{ route('manage.reporters.news') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-xl">
-                                    <i class="fa-solid fa-clipboard-list text-indigo-500 w-5"></i> Reporter News
-                                </a>
-                                <div class="my-2 border-t border-slate-100"></div>
-                            @endif
+    
+    {{-- ১. রিপোর্টার ম্যানেজমেন্ট সেকশন --}}
+    @if(auth()->user()->role === 'super_admin' || auth()->user()->hasPermission('manage_reporters'))
+        <p class="text-[10px] font-black text-slate-400 uppercase px-3 py-2 tracking-widest">Reporter Management</p>
+        <a href="{{ route('manage.reporters.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-xl">
+            <i class="fa-solid fa-users text-indigo-500 w-5"></i> Reporter List
+        </a>
+        <a href="{{ route('manage.reporters.news') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-indigo-50 rounded-xl">
+            <i class="fa-solid fa-clipboard-list text-indigo-500 w-5"></i> Reporter News
+        </a>
+        <div class="my-2 border-t border-slate-100"></div>
+    @endif
 
-                            {{-- General Admin Links --}}
-                            @if(auth()->user()->role !== 'reporter')
-                                <p class="text-[10px] font-black text-slate-400 uppercase px-3 py-2 tracking-widest">System</p>
-                                @if(auth()->user()->role === 'super_admin')
-                                <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl">
-                                    <i class="fa-solid fa-shield-halved text-rose-500 w-5"></i> Dashboard
-                                </a>
-								<div class="my-2 border-t border-slate-100"></div>
-								<a href="{{ route('admin.post-history') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl">
-                                    <i class="fa-solid fa-shield-halved text-rose-500 w-5"></i> History
-                                </a>
-								<div class="my-2 border-t border-slate-100"></div>
-								<a href="{{ route('settings.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl">
-                                    <i class="fa-solid fa-sliders text-slate-400 w-5"></i> Settings
-                                </a>
-                                @endif
-                                
-                                
-                            @endif
+    {{-- ২. সিস্টেম সেকশন (শুধুমাত্র এডমিনদের জন্য) --}}
+    @if(auth()->user()->role !== 'reporter')
+        <p class="text-[10px] font-black text-slate-400 uppercase px-3 py-2 tracking-widest">System</p>
+        
+        @if(auth()->user()->role === 'super_admin')
+            <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl">
+                <i class="fa-solid fa-shield-halved text-rose-500 w-5"></i> Dashboard
+            </a>
+            
+        @endif
+        @if(auth()->user()->role === 'super_admin' || auth()->user()->hasPermission('can_history'))
+            <a href="{{ route('admin.post-history') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl">
+                <i class="fa-solid fa-clock-rotate-left text-slate-400 w-5"></i> History
+            </a>
+            @endif
 
-                            <form action="{{ route('logout') }}" method="POST">
-                                @csrf
-                                <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl text-left">
-                                    <i class="fa-solid fa-power-off w-5"></i> Logout
-                                </button>
-                            </form>
-                        </div>
+        @if(auth()->user()->role === 'super_admin' || auth()->user()->hasPermission('can_settings'))
+            <a href="{{ route('settings.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl">
+                <i class="fa-solid fa-sliders text-slate-400 w-5"></i> Settings
+            </a>
+        @endif
+
+        <div class="my-2 border-t border-slate-100"></div>
+    @endif
+
+    {{-- ৩. লগআউট বাটন --}}
+    <form action="{{ route('logout') }}" method="POST">
+        @csrf
+        <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl text-left">
+            <i class="fa-solid fa-power-off w-5"></i> Logout
+        </button>
+    </form>
+</div>
                     </div>
                 @endauth
             </div>
@@ -331,6 +337,18 @@
                             <span class="font-bold text-sm text-slate-700">Observed Sites</span>
                         </a>
                         @endif
+
+
+                        {{-- নতুন যোগ করা সেটিংস বাটন (মোবাইলের জন্য) --}}
+                        @if(auth()->user()->role === 'super_admin' || auth()->user()->hasPermission('manage_settings'))
+                        <a href="{{ route('settings.index') }}" class="flex items-center gap-4 p-3 bg-white border border-slate-100 rounded-xl">
+                            <div class="w-8 h-8 rounded-lg bg-slate-50 text-slate-500 flex items-center justify-center">
+                                <i class="fa-solid fa-sliders"></i>
+                            </div>
+                            <span class="font-bold text-sm text-slate-700">Settings</span>
+                        </a>
+                        @endif
+
                     </div>
                 @endif
 
