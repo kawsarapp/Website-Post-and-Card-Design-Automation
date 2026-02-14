@@ -93,6 +93,8 @@ class NewsController extends Controller
         ['key' => 'Jaijaidin4', 'name' => 'Jaijaidin 4', 'image' => 'templates/Jaijaidin4.png', 'layout' => 'Jaijaidin4'],
         ['key' => 'jonomot', 'name' => 'jonomot', 'image' => 'templates/jonomot.png', 'layout' => 'jonomot'],
         ['key' => 'Bangladeshmail24', 'name' => 'Bangladeshmail24', 'image' => 'templates/Bangladeshmail24.png', 'layout' => 'Bangladeshmail24'],
+        ['key' => 'todayeventsSingle', 'name' => 'todayeventsSingle', 'image' => 'templates/todayeventsSingle.png', 'layout' => 'todayeventsSingle'],
+        ['key' => 'todayeventsSingle1', 'name' => 'todayeventsSingle1', 'image' => 'templates/todayeventsSingle1.png', 'layout' => 'todayeventsSingle1'],
         ['key' => 'WatchBangladesh', 'name' => 'WatchBangladesh', 'image' => 'templates/WatchBangladesh.png', 'layout' => 'WatchBangladesh'],
         ['key' => 'TodayEventsDualFrame', 'name' => 'TodayEventsDualFrame', 'image' => 'templates/TodayEventsDualFrame.png', 'layout' => 'TodayEventsDualFrame'],
     ];
@@ -329,12 +331,12 @@ class NewsController extends Controller
         $news->update([
             'status' => 'processing', 
             'error_message' => null,
-            'ai_title' => 'AI লিখছে...',
+            'ai_title' => 'Writing...',
             'ai_content' => null
         ]);
 
         \App\Jobs\GenerateAIContent::dispatch($news->id, $user->id);
-        return back()->with('success', 'AI প্রসেসিং শুরু হয়েছে!');
+        return back()->with('success', 'Processing Start!');
     }
     
     public function drafts()
@@ -664,7 +666,7 @@ class NewsController extends Controller
             $news->error_message = '✅ Boss Approved this news.';
         } else {
             $news->status = 'failed';
-            $news->error_message = '❌ Boss Rejected: ' . $request->input('note');
+            $news->error_message = '❌ Rejected: ' . $request->input('note');
         }
         
         $news->save();

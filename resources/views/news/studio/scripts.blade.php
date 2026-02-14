@@ -282,8 +282,38 @@
                     width: 900, 
                     fontFamily: 'Noto Serif Cond Black' 
                 }, 
-                date:  { ...commonDefaults, top: 28, left: 1050, originX: 'right', fill: '#000000', fontSize: 26, backgroundColor: 'red', fontFamily: 'SolaimanLipi',padding: 6 },
+                date:  { ...commonDefaults, top: 1015, left: 640, originX: 'right', fill: '#000000', fontSize: 26, backgroundColor: 'red', fontFamily: 'SolaimanLipi',padding: 6 },
                 image: { ...commonDefaults, left: 40, top: 120, width: 1000, height: 430, zoom: 1.2 }
+            },
+
+            'todayeventsSingle': { 
+                title: { 
+                    ...commonDefaults, 
+                    top: 700, 
+                    left: 560, 
+                    originX: 'center', 
+                    originY: 'center', 
+                    textAlign: 'center', 
+                    width: 1080, 
+                    fontFamily: 'SolaimanLipi' 
+                }, 
+                date:  { ...commonDefaults, top: 1045, left: 615, originX: 'right', fill: '#000000', fontSize: 26, backgroundColor: 'red', fontFamily: 'SolaimanLipi',padding: 6 },
+                image: { ...commonDefaults, left: 45, top: 100, width: 1000, height: 430, zoom: 1.0 }
+            },
+			
+            'todayeventsSingle1': { 
+                title: { 
+                    ...commonDefaults, 
+                    top: 700, 
+                    left: 560, 
+                    originX: 'center', 
+                    originY: 'center', 
+                    textAlign: 'center', 
+                    width: 1080, 
+                    fontFamily: 'Noto Serif Cond Black'
+                }, 
+                date:  { ...commonDefaults, top: 1045, left: 615, originX: 'right', fill: '#000000', fontSize: 26, backgroundColor: 'red', fontFamily: 'SolaimanLipi',padding: 6 },
+                image: { ...commonDefaults, left: 45, top: 100, width: 1000, height: 430, zoom: 1.0 }
             },
 			
 			

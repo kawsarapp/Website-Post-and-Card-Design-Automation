@@ -65,6 +65,7 @@ class UserSetting extends Model
         'rtv'           => '🟥 RTV News',
         'dhakapost'     => '🟦 Dhaka Post',
         'todayevents'   => '🟪 Today Events',
+		'todayeventsSingle'   => '🟪 Today Events Single',
 		'BanglaLiveNews' => 'Bangla Live News',
 		'BanglaLiveNews1' => 'Bangla Live News 1',
 		'Jaijaidin1' => 'Jaijaidin 1',
@@ -76,6 +77,8 @@ class UserSetting extends Model
 		'Bangladeshmail24' => 'Bangladeshmail24',
 		'WatchBangladesh' => 'WatchBangladesh',
 		'TodayEventsDualFrame' => 'TodayEventsDualFrame',
+		'todayeventsSingle1' => 'todayeventsSingle1',
+
 		
     ];
 
