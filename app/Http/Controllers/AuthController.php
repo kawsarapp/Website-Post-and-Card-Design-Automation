@@ -24,7 +24,7 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
-            // যদি সুপার অ্যাডমিন হয়, অ্যাডমিন প্যানেলে পাঠাবে
+            // যদি সুপার অ্যাডমিন হয়, অ্যাডমিন প্যানেলে পাঠাবে
             if (Auth::user()->role === 'super_admin') {
                 return redirect()->route('admin.dashboard');
             }
@@ -37,18 +37,20 @@ class AuthController extends Controller
         ]);
     }
 
-    
-	
-	public function logout(Request $request)
-		{
-			Auth::logout();
-			$request->session()->invalidate();
-			$request->session()->regenerateToken();
+    // লগআউট প্রসেস (ক্যাশ ক্লিয়ার হেডারসহ)
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-				return redirect()->route('login') // ✅ সঠিক: শুধু রুটের নাম হবে
-					->with('success', 'You have been logged out successfully! 👋');
-				
-		}
-		
-		
+        // লগআউট করার সময় ব্রাউজারকে নির্দেশ দেওয়া হচ্ছে যেন সে কোনো তথ্য ক্যাশ করে না রাখে
+        return redirect()->route('login')
+            ->with('success', 'You have been logged out successfully! 👋')
+            ->withHeaders([
+                'Cache-Control' => 'no-cache, no-store, max-age=0, must-revalidate',
+                'Pragma' => 'no-cache',
+                'Expires' => 'Sun, 02 Jan 1990 00:00:00 GMT',
+            ]);
+    }
 }

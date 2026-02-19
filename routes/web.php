@@ -11,7 +11,7 @@ use App\Http\Controllers\{
     TelegramBotController,
     ReporterController,
     ReporterManagementController,
-    AdminTemplateController // ✅ ১. এটি মিসিং ছিল, যোগ করা হলো
+    AdminTemplateController
 };
 use App\Http\Middleware\AdminMiddleware;
 
@@ -21,12 +21,12 @@ use App\Http\Middleware\AdminMiddleware;
 |--------------------------------------------------------------------------
 */
 
-// --- ১. পাবলিক এবং গেস্ট রুটস (লগইন ছাড়া এক্সেস পাবে) ---
+// --- ১. পাবলিক এবং গেস্ট রুটস (লগইন ছাড়া এক্সেস পাবে) ---
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// 🔥 বসের জন্য পাবলিক প্রিভিউ এবং ফিডব্যাক রুটস (এটি auth এর বাইরে থাকতে হবে)
+// 🔥 বসের জন্য পাবলিক প্রিভিউ এবং ফিডব্যাক রুটস
 Route::get('/preview/{id}', [NewsController::class, 'publicPreview'])->name('news.public-preview');
 Route::post('/preview/{id}/feedback', [NewsController::class, 'handlePreviewFeedback'])->name('news.preview-feedback');
 
@@ -39,10 +39,11 @@ Route::middleware('guest')->group(function () {
 });
 
 
-// --- ২. লগইন করা সকল ইউজারের জন্য কমন রুটস (Auth Middleware) ---
-Route::middleware(['auth'])->group(function () {
+// --- ২. লগইন করা সকল ইউজারের জন্য কমন রুটস (Auth & NoCache Middleware) ---
+// 🔥 এখানে 'nocache' যোগ করা হয়েছে যাতে ব্রাউজার ড্যাশবোর্ডের ডাটা ক্যাশ না করে
+Route::middleware(['auth', 'nocache'])->group(function () {
     
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout'); // ডুপ্লিকেট রুট মুছে ফেলা হয়েছে
     Route::get('/stop-impersonate', [AdminController::class, 'stopImpersonate'])->name('stop.impersonate');
 
     // নোটিফিকেশন রিড
@@ -55,7 +56,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.update-profile');
 
-    // --- সেটিংস ম্যানেজমেন্ট (যাদের can_settings পারমিশন আছে) ---
+    // --- সেটিংস ম্যানেজমেন্ট ---
     Route::middleware(['permission:can_settings'])->group(function () {
         Route::get('/admin/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::post('/admin/settings', [SettingsController::class, 'update'])->name('settings.update');
@@ -79,9 +80,7 @@ Route::middleware(['auth'])->group(function () {
         });
     });
 
-    // ============================================================
-    // ৪. নিউজ কোর সেকশন (NewsController)
-    // ============================================================
+    // ৪. নিউজ কোর সেকশন
     Route::controller(NewsController::class)->prefix('news')->name('news.')->group(function () {
         
         Route::get('/', 'index')->name('index');
@@ -92,35 +91,25 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/check-status', 'checkAutoPostStatus')->name('check-auto-status');
         Route::get('/check-scrape-status', 'checkScrapeStatus')->name('check-scrape-status');
         Route::post('/toggle-automation', 'toggleAutomation')->name('toggle-automation');
-        
-        // 🔥 ড্রাফট আপডেট চেক করার রুট (এটি auth এর ভেতরে থাকা নিরাপদ)
         Route::post('/check-draft-updates', 'checkDraftUpdates')->name('check-draft-updates');
-
-        // 🔥 নতুন প্রকাশিত নিউজ দেখার রুট
         Route::get('/published', 'published')->name('published');
 
-        // --- 🔐 লকিং এবং আনলকিং রুটস ---
         Route::get('/{id}/unlock', 'unlockNews')->name('unlock');
         Route::get('/{id}/get-draft', 'getDraftContent')->name('get-draft');
-
-        // --- 📝 ড্রাফট এবং AI রিরাইট রুটস ---
         Route::post('/{id}/update-draft', 'updateDraft')->name('update-draft');
         Route::post('/{id}/process-ai', 'sendToAiQueue')->name('process-ai');
 
-        // ম্যানুয়াল পাবলিশ পারমিশন
         Route::middleware(['permission:can_direct_publish'])->group(function () {
             Route::get('/create', 'create')->name('create');
             Route::post('/store-custom', 'storeCustom')->name('store-custom');
         });
 
-        // AI ড্রাফট পারমিশন
         Route::middleware(['permission:can_ai'])->group(function () {
             Route::get('/drafts', 'drafts')->name('drafts');
             Route::post('/{id}/publish-draft', 'publishDraft')->name('publish-draft');
             Route::post('/{id}/confirm-publish', 'confirmPublish')->name('confirm-publish');
         });
 
-        // স্টুডিও ডিজাইন পারমিশন
         Route::middleware(['permission:can_studio'])->group(function () {
             Route::get('/{id}/studio', 'studio')->name('studio');
             Route::post('/{id}/publish-studio', 'publishStudioDesign')->name('publish-studio');
@@ -142,7 +131,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/wordpress', [SettingsController::class, 'testWordPressConnection'])->name('test-wordpress');
     });
 
-    // পেমেন্ট ও ডিজাইন সেটিংস
     Route::resource('buy-credits', PaymentController::class)->names('payment')->only(['create', 'store']);
     Route::get('/settings/fetch-categories', [SettingsController::class, 'fetchCategories'])->name('settings.fetch-categories');
     Route::post('/settings/save-design', [SettingsController::class, 'saveDesign'])->name('settings.save-design');
@@ -150,13 +138,12 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-// --- ৫. সুপার অ্যাডমিন রুটস ---
-Route::middleware(['auth', AdminMiddleware::class])->group(function () {
+// --- ৫. সুপার অ্যাডমিন রুটস (nocache যোগ করা হয়েছে) ---
+Route::middleware(['auth', 'nocache', AdminMiddleware::class])->group(function () {
     
-    // ✅ ২. টেমপ্লেট বিল্ডার রুটস (সিকিউর জোনে মুভ করা হয়েছে)
     Route::prefix('admin/templates')->name('admin.templates.')->group(function () {
         Route::get('/', [AdminTemplateController::class, 'index'])->name('index');
-        Route::get('/builder', [AdminTemplateController::class, 'builder'])->name('builder'); // ড্র্যাগ-ড্রপ বিল্ডার
+        Route::get('/builder', [AdminTemplateController::class, 'builder'])->name('builder');
         Route::post('/store', [AdminTemplateController::class, 'store'])->name('store');
         Route::delete('/{id}', [AdminTemplateController::class, 'destroy'])->name('destroy');
     });
