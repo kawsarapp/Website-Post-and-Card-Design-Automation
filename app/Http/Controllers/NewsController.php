@@ -469,7 +469,8 @@ class NewsController extends Controller
         $customData = [
             'title' => $request->title,
             'content' => $request->content,
-            'category_id' => $request->category,
+            'category_ids' => $request->category ? [$request->category] : [1],  
+            //'category_id' => $request->category,
             'skip_social' => true
         ];
 
@@ -565,7 +566,11 @@ class NewsController extends Controller
         } catch (\Exception $e) { Log::error("Social Error: " . $e->getMessage()); }
 
         $news->update(['status' => 'publishing']);
-        ProcessNewsPost::dispatch($news->id, $user->id, [], true);
+        ProcessNewsPost::dispatch($news->id, $user->id, [
+            'category_ids' => [1],
+            //'category_ids' => $news->category_ids ?? [1],  // ← news থেকে নিন, অথবা request থেকে
+        ], true);
+        //ProcessNewsPost::dispatch($news->id, $user->id, [], true);
         return back()->with('success', 'প্রসেসিং শুরু হয়েছে!');
     }
     
@@ -601,7 +606,10 @@ class NewsController extends Controller
 
             if ($request->has('direct_publish')) {
                 $news->update(['status' => 'publishing']);
-                ProcessNewsPost::dispatch($news->id, auth()->id(), [], true);
+                ProcessNewsPost::dispatch($news->id, auth()->id(), [
+                    'category_ids' => $request->filled('category') ? [$request->category] : [1],
+                ], true);
+                //ProcessNewsPost::dispatch($news->id, auth()->id(), [], true);
                 return redirect()->route('news.index')->with('success', 'পাবলিশিং শুরু!');
             }
 
