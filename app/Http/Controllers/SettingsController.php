@@ -32,7 +32,7 @@ class SettingsController extends Controller
      * ২. সেটিংস আপডেট (FIX: Attempt to assign property on null)
      */
     /**
-     * ২. সেটিংস আপডেট (FIXED)
+     * ২. সেটিংস আপডেট (FIXED & DYNAMIC)
      */
     public function update(Request $request)
     {
@@ -53,12 +53,16 @@ class SettingsController extends Controller
             'telegram_channel_id' => 'nullable|string',
             'laravel_site_url' => 'nullable|url',
             'laravel_api_token' => 'nullable|string',
-            'laravel_route_prefix' => 'nullable|string|max:20',
+            'laravel_route_prefix' => 'nullable|string|max:40',
             // প্রক্সি ভ্যালিডেশন
             'proxy_username' => 'nullable|string',
             'proxy_password' => 'nullable|string',
             'proxy_host' => 'nullable|string',
             'proxy_port' => 'nullable|string',
+            // 🔥 ডাইনামিক কাস্টম API ভ্যালিডেশন
+            'custom_api_url' => 'nullable|url',
+            'custom_category_url' => 'nullable|url',
+            'custom_api_mapping' => 'nullable|json',
         ]);
         
         // ৩. সেটিংস লোড করা (একবারই)
@@ -105,7 +109,12 @@ class SettingsController extends Controller
             $settings->category_mapping = $request->category_mapping;
         }
 
-        // ৬. সবশেষে একবারই সেভ করা
+        // 🔥 ৬. কাস্টম ডাইনামিক API সেটিংস সেভ করা
+        $settings->custom_api_url = $request->custom_api_url;
+        $settings->custom_category_url = $request->custom_category_url;
+        $settings->custom_api_mapping = $request->custom_api_mapping;
+
+        // ৭. সবশেষে একবারই সেভ করা
         $settings->save();
 
         return back()->with('success', 'সব সেটিংস (প্রক্সিসহ) সফলভাবে সেভ করা হয়েছে!');
@@ -223,62 +232,82 @@ class SettingsController extends Controller
     }
 
     /**
-     * ৬. ক্যাটাগরি ফেচ করা (WP/Laravel)
+     * ৬. ক্যাটাগরি ফেচ করা (WP/Laravel - 🔥 FULLY DYNAMIC WITH DATA WRAPPER FIX)
      */
-    
-	public function fetchCategories(WordPressService $wpService)
-{
-    $user = Auth::user();
-    $settings = $user->settings;
+    public function fetchCategories(WordPressService $wpService)
+    {
+        $user = Auth::user();
+        $settings = $user->settings;
 
-    if (!$settings) {
-        return response()->json(['error' => 'Settings not found'], 400);
-    }
-
-    // ইউজার ভিত্তিক আলাদা ক্যাশ কি (Cache Key) তৈরি
-    $cacheKey = 'user_categories_' . $user->id;
-
-    // যদি ইউজার 'ফোর্স রিফ্রেশ' করতে চায় (যেমন: নতুন ক্যাটাগরি এড করার পর)
-    if (request()->has('refresh')) {
-        Cache::forget($cacheKey);
-    }
-
-    // ক্যাশ থেকে ডাটা নেওয়া, না থাকলে নতুন করে ফেচ করে ২৪ ঘণ্টার জন্য সেভ করা
-    $categories = Cache::remember($cacheKey, now()->addHours(24), function () use ($settings, $wpService) {
-        
-        // ১. লারাভেল সাইট থেকে ফেচ করা
-        if ($settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token) {
-            try {
-                $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/get-categories';
-                $response = Http::timeout(10)->get($apiUrl, ['token' => $settings->laravel_api_token]);
-                if ($response->successful()) return $response->json();
-            } catch (\Exception $e) {
-                Log::error("Laravel Category Fetch Error: " . $e->getMessage());
-            }
+        if (!$settings) {
+            return response()->json(['error' => 'Settings not found'], 400);
         }
 
-        // ২. ওয়ার্ডপ্রেস থেকে ফেচ করা
-        if ($settings->wp_url && $settings->wp_username && $settings->wp_app_password) {
-            try {
-                return $wpService->getCategories(
-                    $settings->wp_url,
-                    $settings->wp_username,
-                    $settings->wp_app_password
-                );
-            } catch (\Exception $e) {
-                Log::error("WP Category Fetch Error: " . $e->getMessage());
-            }
+        // ইউজার ভিত্তিক আলাদা ক্যাশ কি (Cache Key) তৈরি
+        $cacheKey = 'user_categories_' . $user->id;
+
+        // যদি ইউজার 'ফোর্স রিফ্রেশ' করতে চায় (যেমন: নতুন ক্যাটাগরি এড করার পর)
+        if (request()->has('refresh')) {
+            Cache::forget($cacheKey);
         }
 
-        return [];
-    });
+        // ক্যাশ থেকে ডাটা নেওয়া, না থাকলে নতুন করে ফেচ করে ২৪ ঘণ্টার জন্য সেভ করা
+        $categories = Cache::remember($cacheKey, now()->addHours(24), function () use ($settings, $wpService) {
+            
+            // ১. লারাভেল সাইট থেকে ফেচ করা
+            if ($settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token) {
+                try {
+                    // 🟢 SMART SWITCH: যদি ডাটাবেসে কাস্টম ক্যাটাগরি API দেওয়া থাকে
+                    if (!empty($settings->custom_category_url)) {
+                        $apiUrl = $settings->custom_category_url;
+                        $response = Http::timeout(10)->get($apiUrl);
+                        
+                        if ($response->successful()) {
+                            $resData = $response->json();
+                            // 🔥 FIX: ইসলামিক টিভির মত API তে ডাটা "data" key এর ভেতরে থাকে
+                            if (isset($resData['data']) && is_array($resData['data'])) {
+                                return $resData['data'];
+                            }
+                            return $resData;
+                        }
+                    } 
+                    // 🔵 DEFAULT UNIVERSAL API FETCH (আমাদের ডিফল্ট সিস্টেম)
+                    else {
+                        $baseUrl = rtrim($settings->laravel_site_url, '/');
+                        $apiUrl = $baseUrl . '/api/get-categories';
+                        $response = Http::timeout(10)->get($apiUrl, ['token' => $settings->laravel_api_token]);
+                        
+                        if ($response->successful()) {
+                            return $response->json();
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Laravel Category Fetch Error: " . $e->getMessage());
+                }
+            }
 
-    if (empty($categories)) {
-        return response()->json(['error' => 'No Categories Found or Connection Failed'], 400);
+            // ২. ওয়ার্ডপ্রেস থেকে ফেচ করা
+            if ($settings->wp_url && $settings->wp_username && $settings->wp_app_password) {
+                try {
+                    return $wpService->getCategories(
+                        $settings->wp_url,
+                        $settings->wp_username,
+                        $settings->wp_app_password
+                    );
+                } catch (\Exception $e) {
+                    Log::error("WP Category Fetch Error: " . $e->getMessage());
+                }
+            }
+
+            return [];
+        });
+
+        if (empty($categories)) {
+            return response()->json(['error' => 'No Categories Found or Connection Failed'], 400);
+        }
+
+        return response()->json($categories);
     }
-
-    return response()->json($categories);
-}
 
     /**
      * ৭. লোগো আপলোড

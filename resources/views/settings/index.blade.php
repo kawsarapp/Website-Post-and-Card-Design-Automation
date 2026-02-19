@@ -68,7 +68,7 @@
         </div>
     </form>
 
-    {{-- ২. মূল সেটিংস ফর্ম শুরু (সবগুলো সেকশন এই এক ফর্মের ভেতর থাকবে) --}}
+    {{-- ২. মূল সেটিংস ফর্ম শুরু --}}
     <form action="{{ route('settings.update') }}" method="POST" class="space-y-8">
         @csrf
 
@@ -170,10 +170,10 @@
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="col-span-1 md:col-span-2">
-                    <label class="block text-sm font-bold text-gray-700 mb-1">ওয়েবসাইট লিংক (API URL)</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">ওয়েবসাইট লিংক (Base URL)</label>
                     <input type="url" name="laravel_site_url" value="{{ old('laravel_site_url', $settings->laravel_site_url ?? '') }}" 
                            placeholder="https://mylaravelnews.com" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
-                    <p class="text-xs text-gray-500 mt-1">শুধুমাত্র ডোমেইন লিংক দিন। আমরা অটোমেটিক <code>/api/external-news-post</code> এ হিট করব।</p>
+                    <p class="text-xs text-gray-500 mt-1">শুধুমাত্র ডোমেইন লিংক দিন। ইউনিভার্সাল রিসিভারের ক্ষেত্রে আমরা অটোমেটিক <code>/api/external-news-post</code> এ হিট করব।</p>
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">API Token (Secret Key)</label>
@@ -189,20 +189,47 @@
                     </label>
                 </div>
             </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                 <div>
+                      <label class="block text-sm font-bold text-gray-700 mb-1">নিউজ লিংক প্রিফিক্স (Route Prefix)</label>
+                      <div class="flex items-center">
+                          <span class="bg-gray-100 border border-r-0 border-gray-300 px-3 py-2 rounded-l text-gray-500 text-sm">/</span>
+                          <input type="text" name="laravel_route_prefix" value="{{ old('laravel_route_prefix', $settings->laravel_route_prefix ?? 'news') }}" 
+                                 class="w-full border-gray-300 rounded-r shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition" 
+                                 placeholder="news, post, article">
+                      </div>
+                      <p class="text-xs text-gray-500 mt-1">উদাহরণ: আপনার সাইট যদি <code>site.com/post/123</code> হয়, তবে এখানে <b>post</b> লিখুন।</p>
+                 </div>
+            </div>
         </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {{-- 🔥 Route Prefix Input --}}
-             <div>
-                  <label class="block text-sm font-bold text-gray-700 mb-1">নিউজ লিংক প্রিফিক্স (Route Prefix)</label>
-                  <div class="flex items-center">
-                      <span class="bg-gray-100 border border-r-0 border-gray-300 px-3 py-2 rounded-l text-gray-500 text-sm">/</span>
-                      <input type="text" name="laravel_route_prefix" value="{{ old('laravel_route_prefix', $settings->laravel_route_prefix ?? 'news') }}" 
-                             class="w-full border-gray-300 rounded-r shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition" 
-                             placeholder="news, post, article">
-                  </div>
-                  <p class="text-xs text-gray-500 mt-1">উদাহরণ: আপনার সাইট যদি <code>site.com/post/123</code> হয়, তবে এখানে <b>post</b> লিখুন।</p>
-             </div>
+
+        {{-- 🔥 NEW: ADVANCED CUSTOM API MAPPING (For Islamic TV etc.) --}}
+        <div class="bg-slate-50 p-6 rounded-xl shadow-sm border border-slate-300 mt-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 bg-slate-700 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg shadow-sm uppercase tracking-widest">Advanced Webhook</div>
+            
+            <h2 class="text-lg font-bold text-slate-800 mb-2 border-b border-slate-200 pb-2 flex items-center gap-2 cursor-pointer" onclick="toggleCustomApi()">
+                ⚙️ Custom API Mapping (Optional) <span class="text-xs font-normal text-blue-600 hover:underline">(Click to Expand)</span>
+            </h2>
+            <p class="text-xs text-slate-500 mb-4">যদি ক্লায়েন্ট আমাদের <code>UniversalNewsReceiverController</code> ব্যবহার না করে তাদের নিজস্ব API দেয়, তবে এই অংশটি পূরণ করুন।</p>
+            
+            <div id="custom-api-section" class="grid grid-cols-1 md:grid-cols-2 gap-6" style="display: {{ empty($settings->custom_api_url) ? 'none' : 'grid' }};">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Custom News Post API URL</label>
+                    <input type="url" name="custom_api_url" value="{{ old('custom_api_url', $settings->custom_api_url ?? '') }}" 
+                           placeholder="https://client-site.com/api/news-upload" class="w-full border-slate-300 rounded-lg shadow-sm text-sm focus:ring-slate-500 focus:border-slate-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Custom Category Fetch URL (Optional)</label>
+                    <input type="url" name="custom_category_url" value="{{ old('custom_category_url', $settings->custom_category_url ?? '') }}" 
+                           placeholder="https://client-site.com/api/news-categories" class="w-full border-slate-300 rounded-lg shadow-sm text-sm focus:ring-slate-500 focus:border-slate-500">
+                </div>
+                <div class="col-span-1 md:col-span-2">
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Payload JSON Mapping</label>
+                    <textarea name="custom_api_mapping" rows="6" class="w-full border-slate-300 rounded-lg shadow-sm text-sm font-mono focus:ring-slate-500 focus:border-slate-500" placeholder='{"title":"news_title", "content":"description", "category":"news_category", "token":"api_key", "extra":{"priority":"1"}}'>{{ old('custom_api_mapping', $settings->custom_api_mapping ?? '') }}</textarea>
+                    <p class="text-[11px] text-slate-500 mt-1">Available Keys: <code>title</code>, <code>content</code>, <code>image</code>, <code>category</code>, <code>tags</code>, <code>token</code>, <code>extra</code> (for static fields).</p>
+                </div>
+            </div>
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -296,7 +323,7 @@
             </div>
 
             <p class="text-sm text-gray-500 mb-6 bg-blue-50 p-3 rounded border border-blue-100">
-                💡 বাম পাশে আমাদের ক্যাটাগরি এবং ডান পাশে আপনার ওয়েবসাইটের ক্যাটাগরি সিলেক্ট করুন। যাতে নিউজ সঠিক জায়গায় পোস্ট হয়।
+                💡 বাম পাশে আমাদের ক্যাটাগরি এবং ডান পাশে আপনার ওয়েবসাইটের ক্যাটাগরি সিলেক্ট করুন। যাতে নিউজ সঠিক জায়গায় পোস্ট হয়।
             </p>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
@@ -357,6 +384,16 @@
 </div>
 
 <script>
+    // Toggle Custom API Section
+    function toggleCustomApi() {
+        const section = document.getElementById('custom-api-section');
+        if (section.style.display === 'none') {
+            section.style.display = 'grid';
+        } else {
+            section.style.display = 'none';
+        }
+    }
+
     // ১. ক্যাটাগরি ফেচ করা (Cache logic সহ)
     function fetchWPCategories(forceRefresh = false) {
         const btn = document.getElementById('refresh-cat-btn');
@@ -365,7 +402,7 @@
         btn.innerHTML = '⏳ Loading...';
         btn.disabled = true;
 
-        // যদি forceRefresh true হয়, তবে URL-এ refresh=1 যোগ হবে
+        // যদি forceRefresh true হয়, তবে URL-এ refresh=1 যোগ হবে
         let url = "{{ route('settings.fetch-categories') }}";
         if (forceRefresh) {
             url += "?refresh=1";
@@ -378,7 +415,7 @@
                     alert(data.error);
                 } else {
                     populateDropdowns(data);
-                    if(forceRefresh) alert('✅ ক্যাটাগরি লিস্ট আপডেট করা হয়েছে!');
+                    if(forceRefresh) alert('✅ ক্যাটাগরি লিস্ট আপডেট করা হয়েছে!');
                 }
             })
             .catch(err => {
@@ -461,7 +498,7 @@
 
     // ৪. পেজ লোড হলে অটোমেটিক ক্যাটাগরি লোড (ক্যাশ থেকে আসবে)
     document.addEventListener('DOMContentLoaded', () => {
-        @if(($settings->wp_url && $settings->wp_username) || ($settings->laravel_site_url && $settings->laravel_api_token))
+        @if(($settings->wp_url && $settings->wp_username) || ($settings->laravel_site_url && $settings->laravel_api_token) || $settings->custom_category_url)
             fetchWPCategories(false); 
         @endif
     });

@@ -60,19 +60,16 @@ class ProcessNewsPost implements ShouldQueue
             $settings = $user->settings;
 
             // ==========================================
-            // 🔥 DATA PREPARATION (FIXED)
+            // 🔥 DATA PREPARATION
             // ==========================================
             $finalTitle = $this->customData['title'] ?? $news->ai_title ?? $news->title;
             $finalContent = $this->customData['content'] ?? $news->ai_content ?? $news->content;
             
-            // 🔥 FIX: ইমেজের জন্য সব অপশন চেক করা হচ্ছে
             $websiteImage = $this->customData['website_image'] 
-                            ?? $this->customData['featured_image'] // Controller থেকে এটি আসে
+                            ?? $this->customData['featured_image'] 
                             ?? $news->thumbnail_url;
 
             $socialImage = $this->customData['social_image'] ?? $websiteImage;
-            
-            // 🔥 FIX: হ্যাসট্যাগ নেওয়া হচ্ছে
             $hashtags = $this->customData['hashtags'] ?? $news->hashtags ?? '';
 
             $socialOnly = $this->customData['social_only'] ?? false;
@@ -81,7 +78,17 @@ class ProcessNewsPost implements ShouldQueue
             if ($socialOnly) Log::info("🚀 Social Only Mode Activated. Skipping Website Posting.");
             if ($skipSocial) Log::info("⏭️ Manual Publish Mode. Skipping Social Posting for now.");
 
-            $categories = $this->customData['category_ids'] ?? [1];
+            // 🔥 ক্যাটাগরি আইডি নেওয়া এবং ফিল্টার করা
+            $categories = $this->customData['category_ids'] 
+                          ?? (isset($this->customData['category_id']) ? [$this->customData['category_id']] : [1]);
+            
+            if (!is_array($categories)) {
+                $categories = [$categories];
+            }
+            $categories = array_filter(array_unique(array_map('intval', $categories)));
+            if (empty($categories)) {
+                $categories = [1];
+            }
             
             if (!empty($websiteImage) && strpos($websiteImage, '/og/') !== false) {
                 $websiteImage = str_replace('/og/', '/', $websiteImage);
@@ -90,23 +97,19 @@ class ProcessNewsPost implements ShouldQueue
             $wpSuccess = false;
             $laravelSuccess = false;
             $remotePostId = $news->wp_post_id; 
-            
-            // ডিফল্ট লিংক
             $publishedUrl = $news->live_url; 
 
             // ==========================================
-            // ১. ওয়ার্ডপ্রেস পোস্টিং (FIXED HASHTAGS)
+            // ১. ওয়ার্ডপ্রেস পোস্টিং 
             // ==========================================
             if (!$socialOnly && $settings && $settings->wp_url && $settings->wp_username) {
                 if ($news->wp_post_id) {
                     Log::info("🔄 Updating existing WordPress post: ID {$news->wp_post_id}");
-                    // 🔥 $hashtags পাস করা হলো
                     $postResult = $wpService->updatePost(
                         $news->wp_post_id, $news, $user, $finalTitle, $finalContent, $categories, $websiteImage, $hashtags
                     );
                 } else {
                     Log::info("🆕 Creating new WordPress post");
-                    // 🔥 $hashtags পাস করা হলো
                     $postResult = $wpService->createPost(
                         $news, $user, $finalTitle, $finalContent, $categories, $websiteImage, $hashtags
                     );
@@ -125,35 +128,97 @@ class ProcessNewsPost implements ShouldQueue
             }
 
             // ==========================================
-            // ২. লারাভেল / নোড / এপিআই পোস্টিং (FIXED PAYLOAD & HASHTAGS)
+            // ২. লারাভেল / নোড / এপিআই পোস্টিং (🔥 BULLETPROOF LARAVEL FIX)
             // ==========================================
-            if (!$socialOnly && $settings && $settings->post_to_laravel && $settings->laravel_site_url) {
+            if (!$socialOnly && $settings && ($settings->post_to_laravel || !empty($settings->custom_api_url)) && $settings->laravel_site_url) {
                 try {
-                    $apiUrl = rtrim($settings->laravel_site_url, '/') . '/api/external-news-post';
-                    
-                    $payload = [
-                        'token'         => $settings->laravel_api_token,
-                        'title'         => $finalTitle,
-                        'content'       => $finalContent,
-                        'image_url'     => $websiteImage, // 🔥 সঠিক ইমেজ যাবে
-                        'hashtags'      => $hashtags,     // 🔥 হ্যাসট্যাগ যুক্ত করা হলো
-                        'category_name' => $news->category ?? 'General',
-                        'category_ids'  => $categories, 
-                        'original_link' => $news->original_link
-                    ];
+                    $baseUrl = rtrim($settings->laravel_site_url, '/');
+                    $response = null;
 
-                    if ($news->wp_post_id) {
-                        $payload['remote_id'] = $news->wp_post_id;
-                        Log::info("🔄 Sending Update Request to API for ID: {$news->wp_post_id}");
+                    // 🟢 CUSTOM API LOGIC
+                    if (!empty($settings->custom_api_url) && !empty($settings->custom_api_mapping)) {
+                        $apiUrl = $settings->custom_api_url;
+                        $mapping = json_decode($settings->custom_api_mapping, true); 
+                        
+                        Log::info("🟢 Sending Dynamic Custom Request to: " . $apiUrl);
+
+                        // 🚀 স্মার্ট পেলোড তৈরি (লারাভেল ক্র্যাশ প্রতিরোধক)
+                        $payload = [];
+                        if (isset($mapping['title'])) $payload[$mapping['title']] = $finalTitle ?: 'Untitled News';
+                        if (isset($mapping['content'])) $payload[$mapping['content']] = $finalContent ?: 'No Content';
+                        
+                        // ক্যাটাগরিটিকে নিখুঁত Array হিসেবে পাঠানো
+                        if (isset($mapping['category'])) {
+                            $catKey = str_replace('[]', '', $mapping['category']);
+                            $payload[$catKey] = $categories; // লারাভেল এটিকে অটোমেটিক news_category[0]=1, etc করে নেবে
+                        }
+
+                        if (isset($mapping['tags'])) $payload[$mapping['tags']] = $hashtags ?: '';
+                        if (isset($mapping['token'])) $payload[$mapping['token']] = $settings->laravel_api_token ?: '';
+                        if (isset($mapping['date'])) $payload[$mapping['date']] = now()->format('Y-m-d');
+
+                        if (isset($mapping['extra']) && is_array($mapping['extra'])) {
+                            foreach ($mapping['extra'] as $key => $val) {
+                                $payload[$key] = $val;
+                            }
+                        }
+
+                        $requestMaker = Http::timeout(30);
+                        $hasImage = false;
+
+                        // ছবি থাকলে ফাইল হিসেবে অ্যাটাচ করা
+                        if (isset($mapping['image']) && !empty($websiteImage)) {
+                            try {
+                                $imgResponse = Http::timeout(15)->get($websiteImage);
+                                if ($imgResponse->successful()) {
+                                    $imageContent = $imgResponse->body();
+                                    $imageName = basename(parse_url($websiteImage, PHP_URL_PATH)) ?: 'news_image.jpg';
+                                    $requestMaker->attach($mapping['image'], $imageContent, $imageName);
+                                    $hasImage = true;
+                                }
+                            } catch (\Exception $e) {
+                                Log::warning("Image Download Failed: " . $e->getMessage());
+                            }
+                        }
+
+                        // ফাইনাল সাবমিট (ফাইল থাকলে Multipart, না থাকলে Form)
+                        if ($hasImage) {
+                            $response = $requestMaker->post($apiUrl, $payload);
+                        } else {
+                            $response = Http::asForm()->post($apiUrl, $payload);
+                        }
+
+                        Log::info("🔍 Custom API Response: " . $response->body());
+
+                    } 
+                    // 🔵 DEFAULT UNIVERSAL API LOGIC
+                    else {
+                        $apiUrl = $baseUrl . '/api/external-news-post';
+                        $payload = [
+                            'token'         => $settings->laravel_api_token,
+                            'title'         => $finalTitle,
+                            'content'       => $finalContent,
+                            'image_url'     => $websiteImage, 
+                            'hashtags'      => $hashtags,     
+                            'category_name' => $news->category ?? 'General',
+                            'category_ids'  => $categories, 
+                            'original_link' => $news->original_link
+                        ];
+
+                        if ($news->wp_post_id) {
+                            $payload['remote_id'] = $news->wp_post_id;
+                            Log::info("🔄 Sending Update Request to API for ID: {$news->wp_post_id}");
+                        }
+                        $response = Http::post($apiUrl, $payload);
                     }
 
-                    $response = Http::post($apiUrl, $payload);
-
-                    if ($response->successful()) {
+                    // --- রেসপন্স হ্যান্ডলিং ---
+                    if ($response && $response->successful()) {
                         $laravelSuccess = true;
                         $respData = $response->json();
                         
-                        $remotePostId = $respData['post_id'] ?? $respData['id'] ?? $remotePostId;
+                        $idKey = $mapping['response_id_key'] ?? 'post_id';
+                        $remotePostId = $respData[$idKey] ?? $respData['id'] ?? $respData['news_id'] ?? $remotePostId;
                         
                         if (!empty($respData['live_url'])) {
                             $publishedUrl = $respData['live_url'];
@@ -162,13 +227,14 @@ class ProcessNewsPost implements ShouldQueue
                         } elseif (!empty($respData['url'])) {
                             $publishedUrl = $respData['url'];
                         } else {
+                            $siteBase = rtrim($settings->laravel_site_url, '/');
                             $prefix = trim($settings->laravel_route_prefix ?? 'news', '/');
-                            $publishedUrl = rtrim($settings->laravel_site_url, '/') . '/' . $prefix . '/' . $remotePostId;
+                            $publishedUrl = $siteBase . '/' . $prefix . '/' . $remotePostId;
                         }
                         
                         Log::info("✅ API Action Success. Remote ID: {$remotePostId} | Link: {$publishedUrl}");
                     } else {
-                        Log::error("❌ API Action Failed: " . $response->body());
+                        Log::error("❌ API Action Failed: " . ($response ? $response->body() : 'No Response'));
                     }
                 } catch (\Exception $e) {
                     Log::error("❌ API Connection Error: " . $e->getMessage());
@@ -187,7 +253,7 @@ class ProcessNewsPost implements ShouldQueue
                         'status'        => 'published',
                         'live_url'      => $publishedUrl,
                         'error_message' => null,
-                        'hashtags'      => $hashtags // ডাটাবেসেও নিশ্চিত আপডেট
+                        'hashtags'      => $hashtags 
                     ];
 
                     if ($remotePostId) $updateData['wp_post_id'] = $remotePostId;
@@ -195,7 +261,6 @@ class ProcessNewsPost implements ShouldQueue
 
                     $news->update($updateData);
 
-                    // ক্রেডিট লজিক
                     if (!$this->skipCreditDeduction && $user->role !== 'super_admin') {
                         if ($user->credits > 0) {
                             $user->decrement('credits');
@@ -210,10 +275,6 @@ class ProcessNewsPost implements ShouldQueue
                     }
                 });
 
-                // ==========================================
-                // 🔥 ফিক্সড সোশ্যাল মিডিয়া পোস্টিং
-                // ==========================================
-                
                 if (!$skipSocial && ($settings->post_to_fb || $settings->post_to_telegram)) {
                     
                     $imageToPost = $socialImage; 
@@ -243,21 +304,7 @@ class ProcessNewsPost implements ShouldQueue
                         }
                     }
                     
-                    // লিংক জেনারেশন
-                    $newsLink = $publishedUrl;
-                    if (empty($newsLink) && $remotePostId) {
-                        if ($settings->wp_url) {
-                            $newsLink = rtrim($settings->wp_url, '/') . '/?p=' . $remotePostId;
-                        } elseif ($settings->laravel_site_url) {
-                             $prefix = trim($settings->laravel_route_prefix ?? 'news', '/');
-                             $newsLink = rtrim($settings->laravel_site_url, '/') . '/' . $prefix . '/' . $remotePostId;
-                        }
-                    }
-                    if (empty($newsLink)) {
-                        $newsLink = $news->original_link;
-                    }
-
-                    // সোশ্যাল ক্যাপশন: টাইটেল + হ্যাসট্যাগ
+                    $newsLink = $publishedUrl ?: $news->original_link;
                     $captionToPost = $this->customData['social_caption'] ?? $finalTitle;
                     if (!empty($hashtags)) {
                         $captionToPost .= "\n\n" . $hashtags;
