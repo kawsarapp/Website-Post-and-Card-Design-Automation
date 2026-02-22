@@ -11,7 +11,7 @@ import { URL } from 'url';
 // ১. প্লাগিন কনফিগারেশন
 // ---------------------------------------------------------
 puppeteer.use(StealthPlugin());
-puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
+puppeteer.use(AdblockerPlugin({ blockTrackers: true, blockTrackersAndAnnoyances: true }));
 
 // ---------------------------------------------------------
 // ২. ইনপুট হ্যান্ডলিং
@@ -28,23 +28,20 @@ if (!targetUrl || !outputFile) {
 // ---------------------------------------------------------
 // ৩. কনফিগারেশন ও ইউটিলিটি
 // ---------------------------------------------------------
-// URL থেকে ডোমেইন বের করে আলাদা হ্যাশ তৈরি হবে (Concurrency Fix)
 const domainHash = crypto.createHash('md5').update(targetUrl).digest('hex');
 const cookiePath = path.join(os.tmpdir(), `cookie_${domainHash}.json`);
-
-// হেল্পার: র‍্যান্ডম ডিলে (Human Behavior)
 const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-// লেটেস্ট ক্রোম ভার্সন (Anti-Bot)
-const CHROME_VERSION = "121.0.0.0";
-const USER_AGENT = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`;
+// Rotating User Agents (Latest)
+const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+];
 
 (async () => {
     let browser;
     try {
-        // ---------------------------------------------------------
-        // ৪. প্রক্সি সেটআপ (Advanced Auth)
-        // ---------------------------------------------------------
         let proxyArgs = [];
         let proxyAuth = null;
 
@@ -62,20 +59,22 @@ const USER_AGENT = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
         }
 
         // ---------------------------------------------------------
-        // ৫. ব্রাউজার লঞ্চ (VPS Optimized)
+        // ৪. ব্রাউজার লঞ্চ (Production Military Grade)
         // ---------------------------------------------------------
         browser = await puppeteer.launch({
             headless: "new",
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage', // মেমোরি ক্রাশ ফিক্স
+                '--disable-dev-shm-usage', // RAM Fix
                 '--disable-accelerated-2d-canvas',
                 '--disable-gpu',
                 '--window-size=1920,1080',
                 '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process',
+                '--disable-features=IsolateOrigins,site-per-process', // Iframe CORS bypass
+                '--disable-site-isolation-trials',
                 '--no-first-run',
+                '--ignore-certificate-errors',
                 ...proxyArgs
             ],
             ignoreDefaultArgs: ["--enable-automation"],
@@ -85,24 +84,33 @@ const USER_AGENT = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
         const page = await browser.newPage();
         if (proxyAuth) await page.authenticate(proxyAuth);
 
+        // 🔥 5. DEEP STEALTH INJECTION (Anti-Bot Bypass)
+        await page.evaluateOnNewDocument(() => {
+            // Remove Webdriver
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            // Mock Plugins
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            // Mock Languages
+            Object.defineProperty(navigator, 'languages', { get: () => ['bn-BD', 'bn', 'en-US', 'en'] });
+            // Chrome Runtime
+            window.chrome = { runtime: {} };
+        });
+
         // ---------------------------------------------------------
-        // ৬. রিসোর্স ব্লকিং (Speed Booster 🚀)
+        // ৬. স্মার্ট রিসোর্স ব্লকিং (Speed Booster 🚀)
         // ---------------------------------------------------------
         await page.setRequestInterception(true);
         page.on('request', (req) => {
             const type = req.resourceType();
-            // ফন্ট, স্টাইলশিট, মিডিয়া এবং অন্যান্য ভারী ফাইল ব্লক
-            if (['font', 'media', 'stylesheet', 'texttrack', 'object', 'beacon', 'csp_report'].includes(type)) {
+            // আমরা ইমেজ অ্যালাও করব যাতে lazy-loading স্ক্রিপ্টগুলো ঠিকমতো ছবি বসাতে পারে
+            if (['font', 'media', 'stylesheet', 'texttrack', 'object', 'beacon', 'csp_report'].includes(type) && !req.url().includes('cloudflare')) {
                 req.abort();
             } else {
                 req.continue();
             }
         });
 
-        // ---------------------------------------------------------
-        // ৭. অ্যান্টি-বট হেডার ও ভিউপোর্ট
-        // ---------------------------------------------------------
-        await page.setUserAgent(USER_AGENT);
+        await page.setUserAgent(USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]);
         await page.setViewport({ 
             width: 1920 + randomDelay(-50, 50), 
             height: 1080 + randomDelay(-50, 50),
@@ -110,7 +118,6 @@ const USER_AGENT = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
             isMobile: false
         });
         
-        // কুকি রিস্টোর (আগের সেশন থাকলে বাইপাস সহজ হয়)
         if (fs.existsSync(cookiePath)) {
             try {
                 const cookies = JSON.parse(fs.readFileSync(cookiePath));
@@ -119,94 +126,107 @@ const USER_AGENT = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
         }
 
         // ---------------------------------------------------------
-        // ৮. নেভিগেশন (Ultra Fast)
+        // ৭. নেভিগেশন (Ultra Fast)
         // ---------------------------------------------------------
-        console.log(`🚀 Fast Nav to: ${targetUrl}`);
+        console.log(`🚀 Navigating to: ${targetUrl}`);
         try {
-            // networkidle2 এর বদলে domcontentloaded ব্যবহার (অনেক ফাস্ট)
             await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 90000 });
         } catch (e) {
             console.log(`⚠️ Nav Warning: ${e.message}`);
         }
 
         // ---------------------------------------------------------
-        // ৯. 🔥 CONTENT WAITER (Critical for Jamuna TV)
+        // ৮. CLOUDFLARE/DATADOME BYPASS (Active Solver)
         // ---------------------------------------------------------
-        try {
-            console.log("⏳ Waiting for content...");
-            // নিউজ কন্টেন্ট লোড হওয়া পর্যন্ত অপেক্ষা করবে
-            await page.waitForSelector('article, .story-element-text, .jw_article_body, .details-content, #content, .post-content', { 
-                timeout: 15000, 
-                visible: true 
-            });
-            console.log("✅ Content detected!");
-        } catch (e) {
-            console.log("⚠️ Content selector timeout. Proceeding anyway...");
-        }
-
-        // ---------------------------------------------------------
-        // ১০. CLOUDFLARE BYPASS (Active Solver)
-        // ---------------------------------------------------------
-        const isCloudflare = async () => {
+        const checkProtection = async () => {
             const title = await page.title();
             const content = await page.content();
-            return title.includes("Just a moment") || title.includes("Cloudflare") || content.includes("challenge-platform");
+            return title.includes("Just a moment") || 
+                   title.includes("Cloudflare") || 
+                   content.includes("challenge-platform") ||
+                   content.includes("datadome");
         };
 
-        if (await isCloudflare()) {
-            console.log("🛡️ Cloudflare Detected. Engaging Ghost Cursor...");
+        if (await checkProtection()) {
+            console.log("🛡️ Protection Detected. Engaging Human Simulator...");
             
-            // A. Ghost Cursor Movement (Random Bezier Curve Simulation)
-            const steps = randomDelay(10, 30);
-            await page.mouse.move(100, 100);
-            await page.mouse.move(200 + randomDelay(10,50), 300 + randomDelay(10,50), { steps: steps });
+            // Human Mouse Movement Simulation
+            await page.mouse.move(randomDelay(100, 300), randomDelay(100, 300));
+            await new Promise(r => setTimeout(r, randomDelay(500, 1000)));
+            await page.mouse.move(randomDelay(400, 600), randomDelay(400, 600), { steps: randomDelay(15, 30) });
+            await page.mouse.click(randomDelay(400, 600), randomDelay(400, 600)); // Random click
             
-            // B. Checkbox ক্লিক করার চেষ্টা (যদি থাকে)
+            // Checkbox clicking logic
             try {
-                const challengeBox = await page.$('iframe[src*="cloudflare"]');
-                if (challengeBox) {
-                    const box = await challengeBox.boundingBox();
-                    if (box) await page.mouse.click(box.x + 10, box.y + 10);
+                const frames = page.frames();
+                for (let frame of frames) {
+                    const cfBox = await frame.$('.ctp-checkbox-label, input[type="checkbox"]');
+                    if (cfBox) {
+                        await cfBox.click();
+                        console.log("🖱️ Clicked Cloudflare Checkbox!");
+                    }
                 }
             } catch(e) {}
 
-            // C. Active Waiting (ফিক্সড টাইম নয়, আনলক হওয়া পর্যন্ত)
             let attempts = 0;
-            while (await isCloudflare() && attempts < 15) {
-                console.log(`⏳ Bypass attempt ${attempts+1}/15...`);
-                await new Promise(r => setTimeout(r, 1500)); // ১.৫ সেকেন্ড পরপর চেক
+            while (await checkProtection() && attempts < 20) {
+                console.log(`⏳ Bypassing... attempt ${attempts+1}/20`);
+                await new Promise(r => setTimeout(r, 2000)); 
                 attempts++;
             }
         }
 
         // ---------------------------------------------------------
-        // ১১. ULTRA SCROLL (Accelerated)
+        // ৯. CONTENT WAITER & SCROLLER
         // ---------------------------------------------------------
-        console.log("📜 Fast Scrolling...");
+        try {
+            await page.waitForSelector('article, .story-element-text, .jw_article_body, .details-content, #content, .post-content, h1', { 
+                timeout: 10000, visible: true 
+            });
+        } catch (e) {}
+
+        console.log("📜 Executing Smart Scroll...");
         await page.evaluate(async () => {
             await new Promise((resolve) => {
                 let totalHeight = 0;
-                const distance = 800; // বড় জাম্প (দ্রুত কন্টেন্ট লোড করার জন্য)
+                const distance = 600; 
                 let timer = setInterval(() => {
-                    const scrollHeight = document.body.scrollHeight;
                     window.scrollBy(0, distance);
                     totalHeight += distance;
-                    // ১০,০০০ পিক্সেলের বেশি স্ক্রল করার দরকার নেই
-                    if (totalHeight >= scrollHeight || totalHeight > 10000) {
+                    if (totalHeight >= document.body.scrollHeight || totalHeight > 12000) {
                         clearInterval(timer);
                         resolve();
                     }
-                }, 100);
+                }, 150); // একটু ধীরে স্ক্রল, যাতে lazy image লোড হওয়ার সময় পায়
             });
         });
         
-        // ইমেজ রেন্ডারিংয়ের জন্য ২ সেকেন্ড অপেক্ষা
         await new Promise(r => setTimeout(r, 2000));
 
         // ---------------------------------------------------------
-        // ১২. ডেটা সেভ ও এক্সিট
+        // ১০. 🔥 MAGIC LAZY-LOAD FIXER (Game Changer)
         // ---------------------------------------------------------
-        // নতুন কুকি সেভ (ভবিষ্যতের জন্য)
+        console.log("🪄 Forcing Lazy-loaded images to visible...");
+        await page.evaluate(() => {
+            document.querySelectorAll('img').forEach(img => {
+                // যত রকমের লেজি-লোড অ্যাট্রিবিউট আছে, সব খুঁজে বের করবে
+                const realSrc = img.getAttribute('data-src') || 
+                                img.getAttribute('data-original') || 
+                                img.getAttribute('data-lazy-src') ||
+                                img.getAttribute('lazy-src');
+                
+                if (realSrc && realSrc.length > 10) {
+                    img.setAttribute('src', realSrc); // আসল সোর্স বসিয়ে দেওয়া হলো
+                }
+            });
+
+            // RAM বাঁচানোর জন্য পেজের ফালতু ভিডিও/SVG JS লেভেলেই ডিলিট
+            document.querySelectorAll('video, svg, iframe.ads, .advertisement').forEach(el => el.remove());
+        });
+
+        // ---------------------------------------------------------
+        // ১১. ডেটা সেভ ও এক্সিট
+        // ---------------------------------------------------------
         try {
             const currentCookies = await page.cookies();
             fs.writeFileSync(cookiePath, JSON.stringify(currentCookies, null, 2));
@@ -214,11 +234,8 @@ const USER_AGENT = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
         const html = await page.content();
         
-        // ভ্যালিডেশন
         if (html.length < 500) {
              console.error("❌ Content too short/Blocked.");
-             // এখানে throw Error করলে PHP জব ফেইল হিসেবে মার্ক করবে
-             // throw new Error("Blocked or Empty Page");
         }
 
         fs.writeFileSync(outputFile, html);

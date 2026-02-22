@@ -21,7 +21,7 @@ use App\Http\Middleware\AdminMiddleware;
 |--------------------------------------------------------------------------
 */
 
-// --- ১. পাবলিক এবং গেস্ট রুটস (লগইন ছাড়া এক্সেস পাবে) ---
+// --- ১. পাবলিক এবং গেস্ট রুটস ---
 Route::get('/', function () {
     return redirect()->route('login');
 });
@@ -30,7 +30,7 @@ Route::get('/', function () {
 Route::get('/preview/{id}', [NewsController::class, 'publicPreview'])->name('news.public-preview');
 Route::post('/preview/{id}/feedback', [NewsController::class, 'handlePreviewFeedback'])->name('news.preview-feedback');
 
-// টেলিগ্রাম ওয়েবহুক
+// টেলিগ্রাম ওয়েবহুক (সতর্কতা: CSRF exception এ অ্যাড করতে ভুলবেন না)
 Route::post('/telegram/webhook', [TelegramBotController::class, 'handle']);
 
 Route::middleware('guest')->group(function () {
@@ -40,10 +40,9 @@ Route::middleware('guest')->group(function () {
 
 
 // --- ২. লগইন করা সকল ইউজারের জন্য কমন রুটস (Auth & NoCache Middleware) ---
-// 🔥 এখানে 'nocache' যোগ করা হয়েছে যাতে ব্রাউজার ড্যাশবোর্ডের ডাটা ক্যাশ না করে
 Route::middleware(['auth', 'nocache'])->group(function () {
     
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout'); // ডুপ্লিকেট রুট মুছে ফেলা হয়েছে
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/stop-impersonate', [AdminController::class, 'stopImpersonate'])->name('stop.impersonate');
 
     // নোটিফিকেশন রিড
@@ -56,11 +55,18 @@ Route::middleware(['auth', 'nocache'])->group(function () {
     Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.update-profile');
 
-    // --- সেটিংস ম্যানেজমেন্ট ---
+    // --- ৩. সেটিংস ম্যানেজমেন্ট (কানেকশন টেস্টগুলো এখানেই সিকিউর করা হলো) ---
     Route::middleware(['permission:can_settings'])->group(function () {
         Route::get('/admin/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::post('/admin/settings', [SettingsController::class, 'update'])->name('settings.update');
         Route::post('/admin/settings/upload-logo', [SettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
+        
+        // 🔥 কানেকশন টেস্টগুলো এখন সম্পূর্ণ নিরাপদ
+        Route::prefix('settings/test')->name('settings.')->group(function () {
+            Route::post('/facebook', [SettingsController::class, 'testFacebookConnection'])->name('test-facebook');
+            Route::post('/telegram', [SettingsController::class, 'testTelegramConnection'])->name('test-telegram');
+            Route::post('/wordpress', [SettingsController::class, 'testWordPressConnection'])->name('test-wordpress');
+        });
     });
 
     // রিপোর্টার সেকশন
@@ -80,7 +86,7 @@ Route::middleware(['auth', 'nocache'])->group(function () {
         });
     });
 
-    // ৪. নিউজ কোর সেকশন
+    // --- ৪. নিউজ কোর সেকশন ---
     Route::controller(NewsController::class)->prefix('news')->name('news.')->group(function () {
         
         Route::get('/', 'index')->name('index');
@@ -88,17 +94,22 @@ Route::middleware(['auth', 'nocache'])->group(function () {
         Route::post('/{id}/post', 'postToWordPress')->name('post');
         Route::post('/{id}/manual-publish', 'publishManualFromIndex')->name('manual-publish');
         Route::post('/{id}/queue', 'toggleQueue')->name('queue');
+        
+        // 🔥 স্ট্যাটাস চেকিং (GET এবং POST আলাদা করা হলো)
         Route::get('/check-status', 'checkAutoPostStatus')->name('check-auto-status');
+        Route::post('/check-status', 'checkStatus')->name('check-status'); // Smart Polling এর জন্য
+        
         Route::get('/check-scrape-status', 'checkScrapeStatus')->name('check-scrape-status');
         Route::post('/toggle-automation', 'toggleAutomation')->name('toggle-automation');
         Route::post('/check-draft-updates', 'checkDraftUpdates')->name('check-draft-updates');
         Route::get('/published', 'published')->name('published');
-
+        Route::get('/suggest-links', 'suggestLinks')->name('suggest-links');
+        
         Route::get('/{id}/unlock', 'unlockNews')->name('unlock');
         Route::get('/{id}/get-draft', 'getDraftContent')->name('get-draft');
         Route::post('/{id}/update-draft', 'updateDraft')->name('update-draft');
         Route::post('/{id}/process-ai', 'sendToAiQueue')->name('process-ai');
-
+        
         Route::middleware(['permission:can_direct_publish'])->group(function () {
             Route::get('/create', 'create')->name('create');
             Route::post('/store-custom', 'storeCustom')->name('store-custom');
@@ -124,13 +135,6 @@ Route::middleware(['auth', 'nocache'])->group(function () {
     
     Route::get('/proxy-image', [NewsController::class, 'proxyImage'])->name('proxy.image');
 
-    // কানেকশন টেস্ট
-    Route::prefix('settings/test')->name('settings.')->group(function () {
-        Route::post('/facebook', [SettingsController::class, 'testFacebookConnection'])->name('test-facebook');
-        Route::post('/telegram', [SettingsController::class, 'testTelegramConnection'])->name('test-telegram');
-        Route::post('/wordpress', [SettingsController::class, 'testWordPressConnection'])->name('test-wordpress');
-    });
-
     Route::resource('buy-credits', PaymentController::class)->names('payment')->only(['create', 'store']);
     Route::get('/settings/fetch-categories', [SettingsController::class, 'fetchCategories'])->name('settings.fetch-categories');
     Route::post('/settings/save-design', [SettingsController::class, 'saveDesign'])->name('settings.save-design');
@@ -138,7 +142,7 @@ Route::middleware(['auth', 'nocache'])->group(function () {
 });
 
 
-// --- ৫. সুপার অ্যাডমিন রুটস (nocache যোগ করা হয়েছে) ---
+// --- ৫. সুপার অ্যাডমিন রুটস (nocache যোগ করা হয়েছে) ---
 Route::middleware(['auth', 'nocache', AdminMiddleware::class])->group(function () {
     
     Route::prefix('admin/templates')->name('admin.templates.')->group(function () {
