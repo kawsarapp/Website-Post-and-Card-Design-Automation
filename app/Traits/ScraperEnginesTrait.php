@@ -4,12 +4,22 @@ namespace App\Traits;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 trait ScraperEnginesTrait
 {
     public function getProxyConfig($userId = null)
     {
-        $uid = $userId ?? Auth::id();
+        // 🔥 ফিক্স: স্টাফ হলে তার অ্যাডমিনের আইডি বের করবে, নতুবা দেওয়া আইডি ব্যবহার করবে
+        if ($userId) {
+            $uid = $userId;
+        } elseif (Auth::check()) {
+            $user = Auth::user();
+            $uid = in_array($user->role, ['staff', 'reporter']) ? $user->parent_id : $user->id;
+        } else {
+            return null;
+        }
+
         if (!$uid) return null;
 
         $settings = \App\Models\UserSetting::where('user_id', $uid)->first();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\NewsItem;
 use App\Models\UserSetting;
 use App\Models\Template;
+use App\Models\User; // 🔥 User মডেল ইমপোর্ট করা হলো
 use App\Services\NewsScraperService;
 use App\Services\AIWriterService;
 use App\Services\WordPressService;
@@ -19,7 +20,6 @@ use App\Traits\NewsAjaxTrait;
 
 class NewsController extends Controller
 {
-    // 🔥 Traits ব্যবহার করে বিশাল কোডকে সুন্দরভাবে কল করা হলো
     use NewsDraftsTrait, NewsPublishingTrait, NewsAjaxTrait;
 
     private $scraper, $aiWriter, $wpService, $telegram;
@@ -36,16 +36,23 @@ class NewsController extends Controller
         $this->telegram = $telegram;
     }
 
+    private function getEffectiveAdmin() {
+        $user = Auth::user();
+        return in_array($user->role, ['staff', 'reporter']) ? User::find($user->parent_id) : $user;
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
         if (!$user) return redirect()->route('login');
 
+        $adminUser = $this->getEffectiveAdmin(); 
+
         $search = $request->input('search');
         $websiteId = $request->input('website');
 
         $query = NewsItem::with(['website' => function ($q) { $q->withoutGlobalScopes(); }])
-            ->where('user_id', $user->id)
+            ->whereIn('user_id', [$user->id, $adminUser->id]) 
             ->where('is_rewritten', 0)
             ->whereNotNull('website_id')
             ->where('status', '!=', 'processing'); 
@@ -54,7 +61,14 @@ class NewsController extends Controller
         if ($websiteId) $query->where('website_id', $websiteId);
 
         $newsItems = $query->orderBy('id', 'desc')->paginate(20);
-        $websites = \App\Models\Website::withoutGlobalScopes()->where('user_id', $user->id)->get();
+        
+        $websites = \App\Models\Website::withoutGlobalScopes()
+            ->where(function($q) use ($adminUser) {
+                $q->where('user_id', $adminUser->id)
+                  ->orWhereHas('users', function($query) use ($adminUser) {
+                      $query->where('users.id', $adminUser->id); 
+                  });
+            })->get();
 
         return view('news.index', compact('newsItems', 'websites'));
     }
@@ -63,9 +77,10 @@ class NewsController extends Controller
     {
         $newsItem = NewsItem::with(['website' => function ($query) { $query->withoutGlobalScopes(); }])->findOrFail($id);
         $user = Auth::user();
-        $settings = UserSetting::firstOrCreate(['user_id' => $user->id]);
+        $adminUser = $this->getEffectiveAdmin();
+        
+        $settings = UserSetting::firstOrCreate(['user_id' => $adminUser->id]);
 
-        // 🔥 আগের সব টেমপ্লেট হুবহু ফিরিয়ে আনা হয়েছে
         $allTemplates = [
             ['key' => 'ntv', 'name' => 'NTV News', 'image' => 'templates/ntv.png', 'layout' => 'ntv'],
             ['key' => 'rtv', 'name' => 'RTV News', 'image' => 'templates/rtv.png', 'layout' => 'rtv'],
@@ -85,6 +100,8 @@ class NewsController extends Controller
             ['key' => 'todayeventsSingle1', 'name' => 'todayeventsSingle1', 'image' => 'templates/todayeventsSingle1.png', 'layout' => 'todayeventsSingle1'],
             ['key' => 'WatchBangladesh', 'name' => 'WatchBangladesh', 'image' => 'templates/WatchBangladesh.png', 'layout' => 'WatchBangladesh'],
             ['key' => 'TodayEventsDualFrame', 'name' => 'TodayEventsDualFrame', 'image' => 'templates/TodayEventsDualFrame.png', 'layout' => 'TodayEventsDualFrame'],
+            ['key' => 'Thenews24Main', 'name' => 'Thenews24Main', 'image' => 'templates/Thenews24Main.png', 'layout' => 'Thenews24Main'],
+            ['key' => 'Thenews24UniversalAds', 'name' => 'Thenews24UniversalAds', 'image' => 'templates/Thenews24UniversalAds.png', 'layout' => 'Thenews24UniversalAds'],
         ];
 
         try {
@@ -97,7 +114,7 @@ class NewsController extends Controller
         $allowed = $settings->allowed_templates ?? [];
         $availableTemplates = [];
 
-        if ($user->role === 'super_admin' || $user->role === 'admin') {
+        if ($adminUser->role === 'super_admin' || $adminUser->role === 'admin') {
             $availableTemplates = $allTemplates;
         } else {
             foreach ($allTemplates as $template) {
@@ -114,26 +131,32 @@ class NewsController extends Controller
     public function storeCustom(Request $request)
     {
         $request->validate(['title' => 'required|max:255', 'content' => 'required', 'image_file' => 'nullable|image|max:5120', 'image_url' => 'nullable|url']);
+        
+        $adminUser = $this->getEffectiveAdmin(); 
+        $staffId = Auth::id() !== $adminUser->id ? Auth::id() : null; 
+
         try {
             $finalImage = null;
             if ($request->hasFile('image_file')) $finalImage = asset('storage/' . $request->file('image_file')->store('news-uploads', 'public'));
             elseif ($request->filled('image_url')) $finalImage = $request->image_url;
 
             $news = NewsItem::create([
-                'user_id' => auth()->id(), 'title' => $request->title, 'content' => $request->content,
+                'user_id' => $adminUser->id, 
+                'staff_id' => $staffId, 
+                'title' => $request->title, 'content' => $request->content,
                 'thumbnail_url' => $finalImage, 'original_link' => '#custom-' . uniqid(), 'status' => 'draft',
                 'published_at' => now()
             ]);
 
             if ($request->has('process_ai')) {
                 $news->update(['status' => 'processing']);
-                GenerateAIContent::dispatch($news->id, auth()->id());
+                GenerateAIContent::dispatch($news->id, Auth::id()); 
                 return redirect()->route('news.drafts')->with('success', 'AI প্রসেসিং শুরু!');
             }
 
             if ($request->has('direct_publish')) {
                 $news->update(['status' => 'publishing']);
-                ProcessNewsPost::dispatch($news->id, auth()->id(), ['category_ids' => $request->filled('category') ? [$request->category] : [1]], true);
+                ProcessNewsPost::dispatch($news->id, Auth::id(), ['category_ids' => $request->filled('category') ? [$request->category] : [1]], true); // 🔥 জবে Staff ID পাঠানো হলো
                 return redirect()->route('news.index')->with('success', 'পাবলিশিং শুরু!');
             }
 
@@ -149,13 +172,16 @@ class NewsController extends Controller
     public function destroy($id)
     {
         $news = NewsItem::findOrFail($id);
-        if (auth()->user()->role !== 'super_admin' && $news->user_id !== auth()->id()) return back()->with('error', 'অনুমতি নেই।');
+        $adminUser = $this->getEffectiveAdmin();
+
+        if (Auth::user()->role !== 'super_admin' && $news->user_id !== $adminUser->id && $news->user_id !== Auth::id()) {
+            return back()->with('error', 'অনুমতি নেই।');
+        }
+        
         $news->delete();
         return back()->with('success', 'মুছে ফেলা হয়েছে।');
     }
 
-
-    // AI Status Checking for Smart Polling
     public function checkStatus(\Illuminate\Http\Request $request)
     {
         $ids = $request->input('ids', []);
@@ -170,6 +196,4 @@ class NewsController extends Controller
 
         return response()->json($items);
     }
-
-
 }

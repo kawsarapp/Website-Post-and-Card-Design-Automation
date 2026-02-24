@@ -14,6 +14,7 @@ use App\Http\Controllers\{
     AdminTemplateController
 };
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Controllers\StaffController;
 
 /*
 |--------------------------------------------------------------------------
@@ -141,6 +142,20 @@ Route::middleware(['auth', 'nocache'])->group(function () {
     Route::post('/settings/upload-frame', [SettingsController::class, 'uploadFrame'])->name('settings.upload-frame');
 });
 
+
+
+// Admin (Client) er Staff Management Routes
+Route::middleware(['auth'])->prefix('client')->name('client.')->group(function () {
+    Route::get('/staff', [StaffController::class, 'index'])->name('staff.index');
+    Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
+    
+    // 🔥 নতুন পারমিশন, সোর্স এবং টেমপ্লেট রাউট
+    Route::put('/staff/{id}/permissions', [StaffController::class, 'updatePermissions'])->name('staff.permissions');
+    Route::put('/staff/{id}/websites', [StaffController::class, 'updateWebsites'])->name('staff.websites');
+    Route::put('/staff/{id}/templates', [StaffController::class, 'updateTemplates'])->name('staff.templates');
+    
+    Route::delete('/staff/{id}', [StaffController::class, 'destroy'])->name('staff.destroy');
+});
 
 // --- ৫. সুপার অ্যাডমিন রুটস (nocache যোগ করা হয়েছে) ---
 Route::middleware(['auth', 'nocache', AdminMiddleware::class])->group(function () {

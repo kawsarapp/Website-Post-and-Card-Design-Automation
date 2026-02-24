@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Models\Scopes\UserScope; // স্কোপ ইমপোর্ট
+use App\Models\Scopes\UserScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -11,7 +11,6 @@ class Website extends Model
 {
     use HasFactory;
 
-    // তোমার দেওয়া fillable রাখা হয়েছে
     protected $fillable = [
         'name',
         'url',
@@ -20,15 +19,14 @@ class Website extends Model
         'selector_image',
         'selector_content',
         'selector_time',
-		'scraper_method',
+        'scraper_method',
+        'user_id', 
     ];
 
-    // ✅ স্কোপ বুট করা (তোমার প্রথম কোড থেকে যোগ করা হলো)
     protected static function booted()
     {
         static::addGlobalScope(new UserScope);
 
-        // ডাটা সেভ হওয়ার সময় অটোমেটিক user_id বসবে
         static::creating(function ($website) {
             if (Auth::check()) {
                 $website->user_id = Auth::id();
@@ -36,13 +34,23 @@ class Website extends Model
         });
     }
 
-    // রিলেশনশিপ: একটি ওয়েবসাইটের একজন ইউজার থাকে (তোমার প্রথম কোড অনুযায়ী)
+
+    public function users()
+        {
+            return $this->belongsToMany(User::class, 'user_website', 'website_id', 'user_id');
+        }
+
+    /**
+     * মূল মালিক (Creator)
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    // রিলেশনশিপ: একটি ওয়েবসাইটের অনেকগুলো নিউজ থাকতে পারে
+    /**
+     * এই ওয়েবসাইটের আন্ডারে থাকা নিউজ আইটেমগুলো
+     */
     public function newsItems()
     {
         return $this->hasMany(NewsItem::class);

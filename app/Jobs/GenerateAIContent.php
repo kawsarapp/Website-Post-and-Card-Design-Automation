@@ -34,13 +34,20 @@ class GenerateAIContent implements ShouldQueue
         Log::info("🚀 AI Job Started for News ID: {$this->newsId}");
 
         $news = NewsItem::withoutGlobalScopes()->find($this->newsId);
+        $user = User::find($this->userId);
 
         if (!$news) {
             Log::error("❌ News not found ID: {$this->newsId}");
             return;
         }
 
-        $news->update(['status' => 'processing']);
+        // 🔥 Staff ID বের করা (যাতে ব্যাকগ্রাউন্ডেও স্টাফ ট্র্যাক হয়)
+        $staffId = ($user && in_array($user->role, ['staff', 'reporter'])) ? $user->id : null;
+
+        $news->update([
+            'status' => 'processing',
+            'staff_id' => $staffId ?? $news->staff_id
+        ]);
 
         try {
             $title = $news->title ?? '';
@@ -62,12 +69,12 @@ class GenerateAIContent implements ShouldQueue
                 'ai_content' => $aiResponse['content'],
                 'status' => 'draft',
                 'is_rewritten' => true,
+                'staff_id' => $staffId ?? $news->staff_id, // 🔥 স্টাফ আইডি সেভ করা হলো
                 'error_message' => null 
             ]);
 
             Log::info("✅ AI Job Completed. ID: {$this->newsId}");
 
-            $user = User::find($this->userId);
             if ($user) {
                 $safeTitle = mb_convert_encoding($news->ai_title, 'UTF-8', 'UTF-8');
                 $user->notify(new AIRewriteCompletedNotification($safeTitle, $news->id));
@@ -106,6 +113,7 @@ class GenerateAIContent implements ShouldQueue
             $news->update([
                 'status' => 'failed',
                 'error_message' => $userMessage,
+                'staff_id' => $staffId ?? $news->staff_id, // 🔥 স্টাফ আইডি সেভ করা হলো
                 'ai_content' => null
             ]);
             

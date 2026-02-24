@@ -14,11 +14,20 @@ class CreditHistory extends Model
         'action_type',
         'description',
         'credits_change',
+        'staff_id',
         'balance_after'
+        
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
     }
+
+
+    public function staff() {
+        return $this->belongsTo(User::class, 'staff_id');
+    }
+
+    
 }

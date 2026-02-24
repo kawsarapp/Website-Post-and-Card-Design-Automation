@@ -1,93 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
-<style>
-    /* =========================================
-       1. FONT OPTIMIZATION & FULL LIST
-       ========================================= */
-    
-    /* Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Noto+Sans+Bengali:wght@400;700&display=swap');
 
-    .font-bangla { font-family: 'Hind Siliguri', sans-serif; }
-    
-    /* Font Loading Performance: font-display: swap ব্যবহার করা হয়েছে যাতে ফন্ট লোড হতে দেরি হলেও টেক্সট দেখা যায় */
-    
-    /* SolaimanLipi */
-    @font-face { font-family: 'SolaimanLipi'; src: url('/fonts/SolaimanLipi.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-
-    /* Noto Serif Condensed Family */
-    @font-face { font-family: 'Noto Serif Cond Thin'; src: url('/fonts/NotoSerifBengali_Condensed-Thin.ttf') format('truetype'); font-display: swap; }
-    @font-face { font-family: 'Noto Serif Cond ExtraLight'; src: url('/fonts/NotoSerifBengali_Condensed-ExtraLight.ttf') format('truetype'); font-display: swap; }
-    @font-face { font-family: 'Noto Serif Cond Light'; src: url('/fonts/NotoSerifBengali_Condensed-Light.ttf') format('truetype'); font-display: swap; }
-    @font-face { font-family: 'Noto Serif Cond Regular'; src: url('/fonts/NotoSerifBengali_Condensed-Regular.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Noto Serif Cond Medium'; src: url('/fonts/NotoSerifBengali_Condensed-Medium.ttf') format('truetype'); font-display: swap; }
-    @font-face { font-family: 'Noto Serif Cond SemiBold'; src: url('/fonts/NotoSerifBengali_Condensed-SemiBold.ttf') format('truetype'); font-display: swap; }
-    @font-face { font-family: 'Noto Serif Cond Bold'; src: url('/fonts/NotoSerifBengali_Condensed-Bold.ttf') format('truetype'); font-weight: bold; font-display: swap; }
-    @font-face { font-family: 'Noto Serif Cond ExtraBold'; src: url('/fonts/A NotoSerifBengali_Condensed-ExtraBold.ttf') format('truetype'); font-display: swap; }
-    @font-face { font-family: 'Noto Serif Cond Black'; src: url('/fonts/NotoSerifBengali_Condensed-Black.ttf') format('truetype'); font-display: swap; }
-
-    /* Li Alinur Family */
-    @font-face { font-family: 'Li Alinur Banglaborno'; src: url('/fonts/Li Alinur Banglaborno Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Alinur Banglaborno'; src: url('/fonts/Li Alinur Banglaborno Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Alinur Kuyasha'; src: url('/fonts/Li Alinur Kuyasha Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Alinur Kuyasha'; src: url('/fonts/Li Alinur Kuyasha Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Alinur Sangbadpatra'; src: url('/fonts/Li Alinur Sangbadpatra Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Alinur Sangbadpatra'; src: url('/fonts/Li Alinur Sangbadpatra Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Alinur Tumatul'; src: url('/fonts/wwwLi Alinur Tumatul Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Alinur Tumatul'; src: url('/fonts/wwwLi Alinur Tumatul Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    /* Other Li Fonts */
-    @font-face { font-family: 'Li MA Hai'; src: url('/fonts/Li M. A. Hai Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li MA Hai'; src: url('/fonts/Li M. A. Hai Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Purno Pran'; src: url('/fonts/Li Purno Pran Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Purno Pran'; src: url('/fonts/Li Purno Pran Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Sabbir Sorolota'; src: url('/fonts/Li Sabbir Sorolota Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Sabbir Sorolota'; src: url('/fonts/Li Sabbir Sorolota Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Shohid Abu Sayed'; src: url('/fonts/Li Shohid Abu Sayed Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Shohid Abu Sayed'; src: url('/fonts/ALi Shohid Abu Sayed Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Abu JM Akkas'; src: url('/fonts/Li Abu J M Akkas Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Abu JM Akkas'; src: url('/fonts/Li Abu J M Akkas Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Mehdi Ekushey'; src: url('/fonts/Li Mehdi Ekushey Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Mehdi Ekushey'; src: url('/fonts/ALi Mehdi Ekushey Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    @font-face { font-family: 'Li Shadhinata'; src: url('/fonts/Li Shadhinata2 2.0 Unicode.ttf') format('truetype'); font-weight: normal; font-display: swap; }
-    @font-face { font-family: 'Li Shadhinata'; src: url('/fonts/Li Shadhinata2 2.0 Unicode Italic.ttf') format('truetype'); font-style: italic; font-display: swap; }
-
-    /* =========================================
-       2. UI & PERFORMANCE STYLES
-       ========================================= */
-    
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    
-    .tab-btn.active { border-bottom: 2px solid #4f46e5; color: #4f46e5; }
-    
-    /* Hardware Acceleration for Canvas */
-    #canvas-wrapper { 
-        will-change: transform; 
-        transform: translateZ(0); 
-    }
-    
-    #tab-design, #tab-text, #tab-image, #tab-layers { contain: content; }
-
-    input[type=range] { height: 26px; -webkit-appearance: none; width: 100%; background: transparent; }
-    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #e2e8f0; border-radius: 3px; }
-    input[type=range]::-webkit-slider-thumb { height: 16px; width: 16px; border-radius: 50%; background: #4f46e5; cursor: pointer; -webkit-appearance: none; margin-top: -5px; }
-    
-    .label-title { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; margin-bottom: 8px; letter-spacing: 0.05em; }
-    .layer-btn { background: white; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; font-size: 11px; transition: all 0.2s; }
-    .layer-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
-</style>
+{{-- ১. স্টাইল ফাইল ইমপোর্ট করা হলো --}}
+@include('partials.studio_styles')
 
 <div class="fixed inset-0 bg-gray-100 z-50 flex flex-col font-bangla h-dvh">
     
@@ -244,7 +160,6 @@
                         <div class="grid grid-cols-2 gap-3 mb-3">
                             <div>
                                 <label class="text-xs text-gray-500 mb-1 block">Color (Selected)</label>
-                                {{-- 🔥 FIXED: সিলেক্টিভ টেক্সট কালার --}}
                                 <input type="color" id="text-color" class="w-full h-9 rounded cursor-pointer border border-gray-200 p-0.5" oninput="applyTextColor(this.value)">
                             </div>
                             <div>
@@ -326,152 +241,15 @@
         </div>
     </div>
 
-    {{-- Publish Modal --}}
-    <div id="studioPublishModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-fade-in-up">
-            <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
-                <h3 class="text-lg font-bold text-gray-800">🚀 Publish Settings</h3>
-                <button onclick="closePublishModal()" class="text-gray-500 hover:text-red-500 text-2xl">&times;</button>
-            </div>
-            
-            <div class="p-6 space-y-4">
-                <div class="flex items-center gap-3 bg-indigo-50 p-3 rounded-lg border border-indigo-100">
-                    <input type="checkbox" id="modalSocialOnly" class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer" onchange="toggleCategoryField(this.checked)">
-                    <div>
-                        <label for="modalSocialOnly" class="font-bold text-gray-700 cursor-pointer select-none">Only Social Media</label>
-                        <p class="text-xs text-gray-500">ওয়েবসাইটে পোস্ট হবে না, শুধু ফেসবুক/টেলিগ্রামে যাবে।</p>
-                    </div>
-                </div>
+    {{-- ২. Publish Modal ইমপোর্ট করা হলো --}}
+    @include('partials.studio_publish_modal')
 
-                <div id="categoryFieldWrapper">
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="block text-sm font-bold text-gray-700">Website Category</label>
-                        <button type="button" onclick="refreshStudioCategories()" class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200 transition font-bold flex items-center gap-1 border border-indigo-200">
-                            🔄 Refresh List
-                        </button>
-                    </div>
-
-                    {{-- 🔥 অটো লোড হওয়া ড্রপডাউন --}}
-                    <select id="modalCategory" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="">⏳ Loading Categories...</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Social Caption</label>
-                    <textarea id="modalCaption" rows="4" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Write something...">{{ $newsItem->ai_title ?? $newsItem->title }}</textarea>
-                </div>
-            </div>
-
-            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3">
-                <button onclick="closePublishModal()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-100">Cancel</button>
-                <button onclick="confirmStudioPost()" id="btnFinalPost" class="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-lg flex items-center gap-2">
-                    ✈️ Confirm & Post
-                </button>
-            </div>
-        </div>
-    </div>
 </div>
 
 @include('news.studio.scripts')
 @include('news.studio.rtv-design')
 
-{{-- 🔥 EXTRA SCRIPTS FOR FEATURES --}}
-<script>
-    // ✅ গ্লোবাল ভেরিয়েবল ক্যাটাগরি রাখার জন্য
-    let studioCategories = [];
+{{-- ৩. Extra Scripts ইমপোর্ট করা হলো --}}
+@include('partials.studio_extra_scripts')
 
-    // 🔥 ১. সিলেক্টিভ টেক্সট কালার ফাংশন (Selection Color)
-    window.applyTextColor = function(color) {
-        const activeObj = canvas.getActiveObject();
-        
-        if (activeObj && (activeObj.type === 'i-text' || activeObj.type === 'textbox')) {
-            // যদি এডিটিং মোডে থাকে এবং টেক্সট সিলেক্ট করা থাকে
-            if (activeObj.isEditing && activeObj.selectionStart !== activeObj.selectionEnd) {
-                // শুধু সিলেক্টেড অংশের কালার চেঞ্জ
-                activeObj.setSelectionStyles({ fill: color });
-            } else {
-                // অন্যথায় পুরো টেক্সটের কালার চেঞ্জ
-                activeObj.set('fill', color);
-            }
-            canvas.requestRenderAll();
-            if(typeof saveHistory === 'function') saveHistory();
-        }
-    };
-
-    // 🔥 ২. মোডাল ওপেন হলে অটো ক্যাটাগরি লোড
-    window.openPublishModal = function() {
-        const modal = document.getElementById('studioPublishModal');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-
-        // যদি ক্যাটাগরি আগে লোড না হয়ে থাকে, তবে লোড করো
-        if(studioCategories.length === 0) {
-            refreshStudioCategories();
-        } else {
-            populateStudioDropdown();
-        }
-    };
-
-    // 🔥 ক্যাটাগরি ফেচ এবং ড্রপডাউন পপুলেট
-    window.refreshStudioCategories = function() {
-        const btn = document.querySelector('button[onclick="refreshStudioCategories()"]');
-        const select = document.getElementById('modalCategory');
-        
-        if(btn) { btn.innerText = "⏳ Loading..."; btn.disabled = true; }
-        if(select) select.innerHTML = '<option value="">⏳ Fetching data...</option>';
-
-        fetch("{{ route('settings.fetch-categories') }}")
-            .then(res => res.json())
-            .then(data => {
-                if(!data.error) {
-                    studioCategories = data;
-                    populateStudioDropdown();
-                    if(btn) btn.innerText = "✅ Updated";
-                } else {
-                    alert("Error: " + data.error);
-                }
-            })
-            .catch(err => console.error("Category Fetch Error:", err))
-            .finally(() => {
-                if(btn) { 
-                    setTimeout(() => { 
-                        btn.innerHTML = '🔄 Refresh List'; 
-                        btn.disabled = false; 
-                    }, 1500); 
-                }
-            });
-    };
-
-    // 🔥 ড্রপডাউন HTML তৈরি
-    window.populateStudioDropdown = function() {
-        const select = document.getElementById('modalCategory');
-        if(!select) return;
-        
-        select.innerHTML = '<option value="">-- Select Category --</option>';
-        
-        // ডিফল্ট ক্যাটাগরি
-        select.innerHTML += '<option value="1">Uncategorized (Default)</option>';
-
-        studioCategories.forEach(cat => {
-            let option = document.createElement('option');
-            option.value = cat.id;
-            option.text = `${cat.name} (ID: ${cat.id})`;
-            select.appendChild(option);
-        });
-    };
-    
-    window.closePublishModal = function() {
-        document.getElementById('studioPublishModal').classList.add('hidden');
-        document.getElementById('studioPublishModal').classList.remove('flex');
-    };
-    
-    // Canvas Loader Trigger (Optional if you want to show manual loading)
-    function showCanvasLoader() {
-        document.getElementById('canvas-loader').classList.remove('hidden');
-    }
-    function hideCanvasLoader() {
-        document.getElementById('canvas-loader').classList.add('hidden');
-    }
-</script>
 @endsection

@@ -32,8 +32,8 @@ class UserSetting extends Model
 		'telegram_channel_id',
 		'post_to_fb',
         'post_to_telegram',
-		'laravel_site_url',   // লারাভেল সাইটের লিংক
-		'laravel_api_token',  // সিকিউরিটি টোকেন
+		'laravel_site_url',  
+		'laravel_api_token', 
 		'post_to_laravel',
 		'fb_comment_link',
 		'proxy_host',
@@ -44,7 +44,6 @@ class UserSetting extends Model
     ];
 
 
-	// ✅ JSON কে Array তে কনভার্ট করা
     protected $casts = [
         'allowed_templates' => 'array',
         'is_auto_posting' => 'boolean',
@@ -59,7 +58,6 @@ class UserSetting extends Model
         'laravel_api_token' => 'encrypted',
     ];
 
-    // ✅ টেমপ্লেট লিস্ট (Master List)
     public const AVAILABLE_TEMPLATES = [
         'ntv'           => '🟩 NTV News',
         'rtv'           => '🟥 RTV News',
@@ -78,6 +76,8 @@ class UserSetting extends Model
 		'WatchBangladesh' => 'WatchBangladesh',
 		'TodayEventsDualFrame' => 'TodayEventsDualFrame',
 		'todayeventsSingle1' => 'todayeventsSingle1',
+		'Thenews24Main' => 'Thenews24Main',
+		'Thenews24UniversalAds' => 'Thenews24UniversalAds',
 
 		
     ];

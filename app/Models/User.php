@@ -20,6 +20,7 @@ class User extends Authenticatable
         'total_credits_limit', 
         'daily_post_limit',
         'is_active',
+        'staff_limit',
         'permissions'
     ];
 
@@ -58,9 +59,9 @@ class User extends Authenticatable
 
     // ইউজারের এক্সেস থাকা ওয়েবসাইট
     public function accessibleWebsites()
-    {
-        return $this->belongsToMany(Website::class, 'user_website');
-    }
+        {
+            return $this->belongsToMany(Website::class, 'user_website', 'user_id', 'website_id');
+        }
     
     // ইউজারের ক্রেডিট হিস্ট্রি
     public function creditHistories()

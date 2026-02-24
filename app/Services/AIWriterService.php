@@ -55,154 +55,159 @@ class AIWriterService
         EOT;
     }
 
+   
+
     // 🔥 আপডেট: $isRetry প্যারামিটার যুক্ত করা হয়েছে
-    public function rewrite($content, $title, $isRetry = false)
-    {
-        if (empty($content) || strlen(strip_tags($content)) < 100) {
-            throw new \Exception("SHORT_CONTENT");
-        }
+        public function rewrite($content, $title, $isRetry = false)
+        {
+            if (empty($content) || strlen(strip_tags($content)) < 100) {
+                throw new \Exception("SHORT_CONTENT");
+            }
 
-        $safeContent = mb_substr($content, 0, 8000, 'UTF-8'); 
+            $safeContent = mb_substr($content, 0, 8000, 'UTF-8'); 
 
-        // 🔥 আপডেট: পুনরায় লেখার জন্য বিশেষ নির্দেশিকা
-        $retryInstruction = $isRetry 
-            ? "\n\n⚠️ NOTE: This is a RE-WRITE request. Your previous version was not satisfactory. Please use DIFFERENT vocabulary, change the sentence structure, and try a MORE ENGAGING lead paragraph while maintaining the same facts."
-            : "";
+            // 🔥 আপডেট: পুনরায় লেখার জন্য বিশেষ নির্দেশিকা
+            $retryInstruction = $isRetry 
+                ? "\n\n⚠️ NOTE: This is a RE-WRITE request. Your previous version was not satisfactory. Please use DIFFERENT vocabulary, change the sentence structure, and try a MORE ENGAGING lead paragraph while maintaining the same facts."
+                : "";
 
-        $finalInput = "Title: $title\n\nContent: $safeContent" . $retryInstruction;
+            $finalInput = "Title: $title\n\nContent: $safeContent" . $retryInstruction;
 
-        // 1️⃣ TRY DEEPSEEK
-        try {
-            return $this->callDeepSeek($finalInput, $title, $isRetry);
-        } catch (\Exception $e) {
-            Log::warning("⚠️ DeepSeek Failed: " . $e->getMessage() . ". Switching to Gemini...");
-        }
-
-        // 2️⃣ TRY GEMINI
-        try {
-            return $this->callGemini($finalInput, $title, $isRetry);
-        } catch (\Exception $e) {
-            Log::warning("⚠️ Gemini Failed: " . $e->getMessage() . ". Switching to OpenAI...");
-        }
-
-        // 3️⃣ TRY OPENAI
-        try {
-            return $this->callOpenAI($finalInput, $title, $isRetry);
-        } catch (\Exception $e) {
-            Log::error("❌ ALL AI SERVICES FAILED: " . $e->getMessage());
-            throw new \Exception("ALL_AI_FAILED");
-        }
-    }
-
-    private function callDeepSeek($content, $title, $isRetry)
-    {
-        $apiKey = config('services.deepseek.key') ?? env('DEEPSEEK_API_KEY');
-        if (!$apiKey) throw new \Exception("DeepSeek API Key Missing");
-
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
-            'Content-Type'  => 'application/json',
-        ])->timeout(40)->post("https://api.deepseek.com/chat/completions", [
-            "model" => "deepseek-chat",
-            "messages" => [
-                ["role" => "system", "content" => $this->systemPrompt], 
-                ["role" => "user", "content" => $content]
-            ],
-            "response_format" => ["type" => "json_object"],
-            "temperature" => $isRetry ? 1.0 : 0.7 // 🔥 রি-ট্রাই হলে সৃজনশীলতা বাড়ানো হবে
-        ]);
-
-        return $this->parseResponse($response, 'DeepSeek');
-    }
-
-    private function callGemini($content, $title, $isRetry)
-    {
-        $apiKey = config('services.gemini.key') ?? env('GEMINI_API_KEY');
-        if (!$apiKey) throw new \Exception("Gemini API Key Missing");
-
-        $modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro"];
-
-        foreach ($modelsToTry as $model) {
+            // 1️⃣ TRY OPENAI FIRST
             try {
-                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
-                
-                $config = [
-                    "responseMimeType" => "application/json",
-                    "temperature" => $isRetry ? 0.9 : 0.6 // 🔥 পরিবর্তন আনা হয়েছে
-                ];
+                return $this->callOpenAI($finalInput, $title, $isRetry);
+            } catch (\Exception $e) {
+                Log::warning("⚠️ OpenAI Failed: " . $e->getMessage() . ". Switching to DeepSeek...");
+            }
 
-                $response = Http::withHeaders(['Content-Type' => 'application/json'])
-                    ->timeout(40)
-                    ->post($url, [
-                        "contents" => [[
-                            "parts" => [["text" => $this->systemPrompt . "\n\n" . $content]]
-                        ]],
-                        "generationConfig" => $config
-                    ]);
+            // 2️⃣ THEN TRY DEEPSEEK
+            try {
+                return $this->callDeepSeek($finalInput, $title, $isRetry);
+            } catch (\Exception $e) {
+                Log::warning("⚠️ DeepSeek Failed: " . $e->getMessage() . ". Switching to Gemini...");
+            }
 
-                if ($response->successful()) {
-                    $data = $response->json();
-                    $rawText = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
-                    Log::info("✅ Rewritten by: Gemini ($model)");
-                    return $this->processRawJson($rawText, 'Gemini');
-                }
-            } catch (\Exception $e) { continue; }
-        }
-        throw new \Exception("Gemini Failed.");
-    }
-
-    private function callOpenAI($content, $title, $isRetry)
-    {
-        $apiKey = config('services.openai.key') ?? env('OPENAI_API_KEY');
-        if (!$apiKey) throw new \Exception("OpenAI API Key Missing");
-
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
-            'Content-Type'  => 'application/json',
-        ])->timeout(40)->post("https://api.openai.com/v1/chat/completions", [
-            "model" => "gpt-4o-mini", 
-            "messages" => [
-                ["role" => "system", "content" => $this->systemPrompt], 
-                ["role" => "user", "content" => $content]
-            ],
-            "response_format" => ["type" => "json_object"],
-            "temperature" => $isRetry ? 1.0 : 0.7 // 🔥
-        ]);
-
-        return $this->parseResponse($response, 'OpenAI');
-    }
-
-    private function parseResponse($response, $providerName)
-    {
-        if ($response->successful()) {
-            $data = $response->json();
-            $rawContent = $data['choices'][0]['message']['content'] ?? null;
-            Log::info("✅ Rewritten by: $providerName");
-            return $this->processRawJson($rawContent, $providerName);
-        }
-        throw new \Exception("$providerName API Error: " . $response->status());
-    }
-
-    private function processRawJson($rawContent, $providerName)
-    {
-        if (!$rawContent) throw new \Exception("$providerName returned empty content");
-
-        $cleanJson = $this->cleanJsonString($rawContent);
-        $json = json_decode($cleanJson, true);
-
-        if (json_last_error() === JSON_ERROR_NONE && isset($json['title'])) {
-            // 🔥 Force Clean: Bold ট্যাগ মুছে ফেলা
-            $json['content'] = strip_tags($json['content'], '<p>'); 
-            return $json;
+            // 3️⃣ FINALLY TRY GEMINI
+            try {
+                return $this->callGemini($finalInput, $title, $isRetry);
+            } catch (\Exception $e) {
+                Log::error("❌ ALL AI SERVICES FAILED: " . $e->getMessage());
+                throw new \Exception("ALL_AI_FAILED");
+            }
         }
 
-        throw new \Exception("$providerName returned invalid format");
-    }
+        private function callDeepSeek($content, $title, $isRetry)
+        {
+            $apiKey = config('services.deepseek.key') ?? env('DEEPSEEK_API_KEY');
+            if (!$apiKey) throw new \Exception("DeepSeek API Key Missing");
 
-    private function cleanJsonString($string)
-    {
-        if (preg_match('/```json\s*([\s\S]*?)\s*```/', $string, $matches)) return trim($matches[1]);
-        if (preg_match('/```\s*([\s\S]*?)\s*```/', $string, $matches)) return trim($matches[1]);
-        return trim($string);
-    }
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type'  => 'application/json',
+            ])->timeout(40)->post("https://api.deepseek.com/chat/completions", [
+                "model" => "deepseek-chat",
+                "messages" => [
+                    ["role" => "system", "content" => $this->systemPrompt], 
+                    ["role" => "user", "content" => $content]
+                ],
+                "response_format" => ["type" => "json_object"],
+                "temperature" => $isRetry ? 0.85 : 0.7
+            ]);
+
+            return $this->parseResponse($response, 'DeepSeek');
+        }
+
+        private function callGemini($content, $title, $isRetry)
+        {
+            $apiKey = config('services.gemini.key') ?? env('GEMINI_API_KEY');
+            if (!$apiKey) throw new \Exception("Gemini API Key Missing");
+
+            $modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro"];
+
+            foreach ($modelsToTry as $model) {
+                try {
+                    $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
+                    
+                    $config = [
+                        "responseMimeType" => "application/json",
+                        "temperature" => $isRetry ? 0.8 : 0.6
+                    ];
+
+                    $response = Http::withHeaders(['Content-Type' => 'application/json'])
+                        ->timeout(40)
+                        ->post($url, [
+                            "contents" => [[
+                                "parts" => [["text" => $this->systemPrompt . "\n\n" . $content]]
+                            ]],
+                            "generationConfig" => $config
+                        ]);
+
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $rawText = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+                        Log::info("✅ Rewritten by: Gemini ($model)");
+                        return $this->processRawJson($rawText, 'Gemini');
+                    }
+                } catch (\Exception $e) { continue; }
+            }
+            throw new \Exception("Gemini Failed.");
+        }
+
+        private function callOpenAI($content, $title, $isRetry)
+        {
+            $apiKey = config('services.openai.key') ?? env('OPENAI_API_KEY');
+            if (!$apiKey) throw new \Exception("OpenAI API Key Missing");
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type'  => 'application/json',
+            ])->timeout(40)->post("https://api.openai.com/v1/chat/completions", [
+                "model" => "gpt-4o-mini", 
+                "messages" => [
+                    ["role" => "system", "content" => $this->systemPrompt], 
+                    ["role" => "user", "content" => $content]
+                ],
+                "response_format" => ["type" => "json_object"],
+                "temperature" => $isRetry ? 0.85 : 0.7
+            ]);
+
+            return $this->parseResponse($response, 'OpenAI');
+        }
+
+        private function parseResponse($response, $providerName)
+        {
+            if ($response->successful()) {
+                $data = $response->json();
+                $rawContent = $data['choices'][0]['message']['content'] ?? null;
+                Log::info("✅ Rewritten by: $providerName");
+                return $this->processRawJson($rawContent, $providerName);
+            }
+            throw new \Exception("$providerName API Error: " . $response->status());
+        }
+
+        private function processRawJson($rawContent, $providerName)
+        {
+            if (!$rawContent) throw new \Exception("$providerName returned empty content");
+
+            $cleanJson = $this->cleanJsonString($rawContent);
+            $json = json_decode($cleanJson, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && isset($json['title'])) {
+                $json['content'] = strip_tags($json['content'], '<p>'); 
+                return $json;
+            }
+
+            throw new \Exception("$providerName returned invalid format");
+        }
+
+        private function cleanJsonString($string)
+        {
+            if (preg_match('/```json\s*([\s\S]*?)\s*```/', $string, $matches)) return trim($matches[1]);
+            if (preg_match('/```\s*([\s\S]*?)\s*```/', $string, $matches)) return trim($matches[1]);
+            return trim($string);
+        }
+
+
+
+
 }

@@ -55,7 +55,11 @@ class ProcessNewsPost implements ShouldQueue
                 return;
             }
 
-            $settings = $user->settings;
+            // 🔥 ম্যাজিক ফিক্স: যদি ইউজার 'staff' বা 'reporter' হয়, তবে তার Admin-এর ডাটা নেবে
+            $adminUser = in_array($user->role, ['staff', 'reporter']) ? User::find($user->parent_id) : $user;
+            
+            // এখন Settings, FB, TG, WordPress সবই Admin-এরটা পাবে!
+            $settings = $adminUser->settings;
 
             // --- Data Preparation ---
             $finalTitle   = $this->customData['title'] ?? $news->ai_title ?? $news->title;
@@ -81,9 +85,9 @@ class ProcessNewsPost implements ShouldQueue
             $remotePostId = $news->wp_post_id; 
             $publishedUrl = $news->live_url; 
 
-            // --- 1. WordPress Posting ---
+            // --- 1. WordPress Posting --- (এখানে $user এর বদলে $adminUser পাস করা হয়েছে)
             if (!$socialOnly && $settings && $settings->wp_url && $settings->wp_username) {
-                $wpResult = $this->executeWordPressPost($wpService, $news, $user, $settings, $finalTitle, $finalContent, $categories, $websiteImage, $hashtags, $publishedUrl);
+                $wpResult = $this->executeWordPressPost($wpService, $news, $adminUser, $settings, $finalTitle, $finalContent, $categories, $websiteImage, $hashtags, $publishedUrl);
                 $wpSuccess = $wpResult['success'];
                 $remotePostId = $wpResult['remote_id'];
                 $publishedUrl = $wpResult['published_url'];
@@ -97,7 +101,7 @@ class ProcessNewsPost implements ShouldQueue
                 $publishedUrl = $apiResult['published_url'];
             }
 
-            // 🔥 NEW: Update Database Immediately for Reporters
+            // Update Database Immediately for Reporters & Staff
             if ($wpSuccess || $laravelSuccess) {
                 $news->update([
                     'is_posted'  => 1,
@@ -108,8 +112,8 @@ class ProcessNewsPost implements ShouldQueue
                 ]);
             }
 
-            // --- 3. Finalize & Social ---
-            $this->executeFinalization($news, $user, $settings, $wpSuccess, $laravelSuccess, $socialOnly, $skipSocial, $remotePostId, $publishedUrl, $websiteImage, $socialImage, $hashtags, $finalTitle, $socialPoster, $cardGenerator);
+            // --- 3. Finalize & Social --- (এখানেও $adminUser পাস করা হয়েছে)
+            $this->executeFinalization($news, $adminUser, $settings, $wpSuccess, $laravelSuccess, $socialOnly, $skipSocial, $remotePostId, $publishedUrl, $websiteImage, $socialImage, $hashtags, $finalTitle, $socialPoster, $cardGenerator);
 
         } catch (\Exception $e) {
             Log::error("ProcessNewsPost Job Exception: " . $e->getMessage());

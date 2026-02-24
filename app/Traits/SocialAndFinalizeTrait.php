@@ -14,7 +14,10 @@ trait SocialAndFinalizeTrait
             throw new \Exception("Posting failed on all configured endpoints.");
         }
 
-        DB::transaction(function () use ($news, $user, $remotePostId, $publishedUrl, $websiteImage, $socialOnly, $hashtags) {
+        // 🔥 Staff ID বের করা (Job-এর $this->userId থেকে)
+        $staffId = ($this->userId != $user->id) ? $this->userId : null;
+
+        DB::transaction(function () use ($news, $user, $remotePostId, $publishedUrl, $websiteImage, $socialOnly, $hashtags, $staffId) {
             $updateData = [
                 'is_posted' => true, 'posted_at' => now(), 'status' => 'published',
                 'live_url' => $publishedUrl, 'error_message' => null, 'hashtags' => $hashtags 
@@ -22,13 +25,20 @@ trait SocialAndFinalizeTrait
 
             if ($remotePostId) $updateData['wp_post_id'] = $remotePostId;
             if (!$socialOnly) $updateData['thumbnail_url'] = $websiteImage;
+            
+            // 🔥 স্টাফ আইডি আপডেট
+            if ($staffId) {
+                $updateData['staff_id'] = $staffId;
+            }
 
             $news->update($updateData);
 
             if (!$this->skipCreditDeduction && $user->role !== 'super_admin' && $user->credits > 0) {
                 $user->decrement('credits');
                 \App\Models\CreditHistory::create([
-                    'user_id' => $user->id, 'action_type' => 'auto_post',
+                    'user_id' => $user->id, 
+                    'staff_id' => $staffId, // 🔥 স্টাফ আইডি ট্র্যাকিং
+                    'action_type' => 'auto_post',
                     'description' => 'Published/Updated via Job', 'credits_change' => -1, 'balance_after' => $user->credits
                 ]);
             }

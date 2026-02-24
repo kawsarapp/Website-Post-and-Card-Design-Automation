@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Http;
 
 trait ApiPostingTrait
 {
+    // 🟢 $settings ভেরিয়েবলটি ProcessNewsPost জব থেকে সরাসরি Admin-এর সেটিংস হিসেবে আসবে
     protected function executeApiPost($news, $settings, $finalTitle, $finalContent, $categories, $websiteImage, $hashtags, $remotePostId, $publishedUrl)
     {
         $result = ['success' => false, 'remote_id' => $remotePostId, 'published_url' => $publishedUrl];
@@ -27,7 +28,6 @@ trait ApiPostingTrait
                 if (isset($mapping['title'])) $addPart($mapping['title'], $finalTitle);
                 if (isset($mapping['content'])) $addPart($mapping['content'], $finalContent);
                 if (isset($mapping['tags'])) $addPart($mapping['tags'], $hashtags);
-                if (isset($mapping['token'])) $addPart($mapping['token'], $settings->laravel_api_token);
                 if (isset($mapping['date'])) $addPart($mapping['date'], now()->format('Y-m-d'));
 
                 if (isset($mapping['extra']) && is_array($mapping['extra'])) {
@@ -43,7 +43,7 @@ trait ApiPostingTrait
 
                 if (isset($mapping['image']) && !empty($websiteImage)) {
                     try {
-                        $imgResponse = Http::timeout(15)->get($websiteImage);
+                        $imgResponse = Http::timeout(20)->get($websiteImage);
                         if ($imgResponse->successful()) {
                             $multipart[] = [
                                 'name' => (string) $mapping['image'],
@@ -55,9 +55,25 @@ trait ApiPostingTrait
                     } catch (\Exception $e) { Log::warning("⚠️ Image Fetch Failed: " . $e->getMessage()); }
                 }
 
-                $client = new \GuzzleHttp\Client(['timeout' => 30, 'verify' => false]);
+                // 🔥 Header Auth Logic
+                $headers = ['Accept' => 'application/json'];
+                if (isset($mapping['header_auth']) && $mapping['header_auth'] == 'Bearer' && !empty($settings->laravel_api_token)) {
+                    $headers['Authorization'] = 'Bearer ' . $settings->laravel_api_token;
+                } elseif (isset($mapping['token']) && !empty($settings->laravel_api_token)) {
+                    $addPart($mapping['token'], $settings->laravel_api_token);
+                }
+
+                // 🔥 ফিক্স: Timeout ৩০ সেকেন্ড থেকে বাড়িয়ে ১২০ সেকেন্ড করা হলো
+                $client = new \GuzzleHttp\Client([
+                    'timeout' => 120, 
+                    'connect_timeout' => 30,
+                    'verify' => false
+                ]);
+                
                 $guzzleResponse = $client->post($apiUrl, [
-                    'multipart' => $multipart, 'headers' => ['Accept' => 'application/json'], 'http_errors' => false
+                    'multipart' => $multipart, 
+                    'headers' => $headers, 
+                    'http_errors' => false
                 ]);
 
                 $responseBody = $guzzleResponse->getBody()->getContents();
@@ -69,11 +85,14 @@ trait ApiPostingTrait
                     $respData = json_decode($responseBody, true) ?? [];
                     $idKey = $mapping['response_id_key'] ?? 'post_id';
                     
-                    $result['remote_id'] = $respData[$idKey] ?? $respData['id'] ?? $respData['news_id'] ?? $remotePostId;
+                    $extractedId = $respData[$idKey] ?? ($respData['data'][$idKey] ?? ($respData['id'] ?? $remotePostId));
+                    $result['remote_id'] = $extractedId;
                     
                     $siteBase = rtrim($settings->laravel_site_url, '/');
                     $prefix = trim($settings->laravel_route_prefix ?? 'news', '/');
-                    $result['published_url'] = $respData['live_url'] ?? $respData['link'] ?? $respData['url'] ?? ($siteBase . '/' . $prefix . '/' . $result['remote_id']);
+                    
+                    $liveUrl = $respData['live_url'] ?? ($respData['data']['URLAlies'] ?? ($respData['link'] ?? ($siteBase . '/' . $prefix . '/' . $result['remote_id'])));
+                    $result['published_url'] = filter_var($liveUrl, FILTER_VALIDATE_URL) ? $liveUrl : ($siteBase . '/' . ltrim($liveUrl, '/'));
                     
                     Log::info("✅ Custom API Success. ID: {$result['remote_id']}");
                 }
@@ -89,7 +108,8 @@ trait ApiPostingTrait
                 ];
                 if ($news->wp_post_id) $payload['remote_id'] = $news->wp_post_id;
 
-                $response = Http::post($apiUrl, $payload);
+                $response = Http::timeout(120)->post($apiUrl, $payload); // এখানেও ১২০ সেকেন্ড করা হলো
+                
                 if ($response && $response->successful()) {
                     $result['success'] = true;
                     $respData = $response->json();

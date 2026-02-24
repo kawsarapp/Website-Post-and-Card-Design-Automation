@@ -38,6 +38,7 @@ class NewsItem extends Model
 		'reporter_name_manual',
 		'locked_at',
 		'locked_by_user_id',
+        'staff_id',
 		'hashtags'
     ];
 
@@ -83,6 +84,11 @@ class NewsItem extends Model
 
         return null;
     }
+
+
+    public function staff() {
+            return $this->belongsTo(User::class, 'staff_id');
+        }
 	
 	
 	public function reporter()

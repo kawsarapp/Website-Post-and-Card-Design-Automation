@@ -29,9 +29,6 @@ class SettingsController extends Controller
     }
 
     /**
-     * ২. সেটিংস আপডেট (FIX: Attempt to assign property on null)
-     */
-    /**
      * ২. সেটিংস আপডেট (FIXED & DYNAMIC)
      */
     public function update(Request $request)
@@ -237,14 +234,17 @@ class SettingsController extends Controller
     public function fetchCategories(WordPressService $wpService)
     {
         $user = Auth::user();
-        $settings = $user->settings;
+        
+        // 🔥 স্টাফ বা রিপোর্টার হলে তার অ্যাডমিনকে বের করবে, নইলে নিজেকেই রাখবে
+        $adminUser = in_array($user->role, ['staff', 'reporter']) ? \App\Models\User::find($user->parent_id) : $user;
+        $settings = $adminUser->settings;
 
         if (!$settings) {
             return response()->json(['error' => 'Settings not found'], 400);
         }
 
-        // ইউজার ভিত্তিক আলাদা ক্যাশ কি (Cache Key) তৈরি
-        $cacheKey = 'user_categories_' . $user->id;
+        // ইউজার ভিত্তিক আলাদা ক্যাশ কি (Cache Key) তৈরি - এখানে অ্যাডমিনের আইডি ব্যবহার হবে
+        $cacheKey = 'user_categories_' . $adminUser->id;
 
         // যদি ইউজার 'ফোর্স রিফ্রেশ' করতে চায় (যেমন: নতুন ক্যাটাগরি এড করার পর)
         if (request()->has('refresh')) {
@@ -260,13 +260,26 @@ class SettingsController extends Controller
                     // 🟢 SMART SWITCH: যদি ডাটাবেসে কাস্টম ক্যাটাগরি API দেওয়া থাকে
                     if (!empty($settings->custom_category_url)) {
                         $apiUrl = $settings->custom_category_url;
-                        $response = Http::timeout(10)->get($apiUrl);
+                        
+                        // 🔥 UPDATE: টোকেন হেডার দিয়ে পাঠানো হচ্ছে (TheNews24 এবং অন্যান্য সিকিউর API এর জন্য)
+                        $headers = [];
+                        if (!empty($settings->laravel_api_token)) {
+                            $headers['Authorization'] = 'Bearer ' . $settings->laravel_api_token;
+                        }
+
+                        $response = Http::withHeaders($headers)->timeout(10)->get($apiUrl);
                         
                         if ($response->successful()) {
                             $resData = $response->json();
                             // 🔥 FIX: ইসলামিক টিভির মত API তে ডাটা "data" key এর ভেতরে থাকে
                             if (isset($resData['data']) && is_array($resData['data'])) {
-                                return $resData['data'];
+                                // 🔥 UPDATE: TheNews24 এর CategoryID এবং CategoryName কে আমাদের id এবং name এ ম্যাপ করা হলো (আগেরগুলোও কাজ করবে)
+                                return collect($resData['data'])->map(function($item) {
+                                    return [
+                                        'id' => $item['CategoryID'] ?? $item['id'] ?? null,
+                                        'name' => $item['CategoryName'] ?? $item['name'] ?? 'Unknown'
+                                    ];
+                                })->toArray();
                             }
                             return $resData;
                         }

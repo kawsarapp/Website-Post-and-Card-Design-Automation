@@ -3,21 +3,29 @@
 namespace App\Traits;
 
 use App\Models\NewsItem;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 trait NewsDraftsTrait
 {
+    // 🔥 হেল্পার ফাংশন: স্টাফ বা রিপোর্টার হলে তার অ্যাডমিনকে বের করবে
+    private function getEffectiveAdmin() {
+        $user = Auth::user();
+        return in_array($user->role, ['staff', 'reporter']) ? User::find($user->parent_id) : $user;
+    }
+
     public function drafts()
     {
         $user = Auth::user();
-        $settings = $user->settings;
+        $adminUser = $this->getEffectiveAdmin();
+        $settings = $adminUser->settings;
 
         $drafts = NewsItem::with(['website' => function ($q) {
                 $q->withoutGlobalScopes();
             }])
-            ->where('user_id', $user->id)
+            ->whereIn('user_id', [$user->id, $adminUser->id]) // স্টাফ এবং অ্যাডমিন উভয়ের নিউজ দেখাবে
             ->where(function($q) {
                 $q->where('is_rewritten', 1) 
                   ->orWhere(function($subQ) {
@@ -35,12 +43,13 @@ trait NewsDraftsTrait
     public function published()
     {
         $user = Auth::user();
-        $settings = $user->settings;
+        $adminUser = $this->getEffectiveAdmin();
+        $settings = $adminUser->settings;
 
         $published = NewsItem::with(['website' => function ($q) {
             $q->withoutGlobalScopes();
         }])
-        ->where('user_id', $user->id)
+        ->whereIn('user_id', [$user->id, $adminUser->id])
         ->where('status', 'published')
         ->orderBy('updated_at', 'desc')
         ->paginate(20);
@@ -58,7 +67,10 @@ trait NewsDraftsTrait
             'hashtags' => 'nullable|string'
         ]);
 
-        $news = auth()->user()->newsItems()->findOrFail($id);
+        $user = Auth::user();
+        $adminUser = $this->getEffectiveAdmin();
+        
+        $news = NewsItem::whereIn('user_id', [$user->id, $adminUser->id])->findOrFail($id);
         
         if ($request->hasFile('image_file')) {
             try {
@@ -92,6 +104,7 @@ trait NewsDraftsTrait
     {
         $news = NewsItem::with('lockedBy')->findOrFail($id);
         $user = Auth::user();
+        $adminUser = $this->getEffectiveAdmin();
 
         if ($news->locked_by_user_id && $news->locked_by_user_id !== $user->id) {
             return response()->json([
@@ -120,7 +133,8 @@ trait NewsDraftsTrait
             'extra_images' => $extraImages,
             'location'     => $news->location,
             'original_link'=> $news->original_link,
-            'categories'   => $user->settings->category_mapping ?? []
+            // 🔥 ফিক্স: স্টাফ এখন তার অ্যাডমিনের ক্যাটাগরি দেখতে পাবে
+            'categories'   => $adminUser->settings->category_mapping ?? [] 
         ]);
     }
 }
