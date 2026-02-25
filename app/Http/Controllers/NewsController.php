@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\NewsItem;
 use App\Models\UserSetting;
 use App\Models\Template;
-use App\Models\User; // 🔥 User মডেল ইমপোর্ট করা হলো
+use App\Models\User;
 use App\Services\NewsScraperService;
 use App\Services\AIWriterService;
 use App\Services\WordPressService;
@@ -50,6 +50,10 @@ class NewsController extends Controller
 
         $search = $request->input('search');
         $websiteId = $request->input('website');
+        
+        // 🔥 NEW FEATURE: Added Status & Date filtering support
+        $status = $request->input('status');
+        $date = $request->input('date');
 
         $query = NewsItem::with(['website' => function ($q) { $q->withoutGlobalScopes(); }])
             ->whereIn('user_id', [$user->id, $adminUser->id]) 
@@ -59,6 +63,8 @@ class NewsController extends Controller
 
         if ($search) $query->where('title', 'like', "%{$search}%");
         if ($websiteId) $query->where('website_id', $websiteId);
+        if ($status) $query->where('status', $status); // 🔥 NEW FEATURE
+        if ($date) $query->whereDate('created_at', $date); // 🔥 NEW FEATURE
 
         $newsItems = $query->orderBy('id', 'desc')->paginate(20);
         
@@ -111,14 +117,30 @@ class NewsController extends Controller
             $allTemplates = array_merge($dbTemplates, $allTemplates); 
         } catch (\Exception $e) {}
 
-        $allowed = $settings->allowed_templates ?? [];
+        // 🔥 FIXED: Template Permission Logic (Super Admin vs Others)
         $availableTemplates = [];
 
-        if ($adminUser->role === 'super_admin' || $adminUser->role === 'admin') {
+        if ($user->role === 'super_admin') {
+            // ১. Super Admin সব টেমপ্লেট দেখবে
             $availableTemplates = $allTemplates;
         } else {
+            // ২. Admin, Staff, Reporter - তাদের নিজস্ব পারমিশন চেক করা হবে
+            $allowedLayouts = [];
+
+            // User টেবিলে allowed_templates থাকলে সেটা নিবে, না থাকলে Settings টেবিল থেকে নিবে
+            if (isset($user->allowed_templates)) {
+                $allowedLayouts = is_string($user->allowed_templates) ? json_decode($user->allowed_templates, true) : $user->allowed_templates;
+            } elseif (isset($settings->allowed_templates)) {
+                $allowedLayouts = is_string($settings->allowed_templates) ? json_decode($settings->allowed_templates, true) : $settings->allowed_templates;
+            }
+
+            $allowedLayouts = is_array($allowedLayouts) ? $allowedLayouts : [];
+
             foreach ($allTemplates as $template) {
-                if ($template['layout'] === 'dynamic' || in_array($template['key'], $allowed)) $availableTemplates[] = $template;
+                // Custom Database Templates (dynamic) ডিফল্টভাবে অ্যালাউড রাখা হলো অথবা key/layout চেক করা হলো
+                if ($template['layout'] === 'dynamic' || in_array($template['key'], $allowedLayouts) || in_array($template['layout'], $allowedLayouts)) {
+                    $availableTemplates[] = $template;
+                }
             }
         }
         

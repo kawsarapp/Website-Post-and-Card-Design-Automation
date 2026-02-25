@@ -2,28 +2,12 @@
 
 @push('styles')
 <style>
-    .stat-card {
-        transition: all 0.3s ease;
-    }
-    .stat-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    }
-    /* Scrollbar for Modals */
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: #f1f5f9;
-        border-radius: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-    }
+    .stat-card { transition: all 0.3s ease; }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 </style>
 @endpush
 
@@ -38,28 +22,51 @@
         </div>
         
         <div class="flex items-center gap-4">
-            <span class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold">
-                Limit: {{ $staffs->count() }} / {{ $admin->staff_limit }}
+            <span class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm border border-indigo-200">
+                Staff Limit: {{ $staffs->count() }} / {{ $admin->staff_limit }}
             </span>
             @if($staffs->count() < $admin->staff_limit)
-                <button onclick="openAddStaffModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md flex items-center gap-2 transition-colors w-full md:w-auto justify-center">
+                <button onclick="openAddStaffModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-md flex items-center gap-2 transition-colors w-full md:w-auto justify-center">
                     <i class="fa-solid fa-user-plus"></i> Add New Staff
                 </button>
             @else
-                <button disabled class="bg-gray-300 text-gray-500 px-5 py-2.5 rounded-xl font-bold text-sm shadow-md flex items-center gap-2 cursor-not-allowed w-full md:w-auto justify-center" title="Staff limit reached!">
+                <button disabled class="bg-gray-300 text-gray-500 px-5 py-2 rounded-xl font-bold text-sm shadow-md flex items-center gap-2 cursor-not-allowed w-full md:w-auto justify-center" title="Staff limit reached!">
                     <i class="fa-solid fa-user-plus"></i> Limit Reached
                 </button>
             @endif
         </div>
     </div>
 
+    {{-- 🔥 NEW: Advanced Filtering Section --}}
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
+        <form action="" method="GET" class="flex flex-col md:flex-row w-full gap-3">
+            <div class="flex-1">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="🔍 স্টাফের নাম বা ইমেইল খুঁজুন..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-indigo-500 outline-none">
+            </div>
+            <div class="w-full md:w-48">
+                <select name="date_filter" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-indigo-500 outline-none">
+                    <option value="all" {{ request('date_filter') == 'all' ? 'selected' : '' }}>সব সময়ের ডেটা</option>
+                    <option value="today" {{ request('date_filter') == 'today' ? 'selected' : '' }}>আজকের (24h)</option>
+                    <option value="7days" {{ request('date_filter') == '7days' ? 'selected' : '' }}>গত ৭ দিন</option>
+                    <option value="month" {{ request('date_filter') == 'month' ? 'selected' : '' }}>এই মাস</option>
+                </select>
+            </div>
+            <button type="submit" class="bg-slate-800 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-slate-900 transition">
+                ফিল্টার করুন
+            </button>
+            @if(request()->has('search') || request()->has('date_filter'))
+                <a href="{{ url()->current() }}" class="bg-red-50 text-red-600 px-4 py-2.5 rounded-lg text-sm font-bold border border-red-200 hover:bg-red-100 text-center">ক্লিয়ার</a>
+            @endif
+        </form>
+    </div>
+
     {{-- 📊 স্টাফদের পারফরম্যান্স গ্রিড --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         @forelse($staffs as $staff)
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden stat-card flex flex-col">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden stat-card flex flex-col">
             
             {{-- Header Info --}}
-            <div class="p-5 border-b border-slate-50 flex items-start justify-between bg-gradient-to-r from-slate-50 to-white">
+            <div class="p-5 border-b border-slate-100 flex items-start justify-between bg-gradient-to-r from-slate-50 to-white relative">
                 <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xl uppercase border-2 border-white shadow-sm">
                         {{ substr($staff->name, 0, 1) }}
@@ -105,16 +112,22 @@
 
             {{-- 📈 Analytics Grid --}}
             <div class="p-5 flex-grow">
-                <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Performance Analytics</h4>
-                <div class="grid grid-cols-2 gap-3">
-                    
-                    {{-- Published --}}
-                    <div class="bg-emerald-50 rounded-xl p-3 border border-emerald-100/50">
+                <div class="flex justify-between items-end mb-3">
+                    <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Performance Summary</h4>
+                    {{-- 🔥 NEW: 24h Badge --}}
+                    <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md font-bold border border-emerald-200">
+                        ⏳ গত ২৪ ঘণ্টায়: {{ $staff->published_24h ?? 0 }} টি
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    {{-- Published Total --}}
+                    <div class="bg-emerald-50 rounded-xl p-3 border border-emerald-100/50 relative overflow-hidden">
                         <div class="flex justify-between items-start">
                             <i class="fa-solid fa-check-circle text-emerald-500 mt-1"></i>
                             <span class="text-2xl font-black text-emerald-600">{{ $staff->total_published ?? 0 }}</span>
                         </div>
-                        <p class="text-[10px] font-bold text-emerald-600/70 uppercase mt-1">Published</p>
+                        <p class="text-[10px] font-bold text-emerald-600/70 uppercase mt-1">Total Published</p>
                     </div>
 
                     {{-- Drafts --}}
@@ -123,34 +136,35 @@
                             <i class="fa-solid fa-file-pen text-amber-500 mt-1"></i>
                             <span class="text-2xl font-black text-amber-600">{{ $staff->total_drafts ?? 0 }}</span>
                         </div>
-                        <p class="text-[10px] font-bold text-amber-600/70 uppercase mt-1">Drafts/Pending</p>
+                        <p class="text-[10px] font-bold text-amber-600/70 uppercase mt-1">Pending/Drafts</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    {{-- 🔥 NEW: Custom News --}}
+                    <div class="bg-purple-50 rounded-lg p-2 border border-purple-100 text-center">
+                        <span class="block text-lg font-black text-purple-600">{{ $staff->custom_news ?? 0 }}</span>
+                        <p class="text-[9px] font-bold text-purple-500 uppercase">Custom News</p>
+                    </div>
+
+                    {{-- 🔥 NEW: Reporter News --}}
+                    <div class="bg-sky-50 rounded-lg p-2 border border-sky-100 text-center">
+                        <span class="block text-lg font-black text-sky-600">{{ $staff->reporter_news ?? 0 }}</span>
+                        <p class="text-[9px] font-bold text-sky-500 uppercase">From Reporters</p>
                     </div>
 
                     {{-- AI Rewrites --}}
-                    <div class="bg-blue-50 rounded-xl p-3 border border-blue-100/50">
-                        <div class="flex justify-between items-start">
-                            <i class="fa-solid fa-robot text-blue-500 mt-1"></i>
-                            <span class="text-2xl font-black text-blue-600">{{ $staff->ai_rewrites ?? 0 }}</span>
-                        </div>
-                        <p class="text-[10px] font-bold text-blue-600/70 uppercase mt-1">AI Rewrites</p>
+                    <div class="bg-blue-50 rounded-lg p-2 border border-blue-100 text-center">
+                        <span class="block text-lg font-black text-blue-600">{{ $staff->ai_rewrites ?? 0 }}</span>
+                        <p class="text-[9px] font-bold text-blue-500 uppercase">AI Rewrites</p>
                     </div>
-
-                    {{-- Credits Used --}}
-                    <div class="bg-rose-50 rounded-xl p-3 border border-rose-100/50">
-                        <div class="flex justify-between items-start">
-                            <i class="fa-solid fa-coins text-rose-500 mt-1"></i>
-                            <span class="text-2xl font-black text-rose-600">{{ $staff->credits_used ?? 0 }}</span>
-                        </div>
-                        <p class="text-[10px] font-bold text-rose-600/70 uppercase mt-1">Credits Used</p>
-                    </div>
-
                 </div>
             </div>
             
             {{-- Footer Status --}}
             <div class="bg-slate-50 px-5 py-3 border-t border-slate-100 text-xs flex justify-between items-center text-slate-500">
                 <span>Joined: {{ $staff->created_at->format('M d, Y') }}</span>
-                <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-emerald-500"></div> Active</span>
+                <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> {{ $staff->credits_used ?? 0 }} Credits Used</span>
             </div>
         </div>
         @empty
@@ -158,8 +172,8 @@
             <div class="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto text-indigo-300 mb-4">
                 <i class="fa-solid fa-users text-3xl"></i>
             </div>
-            <h3 class="text-lg font-bold text-slate-800 mb-1">কোনো স্টাফ নেই</h3>
-            <p class="text-sm text-slate-500">আপনার প্যানেলে এখনো কোনো স্টাফ বা রিপোর্টার যুক্ত করা হয়নি।</p>
+            <h3 class="text-lg font-bold text-slate-800 mb-1">কোনো ডাটা পাওয়া যায়নি</h3>
+            <p class="text-sm text-slate-500">আপনার প্যানেলে এখনো কোনো স্টাফ যুক্ত করা হয়নি অথবা ফিল্টারের সাথে মিল নেই।</p>
         </div>
         @endforelse
     </div>
@@ -189,7 +203,7 @@
                 <input type="password" name="password" class="w-full border rounded-lg p-2.5 focus:ring-indigo-500" required minlength="6">
             </div>
             <div class="flex justify-end pt-2">
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold w-full">Create Staff</button>
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold w-full hover:bg-indigo-700">Create Staff</button>
             </div>
         </form>
     </div>
@@ -230,7 +244,7 @@
                 @endforeach
             </div>
             <div class="flex justify-end pt-4 mt-2 border-t">
-                <button type="submit" class="bg-pink-600 text-white px-6 py-2 rounded-lg font-bold w-full">Save Permissions</button>
+                <button type="submit" class="bg-pink-600 text-white px-6 py-2 rounded-lg font-bold w-full hover:bg-pink-700">Save Permissions</button>
             </div>
         </form>
     </div>
@@ -307,57 +321,36 @@
 
 <script>
     // --- Add Staff ---
-    function openAddStaffModal() {
-        document.getElementById('addStaffModal').classList.remove('hidden');
-        document.getElementById('addStaffModal').classList.add('flex');
-    }
-    function closeAddStaffModal() {
-        document.getElementById('addStaffModal').classList.add('hidden');
-        document.getElementById('addStaffModal').classList.remove('flex');
-    }
+    function openAddStaffModal() { document.getElementById('addStaffModal').classList.remove('hidden'); document.getElementById('addStaffModal').classList.add('flex'); }
+    function closeAddStaffModal() { document.getElementById('addStaffModal').classList.add('hidden'); document.getElementById('addStaffModal').classList.remove('flex'); }
 
     // --- Permissions ---
     function openPermissionModal(id, name, perms) {
         document.getElementById('staffName').innerText = name;
         document.getElementById('permissionForm').action = `/client/staff/${id}/permissions`;
         document.querySelectorAll('.p-check').forEach(cb => { cb.checked = Array.isArray(perms) && perms.includes(cb.value); });
-        document.getElementById('permissionModal').classList.remove('hidden');
-        document.getElementById('permissionModal').classList.add('flex');
+        document.getElementById('permissionModal').classList.remove('hidden'); document.getElementById('permissionModal').classList.add('flex');
     }
-    function closePermissionModal() {
-        document.getElementById('permissionModal').classList.add('hidden');
-        document.getElementById('permissionModal').classList.remove('flex');
-    }
+    function closePermissionModal() { document.getElementById('permissionModal').classList.add('hidden'); document.getElementById('permissionModal').classList.remove('flex'); }
 
     // --- Sources ---
     function openSourceModal(id, name, websites) {
         document.getElementById('sourceStaffName').innerText = name;
         document.getElementById('sourceForm').action = `/client/staff/${id}/websites`;
         document.querySelectorAll('.s-check').forEach(cb => { cb.checked = Array.isArray(websites) && websites.includes(parseInt(cb.value)); });
-        document.getElementById('sourceModal').classList.remove('hidden');
-        document.getElementById('sourceModal').classList.add('flex');
+        document.getElementById('sourceModal').classList.remove('hidden'); document.getElementById('sourceModal').classList.add('flex');
     }
-    function closeSourceModal() {
-        document.getElementById('sourceModal').classList.add('hidden');
-        document.getElementById('sourceModal').classList.remove('flex');
-    }
+    function closeSourceModal() { document.getElementById('sourceModal').classList.add('hidden'); document.getElementById('sourceModal').classList.remove('flex'); }
 
     // --- Templates ---
     function openTemplateModal(id, name, templates, defaultTemplate) {
         document.getElementById('templateStaffName').innerText = name;
         document.getElementById('templateForm').action = `/client/staff/${id}/templates`;
-        
         document.querySelectorAll('.t-check').forEach(cb => { cb.checked = Array.isArray(templates) && templates.includes(cb.value); });
-        
         const select = document.getElementById('defaultTemplateSelect');
         if(select && defaultTemplate) select.value = defaultTemplate;
-
-        document.getElementById('templateModal').classList.remove('hidden');
-        document.getElementById('templateModal').classList.add('flex');
+        document.getElementById('templateModal').classList.remove('hidden'); document.getElementById('templateModal').classList.add('flex');
     }
-    function closeTemplateModal() {
-        document.getElementById('templateModal').classList.add('hidden');
-        document.getElementById('templateModal').classList.remove('flex');
-    }
+    function closeTemplateModal() { document.getElementById('templateModal').classList.add('hidden'); document.getElementById('templateModal').classList.remove('flex'); }
 </script>
 @endsection
