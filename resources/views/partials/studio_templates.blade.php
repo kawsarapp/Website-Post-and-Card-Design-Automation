@@ -90,9 +90,9 @@ const STUDIO_TEMPLATES = {
         image: { ...T_DEFAULTS, left: 1, top: 20, width: 1080, height: 530, zoom: 1.0 }
     },
     'TodayEventsDualFrame': { 
-        title: { ...T_DEFAULTS, top: 650, left: 545, originX: 'center', originY: 'center', textAlign: 'center', width: 1050, fontFamily: "'Noto Serif Cond Black'" }, 
-        date:  { ...T_DEFAULTS, top: 1020, left: 600, originX: 'center', fontSize: 30, fontFamily: "'Noto Serif Cond Black'" },
-        image: { ...T_DEFAULTS, left: 1, top: 20, width: 1080, height: 530, zoom: 1.0 }
+        title: { ...T_DEFAULTS, top: 780, left: 560, originX: 'center', originY: 'center', textAlign: 'center', width: 1080, fill: '#fff', fontFamily: 'Noto Serif Cond Black' }, 
+        date:  { ...T_DEFAULTS, top: 1015, left: 1045, originX: 'right', fontSize: 25, fill: '#fff', fontFamily: 'SolaimanLipi', padding: 6 },
+        image: { ...T_DEFAULTS, left: 45, top: 100, width: 1000, height: 480, zoom: 1.2 }
     },
     'Thenews24Main': { 
         title: { ...T_DEFAULTS, top: 720, left: 540, originX: 'center', originY: 'center', textAlign: 'center', width: 1000, fill: '#fff', fontFamily: 'Noto Serif Bengali SemiBold' }, 
@@ -103,5 +103,10 @@ const STUDIO_TEMPLATES = {
         title: { ...T_DEFAULTS, top: 720, left: 540, originX: 'center', originY: 'center', textAlign: 'center', width: 1000, fill: '#fff', fontFamily: 'Noto Serif Bengali SemiBold' }, 
         date:  { ...T_DEFAULTS, top: 50, left: 1045, originX: 'right', fontSize: 28, fontFamily: 'NotoSerifBengali-Regular', padding: 6 },
         image: { ...T_DEFAULTS, left: 45, top: 100, width: 1000, height: 430, zoom: 1.1 }
+    },
+    'ITVNews': { 
+        title: { ...T_DEFAULTS, top: 770, left: 540, originX: 'center', originY: 'center', textAlign: 'center', width: 1000, fill: '#fff', fontFamily: 'SutonnyOMJRegular'}, 
+        date:  { ...T_DEFAULTS, top: 1030, left: 1050, originX: 'right', fontSize: 30, fill: '#fff', fontFamily: 'SutonnyOMJRegular', padding: 6 },
+        image: { ...T_DEFAULTS, left: 45, top: 100, width: 1000, height: 450, zoom: 1.3 }
     }
 };

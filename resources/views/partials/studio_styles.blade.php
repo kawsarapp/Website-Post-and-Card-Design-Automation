@@ -10,6 +10,8 @@
     
     /* SolaimanLipi */
     @font-face { font-family: 'SolaimanLipi'; src: url('/fonts/SolaimanLipi.ttf') format('truetype'); font-weight: normal; font-display: swap; }
+    /* SutonnyMJBold */
+    @font-face { font-family: 'SutonnyMJBold'; src: url('/fonts/SutonnyMJBold.ttf') format('truetype'); font-weight: normal; font-display: swap; }
 
     /* Noto Serif Condensed Family */
     @font-face { font-family: 'Noto Serif Cond Thin'; src: url('/fonts/NotoSerifBengali_Condensed-Thin.ttf') format('truetype'); font-display: swap; }

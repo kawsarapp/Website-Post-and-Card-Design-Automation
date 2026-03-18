@@ -41,6 +41,12 @@
         src: url('/fonts/SolaimanLipi.ttf') format('truetype');
         font-weight: normal; font-style: normal; font-display: swap;
     }
+    /* --- SutonnyMJBold.ttf --- */
+    @font-face {
+        font-family: 'SutonnyMJBold';
+        src: url('/fonts/SutonnyMJBold.ttf') format('truetype');
+        font-weight: normal; font-style: normal; font-display: swap;
+    }
 
     /* --- Noto Serif Bengali Condensed (All Weights) --- */
     @font-face { font-family: 'Noto Serif Cond Thin'; src: url('/fonts/NotoSerifBengali_Condensed-Thin.ttf') format('truetype'); font-display: swap; }

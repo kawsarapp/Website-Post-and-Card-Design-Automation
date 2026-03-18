@@ -132,6 +132,10 @@
                                 <option value="'Li Shadhinata'">Li Shadhinata</option>
                             </optgroup>
 
+                            <optgroup label="MJ Series (Classic)">
+                                <option value="'SutonnyOMJ Regular'">SutonnyOMJ (Regular)</option>
+                             </optgroup>
+
                             <optgroup label="📂 Noto Serif Condensed">
                                 <option value="'Noto Serif Cond Thin'">Noto Serif (Thin)</option>
                                 <option value="'Noto Serif Cond ExtraLight'">Noto Serif (ExtraLight)</option>

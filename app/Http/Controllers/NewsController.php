@@ -108,6 +108,7 @@ class NewsController extends Controller
             ['key' => 'TodayEventsDualFrame', 'name' => 'TodayEventsDualFrame', 'image' => 'templates/TodayEventsDualFrame.png', 'layout' => 'TodayEventsDualFrame'],
             ['key' => 'Thenews24Main', 'name' => 'Thenews24Main', 'image' => 'templates/Thenews24Main.png', 'layout' => 'Thenews24Main'],
             ['key' => 'Thenews24UniversalAds', 'name' => 'Thenews24UniversalAds', 'image' => 'templates/Thenews24UniversalAds.png', 'layout' => 'Thenews24UniversalAds'],
+            ['key' => 'ITVNews', 'name' => 'ITVNews', 'image' => 'templates/ITVNews.png', 'layout' => 'ITVNews'],
         ];
 
         try {

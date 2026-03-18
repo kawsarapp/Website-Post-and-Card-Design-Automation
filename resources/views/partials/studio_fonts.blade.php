@@ -15,6 +15,8 @@ const STUDIO_FONTS = {
         'Noto Serif Bengali SemiBold', 'SolaimanLipi', 'Li Alinur Banglaborno', 
         'Li Alinur Kuyasha', 'Li Alinur Sangbadpatra', 'Li Alinur Tumatul',
         'Li MA Hai', 'Li Purno Pran', 'Li Sabbir Sorolota', 'Li Shohid Abu Sayed',
-        'Li Abu JM Akkas', 'Li Mehdi Ekushey', 'Li Shadhinata', 'NotoSerifBengali-Regular',
+                                                'Li Abu JM Akkas', 'Li Mehdi Ekushey', 'Li Shadhinata', 'NotoSerifBengali-Regular', 'SutonnyOMJRegular',
     ]
 };
+const font = new FontFace("SutonnyOMJRegular", "url(/fonts/SutonnyOMJRegular.ttf)");
+document.fonts.add(font);

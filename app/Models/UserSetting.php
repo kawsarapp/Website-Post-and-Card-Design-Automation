@@ -78,6 +78,7 @@ class UserSetting extends Model
 		'todayeventsSingle1' => 'todayeventsSingle1',
 		'Thenews24Main' => 'Thenews24Main',
 		'Thenews24UniversalAds' => 'Thenews24UniversalAds',
+		'ITVNews' => 'ITVNews',
 
 		
     ];
