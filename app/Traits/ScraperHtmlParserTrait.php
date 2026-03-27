@@ -151,7 +151,7 @@ trait ScraperHtmlParserTrait
         }
 
         if (!$imageUrl) {
-            $crawler->filter('article img, .post-content img, .details img')->each(function (Crawler $node) use (&$imageUrl) {
+            $crawler->filter('article img, .post-content img, .details img, .news-details img, .hdl img, .barta-content img, .pic img, .photo img, .featured-image img')->each(function (Crawler $node) use (&$imageUrl) {
                 if ($imageUrl) return; 
                 $src = $node->attr('data-original') ?? $node->attr('data-src') ?? $node->attr('src');
                 if ($src && strlen($src) > 20 && !$this->isGarbageImage($src)) {

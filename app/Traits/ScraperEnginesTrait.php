@@ -109,6 +109,11 @@ trait ScraperEnginesTrait
             $htmlContent = file_get_contents($tempFile);
             unlink($tempFile);
         }
+
+        if ($htmlContent && (str_contains($htmlContent, 'This site can’t be reached') || str_contains($htmlContent, 'ERR_NAME_NOT_RESOLVED') || str_contains($htmlContent, 'ERR_CONNECTION_TIMED_OUT'))) {
+            Log::warning("⚠️ Puppeteer returned Chrome Error Page. Skipping...");
+            return null;
+        }
         
         return (strlen($htmlContent) > 500) ? $htmlContent : null;
     }

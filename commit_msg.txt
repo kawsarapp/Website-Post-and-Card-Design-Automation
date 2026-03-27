@@ -1,8 +1,0 @@
-স্বাগতম! 🙏 আজকে যা যা করা হলো:
-
-✅ Multi-Facebook Page System — একাধিক পেজ কানেক্ট, toggle, test
-✅ Studio Page Selector — publish করার সময় কোন পেজে যাবে select করা
-✅ Default Page Setting — Settings থেকে Studio modal এর pre-check নিয়ন্ত্রণ
-✅ Brevo SMTP — ইমেইল কনফিগ সেট
-✅ Password Reset — Forgot Password পুরো flow
-agulo add kora hoice

@@ -66,7 +66,7 @@ class ScrapeWebsite implements ShouldQueue
                 }
             } else {
                 // 🔥 JS-Rendered সাইটের জন্য সরাসরি Puppeteer ব্যবহার
-                $jsRenderedDomains = ['somoynews.tv', 'ekhon.tv', 'dbcnews.tv', 'banglatribune.com', 'bdnews24.com'];
+                $jsRenderedDomains = ['somoynews.tv', 'ekhon.tv', 'dbcnews.tv', 'banglatribune.com', 'bdnews24.com', 'prothomalo.com'];
                 $isJsRendered = collect($jsRenderedDomains)->some(fn($d) => str_contains($website->url, $d));
 
                 if ($isJsRendered) {
@@ -237,8 +237,8 @@ class ScrapeWebsite implements ShouldQueue
                         return;
                     }
 
-                    // 🔥 Category/Listing URL Filter — skip obvious non-article URLs
-                    $skipPatterns = ['/category/', '/tag/', '/archive/', '/page/', '/author/', '/search/', '/latest-news$', '/recent$', '/live$', '/live/'];
+                    // 🚨 Skip Non-News URLs explicitly
+                    $skipPatterns = ['/category/', '/tag/', '/archive/', '/page/', '/author/', '/search/', '/latest-news$', '/recent$', '/live$', '/live/', 'facebook.com', 'twitter.com', 'youtube.com', 'instagram.com', 'linkedin.com'];
                     foreach ($skipPatterns as $pattern) {
                         if (str_ends_with($pattern, '$') ? str_ends_with($link, rtrim($pattern, '$')) : str_contains($link, $pattern)) {
                             return;
@@ -247,6 +247,9 @@ class ScrapeWebsite implements ShouldQueue
 
                     // 🚨 Strict Check (News URLs must contain an ID or Year)
                     if (str_contains($website->url, 'bd-pratidin.com') && !preg_match('/\d{4,}/', $link)) {
+                        return;
+                    }
+                    if (str_contains($website->url, 'ekhon.tv') && !preg_match('/[a-f0-9]{24}$/', parse_url($link, PHP_URL_PATH))) {
                         return;
                     }
 
@@ -361,7 +364,7 @@ class ScrapeWebsite implements ShouldQueue
         }
         if (str_contains($url, 'ekhon.tv')) {
             // Ekhon TV articles are usually nested within specific content grids or have distinctive paths
-            return ['container' => 'main a[href*="/news/"], article a, .news-list a, .latest-news a, .grid-cols-1 a[href*="-"], .content-area a', 'title' => null];
+            return ['container' => 'main a, article a, .news-list a, .latest-news a, .content-area a', 'title' => null];
         }
         if (str_contains($url, 'jagonews24.com')) {
             // Latest news cards are in .col-sm-8.paddingTop10 — date/nav elements filtered by URL validator
@@ -382,6 +385,22 @@ class ScrapeWebsite implements ShouldQueue
         if (str_contains($url, 'bdnews24.com')) {
             // bdnews24.com news links are inside SubCat-wrapper and similar grid classes
             return ['container' => '.SubCat-wrapper a, .category-wrapper a', 'title' => null];
+        }
+        if (str_contains($url, 'prothomalo.com')) {
+            // Prothom Alo uses heavily nested React classes, 'h2 a, .story-card a, article a' works best
+            return ['container' => 'h2 a, h3 a, h4 a, .story-card a, article a, [data-testid="story-card"] a, .news-card a, .headline-title, .title-link', 'title' => null];
+        }
+        if (str_contains($url, 'asia-post.com')) {
+            // override the dashboard .col-md-12 which wraps all news instead of individual cards
+            return ['container' => '.row a, .col-md-4 a, .col-md-8 a, .col-sm-6 a, .newsList a, article a, h2 a, h3 a', 'title' => null];
+        }
+        if (str_contains($url, 'itvbd.com')) {
+            // override dashboard returning CSS styles
+            return ['container' => 'main a, article a, .news a, .post a, .col-md-3 a, .col-md-4 a, h2 a, h3 a, h4 a, .card a', 'title' => null];
+        }
+        if (str_contains($url, 'channel24bd.tv')) {
+            // override strategies failing
+            return ['container' => '.DCategoryListNews a, .DBottomNews a, main a, .content-area a, article a, .category-box a, .news-card a, .post a, h2 a, h3 a, h4 a, .card a, .col-md-3 a', 'title' => null];
         }
         return null;
     }
