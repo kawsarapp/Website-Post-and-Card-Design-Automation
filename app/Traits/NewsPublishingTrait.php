@@ -163,7 +163,7 @@ trait NewsPublishingTrait
 
     public function publishStudioDesign(Request $request, $id)
     {
-        $request->validate(['design_image' => 'required|image|max:20480', 'category_id' => 'nullable', 'social_caption' => 'nullable|string']);
+        $request->validate(['design_image' => 'required|image|max:20480', 'category_id' => 'nullable', 'social_caption' => 'nullable|string', 'selected_fb_page_ids' => 'nullable|array', 'selected_fb_page_ids.*' => 'nullable|integer']);
         $news = NewsItem::findOrFail($id);
         $adminUser = $this->getEffectiveAdmin();
         $staffId = Auth::id() !== $adminUser->id ? Auth::id() : null; // 🔥 Staff ID
@@ -184,7 +184,9 @@ trait NewsPublishingTrait
                 ProcessNewsPost::dispatch($news->id, Auth::id(), [
                     'title' => $news->title, 'content' => $news->content, 'social_only' => $isSocialOnly,
                     'website_image' => $news->thumbnail_url, 'social_image' => $studioImageUrl,
-                    'category_ids' => [$request->category_id ?? 1], 'social_caption' => $request->social_caption ?? ($news->ai_title ?? $news->title)
+                    'category_ids' => [$request->category_id ?? 1],
+                    'social_caption' => $request->social_caption ?? ($news->ai_title ?? $news->title),
+                    'selected_fb_page_ids' => $request->input('selected_fb_page_ids', []),
                 ], true);
                 return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
             }

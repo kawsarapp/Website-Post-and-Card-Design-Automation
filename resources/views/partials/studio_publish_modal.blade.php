@@ -29,6 +29,27 @@
                 </select>
             </div>
 
+            </div>
+
+            @php
+                $facebookPages = \App\Models\FacebookPage::where('is_active', true)->get();
+            @endphp
+            @if($facebookPages->count() > 0)
+            <div id="facebookPageSelector">
+                <label class="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
+                    <i class="fab fa-facebook text-blue-600"></i> Publish to Facebook Page
+                </label>
+                <select id="modalFacebookPage" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50">
+                    <option value="">-- Do Not Post to Facebook --</option>
+                    @foreach($facebookPages as $page)
+                        <option value="{{ $page->id }}" {{ $page->is_studio_default ? 'selected' : '' }}>
+                            {{ $page->page_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-1">Social Caption</label>
                 <textarea id="modalCaption" rows="4" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Write something...">{{ $newsItem->ai_title ?? $newsItem->title }}</textarea>

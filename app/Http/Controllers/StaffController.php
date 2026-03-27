@@ -36,9 +36,9 @@ class StaffController extends Controller
         $search = $request->input('search');
         $dateFilter = $request->input('date_filter', 'all');
 
-        // ৩. স্টাফদের ডাটা এবং অ্যানালিটিক্স (Analytics) কোয়েরি
+        // ৩. স্টাফদের ডাটা (শুধু role='staff' — reporter আলাদা পেজে থাকবে)
         $staffQuery = User::where('parent_id', $admin->id)
-            ->whereIn('role', ['staff', 'reporter'])
+            ->where('role', 'staff')
             ->with(['accessibleWebsites', 'settings']);
 
         // 🔍 সার্চ লজিক অ্যাপ্লাই
@@ -49,7 +49,7 @@ class StaffController extends Controller
             });
         }
 
-        $staffs = $staffQuery->get()->map(function($staff) use ($dateFilter) {
+        $staffs = $staffQuery->paginate(10)->through(function($staff) use ($dateFilter) {
             
             // বেইস কোয়েরি তৈরি (যাতে ফিল্টার করা সহজ হয়)
             $newsQuery = NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id);
@@ -83,6 +83,14 @@ class StaffController extends Controller
                                         ->where('created_at', '>=', now()->subHours(24))
                                         ->count();
 
+            // 📰 সাম্প্রতিক ৩টি নিউজ (Activity Feed)
+            $staff->recent_news = NewsItem::withoutGlobalScopes()
+                                        ->where('staff_id', $staff->id)
+                                        ->latest()
+                                        ->limit(3)
+                                        ->pluck('title')
+                                        ->toArray();
+
             return $staff;
         });
                       
@@ -98,6 +106,8 @@ class StaffController extends Controller
         $adminTemplates = $admin->settings->allowed_templates ?? [];
 
         return view('client.staff.index', compact('staffs', 'admin', 'adminWebsites', 'adminTemplates'));
+
+
     }
 
     /**
@@ -150,12 +160,110 @@ class StaffController extends Controller
             $staff->accessibleWebsites()->sync($adminWebsiteIds);
 
             DB::commit(); // 🛡️ ডাটা সেভ সফল
-            return back()->with('success', 'নতুন স্টাফ অ্যাকাউন্ট তৈরি হয়েছে এবং পারমিশন সেট করা হয়েছে!');
+            return back()->with('success', 'নতুন স্টাফ অ্যাকাউন্ট তৈরি হয়েছে!');
 
         } catch (\Exception $e) {
             DB::rollBack(); // 🛡️ এরর হলে সব বাতিল
             return back()->with('error', 'অ্যাকাউন্ট তৈরি করতে সমস্যা হয়েছে: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * 📰 একজন স্টাফের সব নিউজ দেখা
+     */
+    public function showNews(Request $request, $id)
+    {
+        $admin = Auth::user();
+        $staff = User::where('parent_id', $admin->id)->with('accessibleWebsites')->findOrFail($id);
+
+        $query = NewsItem::withoutGlobalScopes()
+            ->where('staff_id', $staff->id)
+            ->with('website')
+            ->latest();
+
+        // Status filter
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Date filter
+        if ($request->filled('date_filter')) {
+            match($request->date_filter) {
+                'today'  => $query->where('created_at', '>=', now()->subHours(24)),
+                '7days'  => $query->where('created_at', '>=', now()->subDays(7)),
+                'month'  => $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year),
+                default  => null,
+            };
+        }
+
+        // Search filter
+        if ($request->filled('search')) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        $news = $query->paginate(20);
+
+        $stats = [
+            'total'     => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->count(),
+            'published' => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('status', 'published')->count(),
+            'draft'     => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('status', '!=', 'published')->count(),
+            'today'     => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('created_at', '>=', now()->subHours(24))->count(),
+        ];
+
+        return view('client.staff.news', compact('staff', 'news', 'stats'));
+    }
+
+    /**
+     * ✏️ স্টাফের নাম/ইমেইল/পাসওয়ার্ড আপডেট
+     */
+    public function updateInfo(Request $request, $id)
+    {
+        $admin = Auth::user();
+        $staff = User::where('parent_id', $admin->id)->findOrFail($id);
+
+        $request->validate([
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users,email,' . $staff->id,
+            'password' => 'nullable|min:6',
+        ]);
+
+        $staff->name  = $request->name;
+        $staff->email = $request->email;
+        if ($request->filled('password')) {
+            $staff->password = Hash::make($request->password);
+        }
+        $staff->save();
+
+        return back()->with('success', 'স্টাফের তথ্য আপডেট করা হয়েছে!');
+    }
+
+    /**
+     * 🔄 স্টাফের Active/Inactive স্ট্যাটাস টগল
+     */
+    public function toggleStatus($id)
+    {
+        $admin = Auth::user();
+        $staff = User::where('parent_id', $admin->id)->findOrFail($id);
+        $staff->is_active = !$staff->is_active;
+        $staff->save();
+
+        $status = $staff->is_active ? 'সক্রিয়' : 'নিষ্ক্রিয়';
+        return back()->with('success', "{$staff->name} কে {$status} করা হয়েছে।");
+    }
+
+    /**
+     * 🔑 স্টাফের পাসওয়ার্ড রিসেট (Quick Reset to random 8-char)
+     */
+    public function resetPassword($id)
+    {
+        $admin = Auth::user();
+        $staff = User::where('parent_id', $admin->id)->findOrFail($id);
+
+        $newPassword = \Illuminate\Support\Str::random(8);
+        $staff->password = Hash::make($newPassword);
+        $staff->save();
+
+        return back()->with('success', "পাসওয়ার্ড রিসেট হয়েছে! নতুন পাসওয়ার্ড: {$newPassword}");
     }
 
     /**

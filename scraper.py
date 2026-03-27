@@ -43,7 +43,7 @@ def get_html(url, proxy=None, retries=2):
     for attempt in range(retries):
         try:
             response = requests.get(
-                url, impersonate="chrome120", timeout=30, proxies=proxies, headers=headers
+                url, impersonate="chrome120", timeout=30, proxies=proxies, headers=headers, verify=False
             )
             if response.status_code == 200:
                 if response.encoding is None or response.encoding == 'ISO-8859-1':
@@ -114,7 +114,11 @@ def extract_data(html, base_url):
             
             if 'image' in data:
                 img_data = data['image']
-                image = img_data.get('url') if isinstance(img_data, dict) else (img_data[0] if isinstance(img_data, list) else img_data)
+                candidate = img_data.get('url') if isinstance(img_data, dict) else (img_data[0] if isinstance(img_data, list) else img_data)
+                # Reject logos/icons from JSON-LD — let og:image fallback handle it
+                bad_img = ['logo', 'icon', 'svg', 'placeholder', 'default', 'favicon']
+                if candidate and not any(x in str(candidate).lower() for x in bad_img):
+                    image = candidate
             
             if 'articleBody' in data:
                 schema_body = data['articleBody']
@@ -157,8 +161,8 @@ def extract_data(html, base_url):
         cleaned_html_str, 
         include_images=False, 
         include_comments=False, 
-        favor_precision=True,
-        target_language='bn' 
+        favor_precision=True
+        # target_language removed: it caused partial extraction when language detection failed
     )
     
     # Fallback Mechanism

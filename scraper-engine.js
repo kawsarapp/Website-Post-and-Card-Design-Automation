@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
+import { anonymizeProxy, closeAnonymizedProxy } from 'proxy-chain';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -43,18 +44,14 @@ const USER_AGENTS = [
     let browser;
     try {
         let proxyArgs = [];
-        let proxyAuth = null;
+        let anonymizedProxyUrl = null;
 
-        if (fullProxyUrl) {
+        if (fullProxyUrl && fullProxyUrl.length > 10) {
             try {
-                const parsed = new URL(fullProxyUrl);
-                proxyArgs.push(`--proxy-server=${parsed.protocol}//${parsed.host}`);
-                if (parsed.username) {
-                    proxyAuth = {
-                        username: decodeURIComponent(parsed.username),
-                        password: decodeURIComponent(parsed.password)
-                    };
-                }
+                // Creates a local unauthenticated proxy (localhost:randomPort) 
+                // that forwards to SmartProxy with the correct credentials.
+                anonymizedProxyUrl = await anonymizeProxy(fullProxyUrl);
+                proxyArgs.push(`--proxy-server=${anonymizedProxyUrl}`);
             } catch (e) { console.error("⚠️ Proxy Error:", e.message); }
         }
 
@@ -82,7 +79,6 @@ const USER_AGENTS = [
         });
 
         const page = await browser.newPage();
-        if (proxyAuth) await page.authenticate(proxyAuth);
 
         // 🔥 5. DEEP STEALTH INJECTION (Anti-Bot Bypass)
         await page.evaluateOnNewDocument(() => {
@@ -130,7 +126,9 @@ const USER_AGENTS = [
         // ---------------------------------------------------------
         console.log(`🚀 Navigating to: ${targetUrl}`);
         try {
-            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 90000 });
+            await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 90000 });
+            // Extra wait for React/Next.js CSR hydration
+            await new Promise(r => setTimeout(r, 3000));
         } catch (e) {
             console.log(`⚠️ Nav Warning: ${e.message}`);
         }
@@ -139,12 +137,17 @@ const USER_AGENTS = [
         // ৮. CLOUDFLARE/DATADOME BYPASS (Active Solver)
         // ---------------------------------------------------------
         const checkProtection = async () => {
-            const title = await page.title();
-            const content = await page.content();
-            return title.includes("Just a moment") || 
-                   title.includes("Cloudflare") || 
-                   content.includes("challenge-platform") ||
-                   content.includes("datadome");
+            try {
+                const title = await page.title();
+                const content = await page.content();
+                return title.includes("Just a moment") || 
+                       title.includes("Cloudflare") || 
+                       content.includes("challenge-platform") ||
+                       content.includes("datadome");
+            } catch (e) {
+                console.log("⚠️ Protection Check Context Error:", e.message);
+                return false;
+            }
         };
 
         if (await checkProtection()) {
@@ -246,7 +249,14 @@ const USER_AGENTS = [
 
     } catch (error) {
         console.error("🔥 NODE FATAL:", error.message);
-        if (browser) await browser.close();
         process.exit(1);
+    } finally {
+        if (browser) await browser.close();
+        if (anonymizedProxyUrl) {
+            try {
+                // Clean up the local proxy process so it doesn't hang the worker
+                await closeAnonymizedProxy(anonymizedProxyUrl, true);
+            } catch(e) {}
+        }
     }
 })();

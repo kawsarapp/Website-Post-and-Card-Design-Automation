@@ -218,8 +218,36 @@
     // ==========================================
     // 🔤 ৫. ফন্ট ম্যানেজমেন্ট
     // ==========================================
+    // ==========================================
+    function smartLoadFont(fontName, callback) {
+        if (!fontName) return callback();
+        let cleanFont = fontName.replace(/'/g, "").split(',')[0].trim();
+        if (cleanFont.includes('📂 ')) cleanFont = cleanFont.replace('📂 ', '');
+        
+        // Skip webfont loader for Local Bangla Fonts that are pre-loaded via CSS
+        const skipLoaderFonts = ['SolaimanLipi', 'Noto Serif Cond', 'AdorshoLipi', 'Kalpurush', 'Siyam Rupali', 'Hind Siliguri'];
+        
+        if (skipLoaderFonts.includes(cleanFont)) {
+            let chk = setInterval(() => {
+                if (document.fonts.check(`12px "${cleanFont}"`)) { clearInterval(chk); callback(); }
+            }, 100);
+            setTimeout(() => { clearInterval(chk); callback(); }, 1500); // 1.5s timeout fallback
+            return;
+        }
+
+        if (STUDIO_FONTS.local.includes(cleanFont)) { callback(); } 
+        else { WebFont.load({ google: { families: [cleanFont + ':400,700'] }, active: callback, inactive: callback }); }
+    }
+
     function loadFonts() {
-        WebFont.load({ google: { families: STUDIO_FONTS.google }, custom: { families: STUDIO_FONTS.local }, active: function() { console.log("✅ All Fonts Loaded!"); if(canvas) canvas.requestRenderAll(); } });
+        WebFont.load({ 
+            google: { families: STUDIO_FONTS.google }, 
+            custom: { families: STUDIO_FONTS.local }, 
+            active: function() { 
+                console.log("✅ All Standard Fonts Loaded!"); 
+                if(canvas) canvas.requestRenderAll(); 
+            } 
+        });
     }
 
     window.uploadCustomFont = function(input) {

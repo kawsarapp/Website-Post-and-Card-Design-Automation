@@ -55,16 +55,30 @@ class NewsController extends Controller
         $status = $request->input('status');
         $date = $request->input('date');
 
-        $query = NewsItem::with(['website' => function ($q) { $q->withoutGlobalScopes(); }])
-            ->whereIn('user_id', [$user->id, $adminUser->id]) 
-            ->where('is_rewritten', 0)
-            ->whereNotNull('website_id')
-            ->where('status', '!=', 'processing'); 
+        $query = NewsItem::withoutGlobalScopes()
+            ->with(['website' => function ($q) { $q->withoutGlobalScopes(); }]);
+
+        // 🔐 Role-aware visibility filter
+        if (in_array($user->role, ['staff', 'reporter'])) {
+            // Staff দেখবে: তাদের admin-এর news pool (user_id = parent_id)
+            // অথবা নিজে scrape/create করা news (staff_id = নিজের id)
+            $query->where(function ($q) use ($user) {
+                $q->where('user_id', $user->parent_id)
+                  ->orWhere('staff_id', $user->id);
+            });
+        } else {
+            // Admin/others: শুধু নিজের news
+            $query->where('user_id', $adminUser->id);
+        }
+
+        $query->where('is_rewritten', 0)
+              ->whereNotNull('website_id')
+              ->where('status', '!=', 'processing');
 
         if ($search) $query->where('title', 'like', "%{$search}%");
         if ($websiteId) $query->where('website_id', $websiteId);
-        if ($status) $query->where('status', $status); // 🔥 NEW FEATURE
-        if ($date) $query->whereDate('created_at', $date); // 🔥 NEW FEATURE
+        if ($status) $query->where('status', $status);
+        if ($date) $query->whereDate('created_at', $date);
 
         $newsItems = $query->orderBy('id', 'desc')->paginate(20);
         
@@ -138,15 +152,18 @@ class NewsController extends Controller
             $allowedLayouts = is_array($allowedLayouts) ? $allowedLayouts : [];
 
             foreach ($allTemplates as $template) {
-                // Custom Database Templates (dynamic) ডিফল্টভাবে অ্যালাউড রাখা হলো অথবা key/layout চেক করা হলো
-                if ($template['layout'] === 'dynamic' || in_array($template['key'], $allowedLayouts) || in_array($template['layout'], $allowedLayouts)) {
+                // key বা layout দুটোর যেকোনো একটি allowed হলে দেখাবে
+                if (in_array($template['key'], $allowedLayouts) || in_array($template['layout'], $allowedLayouts)) {
                     $availableTemplates[] = $template;
                 }
             }
         }
         
         $categories = $settings->category_mapping ?? [];
+
         return view('news.studio', compact('newsItem', 'settings', 'availableTemplates', 'categories'));
+
+
     }
 
     public function create() { return view('news.create'); }

@@ -237,32 +237,120 @@
             <div class="bg-white p-5 rounded-lg shadow border border-blue-100">
                 <div class="flex justify-between items-center mb-3">
                     <h3 class="font-bold text-lg text-blue-700 flex items-center gap-2">
-                        <i class="fab fa-facebook"></i> Facebook Page Setup
+                        <i class="fab fa-facebook"></i> Facebook Pages Connection
                     </h3>
-                    <button type="button" onclick="testFacebook()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition font-bold border border-blue-200">
-                        ⚡ Test Connection
-                    </button>
                 </div>
                 
-                <div class="mb-3">
-                    <label class="block text-sm font-bold text-gray-700">Page ID</label>
-                    <input type="text" id="fb_page_id" name="fb_page_id" value="{{ $settings->fb_page_id ?? '' }}" 
-                           class="w-full border p-2 rounded text-sm" placeholder="Example: 100089...">
+                <div class="mb-4 bg-blue-50 p-3 rounded border border-blue-100">
+                    <label class="block text-sm font-bold text-blue-800 mb-2">Connect New Page</label>
+                    <div class="space-y-2">
+                        <input type="text" id="new_fb_page_id" class="w-full border p-2 rounded text-sm bg-white" placeholder="Page ID (e.g., 100089...)">
+                        <input type="text" id="new_fb_page_name" class="w-full border p-2 rounded text-sm bg-white" placeholder="Page Name (e.g., Daily News)">
+                        <textarea id="new_fb_access_token" rows="2" class="w-full border p-2 rounded text-sm bg-white" placeholder="Page Access Token..."></textarea>
+                        <button type="button" onclick="saveNewFbPage(this)" class="w-full bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 transition shadow-sm">
+                            + Add Page
+                        </button>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="block text-sm font-bold text-gray-700">Page Access Token</label>
-                    <textarea id="fb_access_token" name="fb_access_token" rows="2" 
-                              class="w-full border p-2 rounded text-sm" placeholder="Enter long-lived token here...">{{ $settings->fb_access_token ?? '' }}</textarea>
-                    
-                    <p id="fb_status_msg" class="text-xs mt-2 font-bold"></p>
-                    
-                    <p class="text-[10px] text-gray-400 mt-1">
-                        <a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="text-blue-500 hover:underline">Get Token via Graph API</a>
-                    </p>
-                    <input type="checkbox" name="fb_comment_link" {{ $settings->fb_comment_link ? 'checked' : '' }}>
+                <div class="">
+                    <label class="block text-sm font-bold text-gray-700 mb-2 border-b pb-1">Connected Pages</label>
+                    <div id="fb_pages_list" class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                        @php
+                            $fbPages = \App\Models\FacebookPage::orderBy('id', 'desc')->get();
+                        @endphp
+                        
+                        @forelse($fbPages as $fbPage)
+                            <div class="fb-page-row flex items-center justify-between p-2 border rounded {{ $fbPage->is_active ? 'bg-white border-gray-200' : 'bg-red-50 border-red-200' }}" data-id="{{ $fbPage->id }}">
+                                <div class="flex-1 min-w-0 pr-2">
+                                    <p class="font-bold text-gray-800 text-sm truncate flex items-center gap-2">
+                                        {{ $fbPage->page_name }}
+                                        @if($fbPage->is_studio_default)
+                                            <span class="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded border border-blue-200" title="Studio Modal এ ডিফল্ট হিসেবে সিলেক্ট থাকবে">Default</span>
+                                        @endif
+                                    </p>
+                                    <p class="text-[11px] text-gray-500 font-mono">ID: {{ $fbPage->page_id }}</p>
+                                    <div class="mt-1 flex items-center gap-2">
+                                        <button type="button" onclick="testSavedPage({{ $fbPage->id }}, this)" class="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-100 font-bold border border-blue-200">
+                                            ⚡ Test
+                                        </button>
+                                        <button type="button" onclick="togglePage({{ $fbPage->id }}, this)" class="text-[11px] px-2 py-0.5 rounded font-bold border {{ $fbPage->is_active ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-green-50 text-green-700 border-green-200' }}">
+                                            {{ $fbPage->is_active ? '⏸ Pause' : '▶️ Resume' }}
+                                        </button>
+                                        <button type="button" onclick="toggleDefaultPage({{ $fbPage->id }}, this)" class="text-[11px] px-2 py-0.5 rounded font-bold border hover:bg-gray-100 transition {{ $fbPage->is_studio_default ? 'text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed' : 'text-blue-600 border-blue-200 bg-white shadow-sm' }}" {{ $fbPage->is_studio_default ? 'disabled' : '' }}>
+                                            {{ $fbPage->is_studio_default ? '✅ Default' : '⭐ Set Default' }}
+                                        </button>
+                                        <span class="status-msg ml-auto"></span>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="deletePage({{ $fbPage->id }}, this)" class="text-xs text-red-400 hover:text-red-700 px-2 py-2 rounded hover:bg-red-50 transition" title="Delete Page">
+                                    🗑️
+                                </button>
+                            </div>
+                        @empty
+                            <p class="text-xs text-gray-400 text-center py-4 bg-gray-50 rounded border border-dashed">No pages connected yet.</p>
+                        @endforelse
+                    </div>
                 </div>
             </div>
+
+            <script>
+            function saveNewFbPage(btn) {
+                const id = document.getElementById('new_fb_page_id').value.trim();
+                const name = document.getElementById('new_fb_page_name').value.trim();
+                const token = document.getElementById('new_fb_access_token').value.trim();
+                if(!id || !token || !name) { alert("Page ID, Name, and Token are required"); return; }
+                
+                btn.innerText = 'Saving...'; btn.disabled = true;
+                fetch('{{ route("fb-pages.store") }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                    body: JSON.stringify({ page_id: id, page_name: name, access_token: token })
+                })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) { location.reload(); } else { alert(d.message || "Failed to add page"); btn.innerText = '+ Add Page'; btn.disabled = false; }
+                }).catch(() => { alert("Error connecting to server"); btn.innerText = '+ Add Page'; btn.disabled = false; });
+            }
+
+            function testSavedPage(id, btn) {
+                const orig = btn.innerText; btn.innerText = 'Testing...'; btn.disabled = true;
+                const statusSpan = btn.parentElement.querySelector('.status-msg');
+                statusSpan.innerHTML = '<span class="text-[10px] text-gray-500">Wait...</span>';
+                
+                fetch(`/facebook-pages/${id}/test`, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }})
+                .then(r => r.json())
+                .then(d => {
+                    statusSpan.innerHTML = `<span class="text-[10px] font-bold ${d.success ? 'text-green-600' : 'text-red-600'}">${d.message}</span>`;
+                }).finally(() => { btn.innerText = orig; btn.disabled = false; });
+            }
+
+            function togglePage(id, btn) {
+                btn.disabled = true;
+                fetch(`/facebook-pages/${id}/toggle`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }})
+                .then(r => r.json())
+                .then(d => { if (d.success) location.reload(); else alert(d.message); })
+                .finally(() => { btn.disabled = false; });
+            }
+            
+            function toggleDefaultPage(id, btn) {
+                btn.disabled = true;
+                fetch(`/facebook-pages/${id}/toggle-default`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }})
+                .then(r => r.json())
+                .then(d => { if (d.success) location.reload(); else alert(d.message); })
+                .finally(() => { btn.disabled = false; });
+            }
+
+            function deletePage(id, btn) {
+                if(!confirm('Are you sure you want to delete this page?')) return;
+                fetch(`/facebook-pages/${id}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }})
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) btn.closest('.fb-page-row').remove();
+                    else alert(d.message);
+                });
+            }
+            </script>
             
             {{-- Telegram --}}
             <div class="bg-white p-5 rounded-lg shadow border border-sky-100">

@@ -21,96 +21,78 @@ class User extends Authenticatable
         'daily_post_limit',
         'is_active',
         'staff_limit',
-        'permissions'
+        'permissions',
+        'last_login_at',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * The attributes that should be cast.
-     */
     protected $casts = [
 		'permissions' => 'array',
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'last_login_at' => 'datetime',
     ];
 
     // ==========================================
     // 🔥 RELATIONSHIPS
     // ==========================================
 
-    // ইউজারের সেটিংস
     public function settings()
     {
         return $this->hasOne(UserSetting::class);
     }
 
-    // ইউজারের নিউজ আইটেম
     public function newsItems()
     {
         return $this->hasMany(NewsItem::class);
     }
 
-    // ইউজারের এক্সেস থাকা ওয়েবসাইট
     public function accessibleWebsites()
-        {
-            return $this->belongsToMany(Website::class, 'user_website', 'user_id', 'website_id');
-        }
+    {
+        return $this->belongsToMany(Website::class, 'user_website', 'user_id', 'website_id');
+    }
     
-    // ইউজারের ক্রেডিট হিস্ট্রি
     public function creditHistories()
     {
         return $this->hasMany(CreditHistory::class)->latest();
     }
 
-    // (Optional) যদি সরাসরি ওয়েবসাইট রিলেশন থাকে
     public function websites() 
     { 
         return $this->hasMany(Website::class); 
     }
 
+    // ইউজারের সকল Facebook Pages
+    public function facebookPages()
+    {
+        return $this->hasMany(FacebookPage::class);
+    }
+
     // ==========================================
-    // 🔥 HELPER FUNCTIONS (LIMIT & CREDIT)
+    // 🔥 HELPER FUNCTIONS
     // ==========================================
 
-    /**
-     * ১. আজকের পোস্ট লিমিট বাকি আছে কিনা চেক করা
-     */
     public function hasDailyLimitRemaining()
     {
-        // সুপার এডমিনের কোনো লিমিট নেই
         if ($this->role === 'super_admin') return true;
 
-        // আজকের পোস্ট কাউন্ট করা (যেকোনো পোস্ট যা পাবলিশ হয়েছে)
         $todayPosts = $this->newsItems()
             ->where('is_posted', true)
-            ->whereDate('posted_at', now()) // আজকের তারিখ
+            ->whereDate('posted_at', now())
             ->count();
 
-        // যদি আজকের পোস্ট < দৈনিক লিমিট হয়, তবে সত্য
-        return $todayPosts < ($this->daily_post_limit ?? 10); // ডিফল্ট ১০
+        return $todayPosts < ($this->daily_post_limit ?? 10);
     }
 
-    /**
-     * ২. অ্যাকাউন্টে পর্যাপ্ত ক্রেডিট আছে কিনা চেক করা
-     */
     public function hasCredits()
     {
-        // সুপার এডমিনের আনলিমিটেড ক্রেডিট
         if ($this->role === 'super_admin') return true;
-        
         return $this->credits > 0;
     }
-	
-		
-		
-
 
     public function getTodaysPostCountAttribute()
     {
@@ -129,18 +111,14 @@ class User extends Authenticatable
 		return $this->hasMany(User::class, 'parent_id');
 	}
 
-	// রিপোর্টার কার আন্ডারে আছে
 	public function parent()
 	{
 		return $this->belongsTo(User::class, 'parent_id');
 	}
 	
-	
 	public function hasPermission($permission)
-		{
-			if ($this->role === 'super_admin') return true;
-			return is_array($this->permissions) && in_array($permission, $this->permissions);
-		}
-	
-	
+    {
+        if ($this->role === 'super_admin') return true;
+        return is_array($this->permissions) && in_array($permission, $this->permissions);
+    }
 }

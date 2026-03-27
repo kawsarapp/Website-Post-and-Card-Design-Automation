@@ -20,7 +20,7 @@ class NewsScraperService
         $proxyLog = $proxy ? parse_url($proxy, PHP_URL_HOST) : "Direct";
         Log::info("🚀 START SCRAPE: $url | via $proxyLog");
 
-        $hardSites = ['jamuna.tv', 'kalerkantho.com', 'somoynews.tv', 'dailyamardesh.com']; 
+        $hardSites = ['jamuna.tv', 'kalerkantho.com', 'somoynews.tv', 'dailyamardesh.com', 'samakal.com', 'bartabazar.com'];
         $isHardSite = false;
         foreach ($hardSites as $site) {
             if (str_contains($url, $site)) {

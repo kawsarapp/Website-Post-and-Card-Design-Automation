@@ -80,7 +80,19 @@
                 <button type="submit" class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg">
                     Log In
                 </button>
+
+                <div class="text-center">
+                    <a href="{{ route('password.request') }}" class="text-sm text-indigo-500 hover:text-indigo-700 hover:underline">
+                        🔐 পাসওয়ার্ড ভুলে গেছেন?
+                    </a>
+                </div>
             </form>
+
+            @if (session('success'))
+                <div class="mt-4 bg-green-100 text-green-700 p-3 rounded-lg text-sm text-center font-bold">
+                    {{ session('success') }}
+                </div>
+            @endif
 
             <div class="mt-6 text-center">
                 <p class="text-sm text-gray-500">Don't have an account? <a href="https://wa.me/8801771545972" target="_blank" class="text-indigo-600 font-bold hover:underline">Contact</a></p>

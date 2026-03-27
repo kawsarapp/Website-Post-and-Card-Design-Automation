@@ -25,105 +25,92 @@ class SettingsController extends Controller
         }
 
         $settings = $user->settings ?? new UserSetting(['user_id' => $user->id]);
-        return view('settings.index', compact('settings'));
+        $fbPages  = $user->facebookPages()->orderByDesc('is_active')->get();
+        return view('settings.index', compact('settings', 'fbPages'));
     }
 
     /**
-     * ২. সেটিংস আপডেট (FIXED & DYNAMIC)
+     * ২. সেটিংস আপডেট
      */
     public function update(Request $request)
     {
-        // ১. সবার আগে পারমিশন চেক (সিকিউরিটির জন্য)
         if (Auth::user()->role !== 'super_admin' && !Auth::user()->hasPermission('can_settings')) {
             return abort(403, 'Unauthorized');
         }
 
-        // ২. ভ্যালিডেশন
         $request->validate([
-            'brand_name' => 'required|string|max:50',
-            'wp_url' => 'nullable|url',
-            'wp_username' => 'nullable|string',
-            'wp_app_password' => 'nullable|string',
-            'fb_page_id' => 'nullable|string',
-            'fb_access_token' => 'nullable|string',
-            'telegram_bot_token' => 'nullable|string',
-            'telegram_channel_id' => 'nullable|string',
-            'laravel_site_url' => 'nullable|url',
-            'laravel_api_token' => 'nullable|string',
+            'brand_name'           => 'required|string|max:50',
+            'wp_url'               => 'nullable|url',
+            'wp_username'          => 'nullable|string',
+            'wp_app_password'      => 'nullable|string',
+            'fb_page_id'           => 'nullable|string',
+            'fb_access_token'      => 'nullable|string',
+            'telegram_bot_token'   => 'nullable|string',
+            'telegram_channel_id'  => 'nullable|string',
+            'laravel_site_url'     => 'nullable|url',
+            'laravel_api_token'    => 'nullable|string',
             'laravel_route_prefix' => 'nullable|string|max:40',
-            // প্রক্সি ভ্যালিডেশন
-            'proxy_username' => 'nullable|string',
-            'proxy_password' => 'nullable|string',
-            'proxy_host' => 'nullable|string',
-            'proxy_port' => 'nullable|string',
-            // 🔥 ডাইনামিক কাস্টম API ভ্যালিডেশন
-            'custom_api_url' => 'nullable|url',
-            'custom_category_url' => 'nullable|url',
-            'custom_api_mapping' => 'nullable|json',
+            'proxy_username'       => 'nullable|string',
+            'proxy_password'       => 'nullable|string',
+            'proxy_host'           => 'nullable|string',
+            'proxy_port'           => 'nullable|string',
+            'custom_api_url'       => 'nullable|url',
+            'custom_category_url'  => 'nullable|url',
+            'custom_api_mapping'   => 'nullable|json',
         ]);
         
-        // ৩. সেটিংস লোড করা (একবারই)
         $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
 
-        // ৪. প্রক্সি সেটিংস অ্যাসাইন করা
         $settings->proxy_username = $request->proxy_username;
         $settings->proxy_password = $request->proxy_password;
-        $settings->proxy_host = $request->proxy_host;
-        $settings->proxy_port = $request->proxy_port;
+        $settings->proxy_host     = $request->proxy_host;
+        $settings->proxy_port     = $request->proxy_port;
 
-        // ৫. সাধারণ সেটিংস
-        $settings->brand_name = $request->brand_name;
+        $settings->brand_name          = $request->brand_name;
         $settings->default_theme_color = $request->default_theme_color ?? 'red';
         
         if ($request->filled('logo_url')) {
             $settings->logo_url = $request->logo_url;
         }
 
-        // ওয়ার্ডপ্রেস সেটিংস
-        $settings->wp_url = $request->wp_url;
-        $settings->wp_username = $request->wp_username;
+        $settings->wp_url          = $request->wp_url;
+        $settings->wp_username     = $request->wp_username;
         $settings->wp_app_password = $request->wp_app_password;
 
-        // ফেসবুক সেটিংস
-        $settings->fb_page_id = $request->fb_page_id;
+        $settings->fb_page_id      = $request->fb_page_id;
         $settings->fb_access_token = $request->fb_access_token;
-        $settings->post_to_fb = $request->has('post_to_fb');
+        $settings->post_to_fb      = $request->has('post_to_fb');
         $settings->fb_comment_link = $request->has('fb_comment_link');
 
-        // টেলিগ্রাম সেটিংস
-        $settings->telegram_bot_token = $request->telegram_bot_token;
-        $settings->telegram_channel_id = $request->telegram_channel_id;
-        $settings->post_to_telegram = $request->has('post_to_telegram');
+        $settings->telegram_bot_token   = $request->telegram_bot_token;
+        $settings->telegram_channel_id  = $request->telegram_channel_id;
+        $settings->post_to_telegram     = $request->has('post_to_telegram');
 
-        // লারাভেল API সেটিংস
-        $settings->laravel_site_url = $request->laravel_site_url;
-        $settings->laravel_api_token = $request->laravel_api_token;
-        $settings->post_to_laravel = $request->has('post_to_laravel');
+        $settings->laravel_site_url   = $request->laravel_site_url;
+        $settings->laravel_api_token  = $request->laravel_api_token;
+        $settings->post_to_laravel    = $request->has('post_to_laravel');
         $settings->laravel_route_prefix = $request->laravel_route_prefix ?? 'news';
 
-        // ক্যাটাগরি ম্যাপিং
         if ($request->has('category_mapping')) {
             $settings->category_mapping = $request->category_mapping;
         }
 
-        // 🔥 ৬. কাস্টম ডাইনামিক API সেটিংস সেভ করা
-        $settings->custom_api_url = $request->custom_api_url;
+        $settings->custom_api_url      = $request->custom_api_url;
         $settings->custom_category_url = $request->custom_category_url;
-        $settings->custom_api_mapping = $request->custom_api_mapping;
+        $settings->custom_api_mapping  = $request->custom_api_mapping;
 
-        // ৭. সবশেষে একবারই সেভ করা
         $settings->save();
 
         return back()->with('success', 'সব সেটিংস (প্রক্সিসহ) সফলভাবে সেভ করা হয়েছে!');
     }
 
     /**
-     * ৩. ফেসবুক কানেকশন টেস্ট
+     * ৩. ফেসবুক কানেকশন টেস্ট (Legacy single-page)
      */
     public function testFacebookConnection(Request $request)
     {
         $pageId = $request->input('fb_page_id');
-        $token = $request->input('fb_access_token');
+        $token  = $request->input('fb_access_token');
 
         if (!$pageId || !$token) {
             return response()->json(['success' => false, 'message' => 'Page ID এবং Token দিতে হবে।']);
@@ -131,8 +118,8 @@ class SettingsController extends Controller
 
         try {
             $response = Http::get("https://graph.facebook.com/v19.0/{$pageId}", [
-                'fields' => 'id,name',
-                'access_token' => $token
+                'fields'       => 'id,name',
+                'access_token' => $token,
             ]);
 
             $data = $response->json();
@@ -140,12 +127,12 @@ class SettingsController extends Controller
             if ($response->successful() && isset($data['id'])) {
                 return response()->json([
                     'success' => true,
-                    'message' => "✅ কানেকশন সফল!\nPage: " . $data['name']
+                    'message' => "✅ কানেকশন সফল!\nPage: " . $data['name'],
                 ]);
             } else {
                 return response()->json([
                     'success' => false, 
-                    'message' => "❌ ফেইল্ড: " . ($data['error']['message'] ?? 'Unknown Error')
+                    'message' => "❌ ফেইল্ড: " . ($data['error']['message'] ?? 'Unknown Error'),
                 ]);
             }
         } catch (\Exception $e) {
@@ -158,7 +145,7 @@ class SettingsController extends Controller
      */
     public function testTelegramConnection(Request $request)
     {
-        $botToken = $request->input('telegram_bot_token');
+        $botToken  = $request->input('telegram_bot_token');
         $channelId = $request->input('telegram_channel_id');
 
         if (!$botToken || !$channelId) {
@@ -172,7 +159,7 @@ class SettingsController extends Controller
             }
 
             $chatResponse = Http::get("https://api.telegram.org/bot{$botToken}/getChat", [
-                'chat_id' => $channelId
+                'chat_id' => $channelId,
             ]);
 
             $chatData = $chatResponse->json();
@@ -181,12 +168,12 @@ class SettingsController extends Controller
                 $title = $chatData['result']['title'] ?? 'Unknown Channel';
                 return response()->json([
                     'success' => true,
-                    'message' => "✅ টেলিগ্রাম কানেক্টেড!\nChannel: $title"
+                    'message' => "✅ টেলিগ্রাম কানেক্টেড!\nChannel: $title",
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => "❌ চ্যানেল পাওয়া যায়নি বা বট এডমিন নেই।\nError: " . ($chatData['description'] ?? 'Unknown')
+                    'message' => "❌ চ্যানেল পাওয়া যায়নি বা বট এডমিন নেই।\nError: " . ($chatData['description'] ?? 'Unknown'),
                 ]);
             }
         } catch (\Exception $e) {
@@ -199,7 +186,7 @@ class SettingsController extends Controller
      */
     public function testWordPressConnection(Request $request)
     {
-        $url = $request->input('wp_url');
+        $url      = $request->input('wp_url');
         $username = $request->input('wp_username');
         $password = $request->input('wp_app_password');
 
@@ -208,19 +195,19 @@ class SettingsController extends Controller
         }
 
         try {
-            $apiUrl = rtrim($url, '/') . '/wp-json/wp/v2/users/me';
+            $apiUrl   = rtrim($url, '/') . '/wp-json/wp/v2/users/me';
             $response = Http::withBasicAuth($username, $password)->get($apiUrl);
 
             if ($response->successful()) {
                 $data = $response->json();
                 return response()->json([
                     'success' => true,
-                    'message' => "✅ ওয়ার্ডপ্রেস কানেক্টেড!\nUser: " . ($data['name'] ?? $username)
+                    'message' => "✅ ওয়ার্ডপ্রেস কানেক্টেড!\nUser: " . ($data['name'] ?? $username),
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => "❌ কানেকশন ফেইল্ড! স্ট্যাটাস কোড: " . $response->status()
+                    'message' => "❌ কানেকশন ফেইল্ড! স্ট্যাটাস কোড: " . $response->status(),
                 ]);
             }
         } catch (\Exception $e) {
@@ -229,39 +216,31 @@ class SettingsController extends Controller
     }
 
     /**
-     * ৬. ক্যাটাগরি ফেচ করা (WP/Laravel - 🔥 FULLY DYNAMIC WITH DATA WRAPPER FIX)
+     * ৬. ক্যাটাগরি ফেচ করা
      */
     public function fetchCategories(WordPressService $wpService)
     {
         $user = Auth::user();
         
-        // 🔥 স্টাফ বা রিপোর্টার হলে তার অ্যাডমিনকে বের করবে, নইলে নিজেকেই রাখবে
         $adminUser = in_array($user->role, ['staff', 'reporter']) ? \App\Models\User::find($user->parent_id) : $user;
-        $settings = $adminUser->settings;
+        $settings  = $adminUser->settings;
 
         if (!$settings) {
             return response()->json(['error' => 'Settings not found'], 400);
         }
 
-        // ইউজার ভিত্তিক আলাদা ক্যাশ কি (Cache Key) তৈরি - এখানে অ্যাডমিনের আইডি ব্যবহার হবে
         $cacheKey = 'user_categories_' . $adminUser->id;
 
-        // যদি ইউজার 'ফোর্স রিফ্রেশ' করতে চায় (যেমন: নতুন ক্যাটাগরি এড করার পর)
         if (request()->has('refresh')) {
             Cache::forget($cacheKey);
         }
 
-        // ক্যাশ থেকে ডাটা নেওয়া, না থাকলে নতুন করে ফেচ করে ২৪ ঘণ্টার জন্য সেভ করা
         $categories = Cache::remember($cacheKey, now()->addHours(24), function () use ($settings, $wpService) {
             
-            // ১. লারাভেল সাইট থেকে ফেচ করা
             if ($settings->post_to_laravel && $settings->laravel_site_url && $settings->laravel_api_token) {
                 try {
-                    // 🟢 SMART SWITCH: যদি ডাটাবেসে কাস্টম ক্যাটাগরি API দেওয়া থাকে
                     if (!empty($settings->custom_category_url)) {
-                        $apiUrl = $settings->custom_category_url;
-                        
-                        // 🔥 UPDATE: টোকেন হেডার দিয়ে পাঠানো হচ্ছে (TheNews24 এবং অন্যান্য সিকিউর API এর জন্য)
+                        $apiUrl  = $settings->custom_category_url;
                         $headers = [];
                         if (!empty($settings->laravel_api_token)) {
                             $headers['Authorization'] = 'Bearer ' . $settings->laravel_api_token;
@@ -271,23 +250,19 @@ class SettingsController extends Controller
                         
                         if ($response->successful()) {
                             $resData = $response->json();
-                            // 🔥 FIX: ইসলামিক টিভির মত API তে ডাটা "data" key এর ভেতরে থাকে
                             if (isset($resData['data']) && is_array($resData['data'])) {
-                                // 🔥 UPDATE: TheNews24 এর CategoryID এবং CategoryName কে আমাদের id এবং name এ ম্যাপ করা হলো (আগেরগুলোও কাজ করবে)
-                                return collect($resData['data'])->map(function($item) {
+                                return collect($resData['data'])->map(function ($item) {
                                     return [
-                                        'id' => $item['CategoryID'] ?? $item['id'] ?? null,
-                                        'name' => $item['CategoryName'] ?? $item['name'] ?? 'Unknown'
+                                        'id'   => $item['CategoryID'] ?? $item['id'] ?? null,
+                                        'name' => $item['CategoryName'] ?? $item['name'] ?? 'Unknown',
                                     ];
                                 })->toArray();
                             }
                             return $resData;
                         }
-                    } 
-                    // 🔵 DEFAULT UNIVERSAL API FETCH (আমাদের ডিফল্ট সিস্টেম)
-                    else {
-                        $baseUrl = rtrim($settings->laravel_site_url, '/');
-                        $apiUrl = $baseUrl . '/api/get-categories';
+                    } else {
+                        $baseUrl  = rtrim($settings->laravel_site_url, '/');
+                        $apiUrl   = $baseUrl . '/api/get-categories';
                         $response = Http::timeout(10)->get($apiUrl, ['token' => $settings->laravel_api_token]);
                         
                         if ($response->successful()) {
@@ -299,7 +274,6 @@ class SettingsController extends Controller
                 }
             }
 
-            // ২. ওয়ার্ডপ্রেস থেকে ফেচ করা
             if ($settings->wp_url && $settings->wp_username && $settings->wp_app_password) {
                 try {
                     return $wpService->getCategories(
@@ -329,7 +303,7 @@ class SettingsController extends Controller
     {
         $request->validate(['logo' => 'required|image|max:2048']);
         if ($request->hasFile('logo')) {
-            $path = $request->file('logo')->store('logos', 'public');
+            $path     = $request->file('logo')->store('logos', 'public');
             $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
             $settings->logo_url = asset('storage/' . $path);
             $settings->save();
@@ -356,7 +330,7 @@ class SettingsController extends Controller
      */
     public function credits()
     {
-        $user = Auth::user();
+        $user      = Auth::user();
         $histories = method_exists($user, 'creditHistories') ? $user->creditHistories()->latest()->paginate(15) : collect();
         return view('settings.credits', compact('histories', 'user'));
     }
@@ -383,12 +357,12 @@ class SettingsController extends Controller
     {
         $user = Auth::user();
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'name'     => 'required|string|max:255',
+            'email'    => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|string|min:6|confirmed',
         ]);
 
-        $user->name = $request->name;
+        $user->name  = $request->name;
         $user->email = $request->email;
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);

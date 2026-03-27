@@ -20,6 +20,7 @@ class Website extends Model
         'selector_content',
         'selector_time',
         'scraper_method',
+        'use_scraping_api',
         'user_id', 
     ];
 

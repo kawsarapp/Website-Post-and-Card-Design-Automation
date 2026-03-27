@@ -50,11 +50,19 @@ trait ScraperHtmlParserTrait
     private function extractBodyManually(Crawler $crawler, $specificSelectors = [])
     {
         $selectors = !empty($specificSelectors) ? $specificSelectors : [
-            '.story-element-text', '.article-details-body', '.jw_article_body',
-            '.content-details', '.news-article-text', '#news-content',
-            '.details-text', '.article-content', 'div[itemprop="articleBody"]', 
-            '.article-details', '#details', '.details', 'article', '.post-content', 
-            '.entry-content', '.section-content', '.post-body', '.td-post-content'
+            // Bangladesh news portals (specific)
+            '.dNewsDesc',          // samakal.com
+            '.single_news',        // kalerkantho.com
+            '.cat-post-body',      // various BD portals
+            '.jw_article_body',    // jugantor, others
+            '.details-content',    // dhakapost, others
+            '.story-element-text', // prothomalo
+            // Generic fallbacks
+            '.article-details-body', '.content-details', '.news-article-text',
+            '#news-content', '.details-text', '.article-content',
+            'div[itemprop="articleBody"]', '.article-details', '#details',
+            '.details', 'article', '.post-content', '.entry-content',
+            '.section-content', '.post-body', '.td-post-content'
         ];
         
         $bestContent = "";
@@ -83,6 +91,21 @@ trait ScraperHtmlParserTrait
                         $text .= "<p>" . $cleanText . "</p>\n";
                     }
                 });
+
+                // 🔥 Fallback: if no <p> content (div-based sites like kalerkantho)
+                if (empty($text)) {
+                    $container->filter('div, span')->each(function (Crawler $node) use (&$text) {
+                        // Only grab leaf-level text nodes with enough content
+                        $nodeText = strip_tags(trim($node->html()));
+                        if (strlen($nodeText) > 30 && !$this->isGarbageText($nodeText)) {
+                            // Avoid double-counting parent divs that contain child divs
+                            $hasChildDivs = $node->filter('div, p')->count() > 0;
+                            if (!$hasChildDivs) {
+                                $text .= "<p>" . $nodeText . "</p>\n";
+                            }
+                        }
+                    });
+                }
 
                 if (strlen($text) > $maxLength) {
                     $maxLength = strlen($text);

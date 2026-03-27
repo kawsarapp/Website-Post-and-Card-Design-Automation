@@ -15,6 +15,10 @@ trait ScraperHelperTrait
     {
         if (!$title) return null;
 
+        // 🕒 Timestamp prefix stripping (ekhon.tv, some others add "X মিনিট আগে" before title)
+        $title = preg_replace('/^\d+\s*(মিনিট|ঘণ্টা|সেকেন্ড|ঘন্টা)\s*আগে/u', '', $title);
+        $title = trim($title);
+
         // কমন সেপারেটর যেগুলো দিয়ে ওয়েবসাইটের নাম যুক্ত করা থাকে
         $separators = [' | ', ' - ', ' – ', ' — ', ' :: ', ' : '];
         

@@ -15,6 +15,7 @@ use App\Http\Controllers\{
 };
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\FacebookPageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,7 +38,14 @@ Route::post('/telegram/webhook', [TelegramBotController::class, 'handle']);
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+
+    // 🔐 Forgot & Reset Password
+    Route::get('/forgot-password', [AuthController::class, 'showForgotForm'])->name('password.request');
+    Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/reset-password/{token}', [AuthController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 });
+
 
 
 // --- ২. লগইন করা সকল ইউজারের জন্য কমন রুটস (Auth & NoCache Middleware) ---
@@ -56,7 +64,7 @@ Route::middleware(['auth', 'nocache'])->group(function () {
     Route::get('/credits', [SettingsController::class, 'credits'])->name('credits.index');
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.update-profile');
 
-    // --- ৩. সেটিংস ম্যানেজমেন্ট (কানেকশন টেস্টগুলো এখানেই সিকিউর করা হলো) ---
+    // --- ৩. সেটিংস ম্যানেজমেন্ট ---
     Route::middleware(['permission:can_settings'])->group(function () {
         Route::get('/admin/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::post('/admin/settings', [SettingsController::class, 'update'])->name('settings.update');
@@ -67,6 +75,15 @@ Route::middleware(['auth', 'nocache'])->group(function () {
             Route::post('/facebook', [SettingsController::class, 'testFacebookConnection'])->name('test-facebook');
             Route::post('/telegram', [SettingsController::class, 'testTelegramConnection'])->name('test-telegram');
             Route::post('/wordpress', [SettingsController::class, 'testWordPressConnection'])->name('test-wordpress');
+        });
+
+        // 🔥 Multi-Facebook Page Routes
+        Route::prefix('facebook-pages')->name('fb-pages.')->group(function () {
+            Route::post('/', [FacebookPageController::class, 'store'])->name('store');
+            Route::delete('/{id}', [FacebookPageController::class, 'destroy'])->name('destroy');
+            Route::patch('/{id}/toggle', [FacebookPageController::class, 'toggle'])->name('toggle');
+            Route::post('/{id}/test', [FacebookPageController::class, 'test'])->name('test');
+            Route::patch('/{id}/set-default', [FacebookPageController::class, 'setDefault'])->name('set-default');
         });
     });
 
@@ -153,6 +170,10 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
     Route::put('/staff/{id}/permissions', [StaffController::class, 'updatePermissions'])->name('staff.permissions');
     Route::put('/staff/{id}/websites', [StaffController::class, 'updateWebsites'])->name('staff.websites');
     Route::put('/staff/{id}/templates', [StaffController::class, 'updateTemplates'])->name('staff.templates');
+    Route::put('/staff/{id}/info', [StaffController::class, 'updateInfo'])->name('staff.update_info');
+    Route::post('/staff/{id}/toggle-status', [StaffController::class, 'toggleStatus'])->name('staff.toggle_status');
+    Route::post('/staff/{id}/reset-password', [StaffController::class, 'resetPassword'])->name('staff.reset_password');
+    Route::get('/staff/{id}/news', [StaffController::class, 'showNews'])->name('staff.news');
     
     Route::delete('/staff/{id}', [StaffController::class, 'destroy'])->name('staff.destroy');
 });
@@ -194,3 +215,4 @@ Route::middleware(['auth', 'nocache', AdminMiddleware::class])->group(function (
         });
     });
 });
+
