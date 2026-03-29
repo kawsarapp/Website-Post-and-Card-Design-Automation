@@ -338,15 +338,45 @@
         } catch (error) { alert("❌ ক্যানভাস এরর।"); btn.innerHTML = originalText; btn.disabled = false; }
     }
 
+    function toggleAllFbPages(checked) {
+        document.querySelectorAll('.fb-page-checkbox').forEach(cb => cb.checked = checked);
+    }
+
+    function checkSelectAllState() {
+        const total = document.querySelectorAll('.fb-page-checkbox').length;
+        const checked = document.querySelectorAll('.fb-page-checkbox:checked').length;
+        const selectAllCb = document.getElementById('selectAllFbPages');
+        if (selectAllCb) {
+            selectAllCb.checked = (total > 0 && total === checked);
+            selectAllCb.indeterminate = (checked > 0 && checked < total);
+        }
+    }
+
+    // Call this once on load to set the initial toggle state properly
+    document.addEventListener("DOMContentLoaded", function() { setTimeout(checkSelectAllState, 500); });
+
     function confirmStudioPost() {
         const isSocialOnly = document.getElementById('modalSocialOnly').checked, categoryId = document.getElementById('modalCategory').value, caption = document.getElementById('modalCaption').value;
         if (!isSocialOnly && !categoryId) { alert("⚠️ ওয়েবসাইটে পোস্ট করার জন্য ক্যাটাগরি সিলেক্ট করুন।"); return; }
+        
+        const checkedFbPages = Array.from(document.querySelectorAll('.fb-page-checkbox:checked')).map(cb => cb.value);
+        
         const btn = document.getElementById('btnFinalPost'); const originalText = btn.innerHTML; btn.innerHTML = "⏳ Uploading..."; btn.disabled = true;
         canvas.discardActiveObject(); canvas.renderAll();
         try {
             const formData = new FormData(); formData.append('design_image', dataURLToBlob(canvas.toDataURL({ format: 'png', multiplier: 1.5, quality: 1.0 })), 'studio-final.png');
             if (isSocialOnly) formData.append('social_only', '1'); else if (categoryId) formData.append('category_id', categoryId);
             formData.append('social_caption', caption); 
+            
+            // 🔥 Multi-select Facebook pages logic
+            if (document.getElementById('fbPageCheckboxList')) {
+                if (checkedFbPages.length > 0) {
+                    checkedFbPages.forEach(id => formData.append('selected_fb_page_ids[]', id));
+                } else {
+                    formData.append('skip_fb', '1'); // no pages checked -> explicitly tell backend to skip FB
+                }
+            }
+            
             fetch("{{ route('news.publish-studio', $newsItem->id) }}", { method: "POST", headers: { "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content') }, body: formData })
             .then(res => res.json()).then(data => { if (data.success) { alert("✅ পাবলিশিং শুরু হয়েছে!"); window.location.href = "{{ route('news.index') }}"; } else { alert("❌ " + data.message); btn.innerHTML = originalText; btn.disabled = false; } });
         } catch (error) { alert("❌ ক্যানভাস এরর।"); btn.innerHTML = originalText; btn.disabled = false; }

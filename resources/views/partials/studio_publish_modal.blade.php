@@ -34,17 +34,24 @@
             @endphp
             @if($facebookPages->count() > 0)
             <div id="facebookPageSelector">
-                <label class="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
-                    <i class="fab fa-facebook text-blue-600"></i> Publish to Facebook Page
-                </label>
-                <select id="modalFacebookPage" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50">
-                    <option value="">-- Do Not Post to Facebook --</option>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-sm font-bold text-gray-700 flex items-center gap-2">
+                        <i class="fab fa-facebook text-blue-600"></i> Publish to Facebook Pages
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-blue-600 hover:text-blue-800 select-none bg-blue-100 px-2 py-1 rounded">
+                        <input type="checkbox" id="selectAllFbPages" class="w-3.5 h-3.5 rounded text-blue-600" onchange="toggleAllFbPages(this.checked)">
+                        Select All
+                    </label>
+                </div>
+                
+                <div class="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-blue-50 max-h-36 overflow-y-auto space-y-1.5 shadow-inner" id="fbPageCheckboxList">
                     @foreach($facebookPages as $page)
-                        <option value="{{ $page->id }}" {{ $page->is_studio_default ? 'selected' : '' }}>
-                            {{ $page->page_name }}
-                        </option>
+                        <label class="flex items-center gap-2.5 cursor-pointer bg-white px-3 py-2 rounded-md border border-gray-200 shadow-sm hover:border-blue-400 transition hover:bg-gray-50">
+                            <input type="checkbox" value="{{ $page->id }}" class="fb-page-checkbox w-4 h-4 text-blue-600 rounded bg-gray-100 border-gray-300 focus:ring-blue-500" {{ $page->is_studio_default ? 'checked' : '' }} onchange="checkSelectAllState()">
+                            <span class="text-sm font-bold text-gray-700">{{ $page->page_name }}</span>
+                        </label>
                     @endforeach
-                </select>
+                </div>
             </div>
             @endif
 

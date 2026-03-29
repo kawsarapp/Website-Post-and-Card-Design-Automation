@@ -75,7 +75,9 @@ trait SocialAndFinalizeTrait
                 : [];
 
             // ফেসবুকে পোস্ট (selected pages অথবা সব active pages)
-            if ($settings->post_to_fb) {
+            $skipFb = $this->customData['skip_fb'] ?? false;
+            
+            if ($settings->post_to_fb && !$skipFb) {
                 $fbResults = $socialPoster->postToFacebook($settings, $captionToPost, $imageToPost, $newsLink, $selectedPageIds);
 
                 // সব results loop করে যেকোনো ১টি success হলে 'success' রাখি

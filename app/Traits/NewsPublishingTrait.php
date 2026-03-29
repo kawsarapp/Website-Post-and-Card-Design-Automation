@@ -187,6 +187,7 @@ trait NewsPublishingTrait
                     'category_ids' => [$request->category_id ?? 1],
                     'social_caption' => $request->social_caption ?? ($news->ai_title ?? $news->title),
                     'selected_fb_page_ids' => $request->input('selected_fb_page_ids', []),
+                    'skip_fb' => $request->has('skip_fb'),
                 ], true);
                 return response()->json(['success' => true, 'message' => 'পাবলিশিং শুরু হয়েছে!']);
             }
