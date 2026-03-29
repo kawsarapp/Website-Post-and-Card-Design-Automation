@@ -127,8 +127,8 @@ def extract_data(html, base_url):
     # ৩. স্ট্রিক্ট ইমেজ ফলব্যাক (Anti-Branding)
     if not image:
         bad_img_keywords = [
-            'logo', 'icon', 'avatar', 'svg', 'profile', 'ad-', 'banner', 'share', 
-            'button', 'facebook', 'twitter', 'whatsapp', 'placeholder', 'default', 
+            'logo', 'icon', 'avatar', '.svg', 'profile', '/ad-', 'banner', 'share_button', 'share-icon', 
+            'facebook', 'twitter', 'whatsapp', 'placeholder', 'default-image', 'default_image', 
             'lazy', 'blank', 'spinner', 'thumbs', '300x250', 'branding', 'bg-', 'og-image', 'og_image'
         ]
 

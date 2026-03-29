@@ -149,7 +149,7 @@ trait ScraperHelperTrait
     // 🔥 POWER UP: Advanced Branding Image Filtering (EXTENDED)
     public function isGarbageImage($url) {
         // লোগো, আইকন, ডিফল্ট, সোশ্যাল ব্র্যান্ডিং এবং সাইজ ইমেজ ব্লক করা হলো
-        return preg_match('/(logo|icon|svg|avatar|profile|ad-|banner|share|button|facebook|twitter|whatsapp|placeholder|default|lazy|blank|spinner|thumbs|300x250|branding|og-image|og_image|base64|gif)/i', $url);
+        return preg_match('/(logo|icon|\.svg|avatar|profile|\/ad-|banner|share_button|share-icon|facebook|twitter|whatsapp|placeholder|default-image|default_image|lazy|blank|spinner|thumbs|300x250|branding|og-image|og_image|base64|\.gif)/i', $url);
     }
 
     // 🔥 FORMAT TEXT (IMPROVED)

@@ -90,10 +90,16 @@ class ProcessSingleNews implements ShouldQueue
         if (!$imageUrl) return null;
 
         // A. Relative URL Fix
-        if (!str_starts_with($imageUrl, 'http') && $website) {
-            $parsedUrl = parse_url($website->url);
-            $baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
-            $imageUrl = $baseUrl . '/' . ltrim($imageUrl, '/');
+        if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+            if (str_starts_with($imageUrl, '//')) {
+                // e.g. //cdn.dhakapost.com/image.png -> https://cdn.dhakapost.com/image.png
+                $imageUrl = 'https:' . $imageUrl;
+            } elseif ($website) {
+                // e.g. /images/pic.png -> https://example.com/images/pic.png
+                $parsedUrl = parse_url($website->url);
+                $rootUrl = $parsedUrl['scheme'] . '://' . ($parsedUrl['host'] ?? '');
+                $imageUrl = rtrim($rootUrl, '/') . '/' . ltrim($imageUrl, '/');
+            }
         }
 
         // B. Clean OG Path
