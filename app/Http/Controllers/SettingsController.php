@@ -57,6 +57,7 @@ class SettingsController extends Controller
             'custom_api_url'       => 'nullable|url',
             'custom_category_url'  => 'nullable|url',
             'custom_api_mapping'   => 'nullable|json',
+            'auto_clean_days'      => 'nullable|integer|min:1|max:90',
         ]);
         
         $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
@@ -98,6 +99,11 @@ class SettingsController extends Controller
         $settings->custom_api_url      = $request->custom_api_url;
         $settings->custom_category_url = $request->custom_category_url;
         $settings->custom_api_mapping  = $request->custom_api_mapping;
+
+        // 🧹 Auto Clean Days
+        if ($request->filled('auto_clean_days')) {
+            $settings->auto_clean_days = (int) $request->auto_clean_days;
+        }
 
         $settings->save();
 

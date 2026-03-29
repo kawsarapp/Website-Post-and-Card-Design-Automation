@@ -99,6 +99,20 @@
                            value="{{ $settings->proxy_password ?? '' }}">
                 </div>
             </div>
+
+            {{-- Auto Clean Section --}}
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <label class="block text-sm font-bold text-gray-700 mb-1">
+                    🧹 Auto Clean Pending News After (Days)
+                </label>
+                <div class="flex items-center gap-3">
+                    <input type="number" name="auto_clean_days"
+                           min="1" max="90"
+                           value="{{ $settings->auto_clean_days ?? 7 }}"
+                           class="w-32 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition text-center font-bold text-lg">
+                    <p class="text-xs text-gray-500">দিন পরে যে নিউজ পোস্ট করা হয়নি সেগুলো অটোমেটিক ডিলিট হবে। (Default: 7 দিন)</p>
+                </div>
+            </div>
         </div>
 
         {{-- ৩. ব্র্যান্ডিং সেকশন --}}
