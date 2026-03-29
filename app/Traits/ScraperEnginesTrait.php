@@ -10,27 +10,36 @@ trait ScraperEnginesTrait
 {
     public function getProxyConfig($userId = null, $url = null)
     {
-        // User requested: real IP should never be used, so removed the proxy bypass for jamuna.tv and bdnews24.com.
-        // 🔥 ফিক্স: স্টাফ হলে তার অ্যাডমিনের আইডি বের করবে, নতুবা দেওয়া আইডি ব্যবহার করবে
+        $uid = null;
         if ($userId) {
             $uid = $userId;
         } elseif (Auth::check()) {
             $user = Auth::user();
             $uid = in_array($user->role, ['staff', 'reporter']) ? $user->parent_id : $user->id;
-        } else {
-            return null;
         }
 
-        if (!$uid) return null;
-
-        $settings = \App\Models\UserSetting::where('user_id', $uid)->first();
-
-        if ($settings && $settings->proxy_host && $settings->proxy_port) {
-            if ($settings->proxy_username && $settings->proxy_password) {
-                $auth = "{$settings->proxy_username}:{$settings->proxy_password}@";
+        // 1. Check user-specific proxy from database
+        if ($uid) {
+            $settings = \App\Models\UserSetting::where('user_id', $uid)->first();
+            if ($settings && $settings->proxy_host && $settings->proxy_port) {
+                $auth = "";
+                if ($settings->proxy_username && $settings->proxy_password) {
+                    $auth = "{$settings->proxy_username}:{$settings->proxy_password}@";
+                }
+                return "http://{$auth}{$settings->proxy_host}:{$settings->proxy_port}";
             }
-            return "http://{$auth}{$settings->proxy_host}:{$settings->proxy_port}";
         }
+
+        // 2. Fallback to .env proxy (for automated cron jobs or unconfigured admins)
+        $envHost = env('SMARTPROXY_HOST');
+        $envPort = env('SMARTPROXY_PORT');
+        if ($envHost && $envPort) {
+            $envUser = env('SMARTPROXY_USER');
+            $envPass = env('SMARTPROXY_PASS');
+            $auth = ($envUser && $envPass) ? "{$envUser}:{$envPass}@" : "";
+            return "http://{$auth}{$envHost}:{$envPort}";
+        }
+
         return null;
     }
 
