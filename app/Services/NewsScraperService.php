@@ -23,8 +23,12 @@ class NewsScraperService
 
         // 🔥 STRICT SECURITY ENFORCEMENT
         if (!$proxy && !$useApi) {
-            Log::error("❌ Security Block [Article]: No Proxy configured AND API disabled. Aborting to protect Hosting Server IP.");
-            return null;
+            if (config('app.env') === 'local') {
+                Log::warning("⚠️ Running on LOCALHOST without Proxy/API. Proceeding directly (DEV MODE).");
+            } else {
+                Log::error("❌ Security Block [Article]: No Proxy configured AND API disabled. Aborting to protect Hosting Server IP.");
+                return null;
+            }
         }
 
         $proxyLog = $proxy ? parse_url($proxy, PHP_URL_HOST) : "Universal API";
@@ -39,16 +43,20 @@ class NewsScraperService
             if ($htmlContent && strlen($htmlContent) > 500) {
                 $scrapedData = $this->processHtml($htmlContent, $url, $customSelectors);
                 
-                // 🔥 Image Cleaned Here
-                if (isset($scrapedData['image'])) {
-                    $scrapedData['image'] = $this->fixVendorImages($scrapedData['image']);
+                if (!empty($scrapedData) && !empty($scrapedData['body'])) {
+                    // 🔥 Image Cleaned Here
+                    if (isset($scrapedData['image'])) {
+                        $scrapedData['image'] = $this->fixVendorImages($scrapedData['image']);
+                    }
+                    if (isset($scrapedData['title'])) {
+                        $scrapedData['title'] = $this->cleanTitle($scrapedData['title']);
+                    }
+                    return $scrapedData;
                 }
-                if (isset($scrapedData['title'])) {
-                    $scrapedData['title'] = $this->cleanTitle($scrapedData['title']);
-                }
-                return $scrapedData;
+                Log::warning("⚠️ Universal API fetched HTML, but PHP parser (DOMCrawler) returned empty body. Falling back to Python Scraper/Trafilatura...");
+            } else {
+                Log::warning("⚠️ Universal API failed for article. Falling back to default proxy...");
             }
-            Log::warning("⚠️ Universal API failed for article. Falling back to default proxy...");
         }
 
         $hardSites = ['jamuna.tv', 'kalerkantho.com', 'somoynews.tv', 'dailyamardesh.com', 'samakal.com', 'bartabazar.com'];
@@ -61,8 +69,12 @@ class NewsScraperService
         }
 
         if (!$proxy) {
-            Log::error("❌ Security Block [Article Fallback]: Universal API failed and NO PROXY available. Aborting instead of leaking Hosting Server IP.");
-            return null;
+            if (config('app.env') === 'local') {
+                // Log::warning("⚠️ Running on LOCALHOST without Proxy/API. Proceeding directly (DEV MODE).");
+            } else {
+                Log::error("❌ Security Block [Article Fallback]: Universal API failed and NO PROXY available. Aborting instead of leaking Hosting Server IP.");
+                return null;
+            }
         }
 
         // 🐍 STEP 1: PYTHON SCRAPER

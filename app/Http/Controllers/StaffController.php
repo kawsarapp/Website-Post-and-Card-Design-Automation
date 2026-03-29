@@ -178,7 +178,7 @@ class StaffController extends Controller
 
         $query = NewsItem::withoutGlobalScopes()
             ->where('staff_id', $staff->id)
-            ->with('website')
+            ->with(['website', 'reporter'])
             ->latest();
 
         // Status filter
@@ -189,7 +189,7 @@ class StaffController extends Controller
         // Date filter
         if ($request->filled('date_filter')) {
             match($request->date_filter) {
-                'today'  => $query->where('created_at', '>=', now()->subHours(24)),
+                'today'  => $query->where('created_at', '>=', now()->startOfDay()),
                 '7days'  => $query->where('created_at', '>=', now()->subDays(7)),
                 'month'  => $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year),
                 default  => null,
@@ -198,16 +198,31 @@ class StaffController extends Controller
 
         // Search filter
         if ($request->filled('search')) {
-            $query->where('title', 'like', '%' . $request->search . '%');
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'like', '%' . $search . '%')
+                  ->orWhereHas('website', function($w) use ($search) {
+                      $w->where('name', 'like', '%' . $search . '%');
+                  })
+                  ->orWhereHas('reporter', function($r) use ($search) {
+                      $r->where('name', 'like', '%' . $search . '%');
+                  });
+            });
         }
 
         $news = $query->paginate(20);
 
+        $todayQuery = NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('created_at', '>=', now()->startOfDay());
+
         $stats = [
-            'total'     => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->count(),
-            'published' => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('status', 'published')->count(),
-            'draft'     => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('status', '!=', 'published')->count(),
-            'today'     => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('created_at', '>=', now()->subHours(24))->count(),
+            'total'           => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->count(),
+            'published'       => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('status', 'published')->count(),
+            'draft'           => NewsItem::withoutGlobalScopes()->where('staff_id', $staff->id)->where('status', '!=', 'published')->count(),
+            
+            'today_total'     => (clone $todayQuery)->count(),
+            'today_published' => (clone $todayQuery)->where('status', 'published')->count(),
+            'today_rewritten' => (clone $todayQuery)->where('is_rewritten', true)->count(),
+            'today_custom'    => (clone $todayQuery)->whereNull('website_id')->count(),
         ];
 
         return view('client.staff.news', compact('staff', 'news', 'stats'));

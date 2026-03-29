@@ -1,0 +1,66 @@
+[
+  {
+    "href": "/api/auth/v1/oauth/authorize?client_id=811&response_type=code&redirect_uri=/api/auth/v1/oauth/token&callback_uri=/collection/latest",
+    "text": "Login"
+  },
+  {
+    "href": "https://www.prothomalo.com/collection/latest",
+    "text": "সর্বশেষ"
+  },
+  {
+    "href": "https://www.prothomalo.com/bangladesh",
+    "text": "বাংলাদেশ"
+  },
+  {
+    "href": "https://www.prothomalo.com/politics",
+    "text": "রাজনীতি"
+  },
+  {
+    "href": "https://www.prothomalo.com/world",
+    "text": "বিশ্ব"
+  },
+  {
+    "href": "https://www.prothomalo.com/business",
+    "text": "বাণিজ্য"
+  },
+  {
+    "href": "https://www.prothomalo.com/opinion",
+    "text": "মতামত"
+  },
+  {
+    "href": "https://www.prothomalo.com/sports",
+    "text": "খেলা"
+  },
+  {
+    "href": "https://www.prothomalo.com/entertainment",
+    "text": "বিনোদন"
+  },
+  {
+    "href": "https://www.prothomalo.com/chakri",
+    "text": "চাকরি"
+  },
+  {
+    "href": "https://www.prothomalo.com/lifestyle",
+    "text": "জীবনযাপন"
+  },
+  {
+    "href": "https://www.prothomalo.com/video",
+    "text": "ভিডিও"
+  },
+  {
+    "href": "/search",
+    "text": "খুঁজুন"
+  },
+  {
+    "href": "https://epaper.prothomalo.com",
+    "text": "ই-পেপার"
+  },
+  {
+    "href": "https://en.prothomalo.com",
+    "text": "Eng"
+  },
+  {
+    "href": "/api/auth/v1/oauth/authorize?client_id=811&response_type=code&redirect_uri=/api/auth/v1/oauth/token&callback_uri=/collection/latest",
+    "text": "Login"
+  }
+]

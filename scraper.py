@@ -115,8 +115,7 @@ def extract_data(html, base_url):
             if 'image' in data:
                 img_data = data['image']
                 candidate = img_data.get('url') if isinstance(img_data, dict) else (img_data[0] if isinstance(img_data, list) else img_data)
-                # Reject logos/icons from JSON-LD — let og:image fallback handle it
-                bad_img = ['logo', 'icon', 'svg', 'placeholder', 'default', 'favicon']
+                bad_img = ['logo', 'icon', 'svg', 'placeholder', 'default', 'favicon', 'og-image', 'og_image']
                 if candidate and not any(x in str(candidate).lower() for x in bad_img):
                     image = candidate
             
@@ -127,20 +126,22 @@ def extract_data(html, base_url):
 
     # ৩. স্ট্রিক্ট ইমেজ ফলব্যাক (Anti-Branding)
     if not image:
-        if soup.find('meta', property='og:image'):
-            image = soup.find('meta', property='og:image').get('content')
-        elif soup.find('meta', attrs={'name': 'twitter:image'}):
-            image = soup.find('meta', attrs={'name': 'twitter:image'}).get('content')
+        bad_img_keywords = [
+            'logo', 'icon', 'avatar', 'svg', 'profile', 'ad-', 'banner', 'share', 
+            'button', 'facebook', 'twitter', 'whatsapp', 'placeholder', 'default', 
+            'lazy', 'blank', 'spinner', 'thumbs', '300x250', 'branding', 'bg-', 'og-image', 'og_image'
+        ]
+
+        og_img = soup.find('meta', property='og:image')
+        tw_img = soup.find('meta', attrs={'name': 'twitter:image'})
+        
+        if og_img and not any(x in og_img.get('content', '').lower() for x in bad_img_keywords):
+            image = og_img.get('content')
+        elif tw_img and not any(x in tw_img.get('content', '').lower() for x in bad_img_keywords):
+            image = tw_img.get('content')
         else:
             main_area = soup.select_one('article, [itemprop="articleBody"], .post-content, .details-content, #content')
             target = main_area if main_area else soup
-            
-            # লোগো বা ফালতু ইমেজ ব্লক করার স্ট্রিক্ট লিস্ট
-            bad_img_keywords = [
-                'logo', 'icon', 'avatar', 'svg', 'profile', 'ad-', 'banner', 'share', 
-                'button', 'facebook', 'twitter', 'whatsapp', 'placeholder', 'default', 
-                'lazy', 'blank', 'spinner', 'thumbs', '300x250', 'branding', 'bg-'
-            ]
             
             for img in target.find_all('img'):
                 src = img.get('src') or img.get('data-src') or img.get('data-original')

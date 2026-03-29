@@ -123,9 +123,15 @@ class ProcessSingleNews implements ShouldQueue
 
             // 🚀 Fast Download using Laravel HTTP (Timeout 10s)
             // file_get_contents ব্যবহার করবেন না, এটি সার্ভার ঝুলিয়ে দেয়
-            $httpRequest = Http::timeout(10);
+            $httpRequest = Http::withOptions(['verify' => false])->timeout(10);
             if ($proxy) {
-                $httpRequest->withOptions(['proxy' => $proxy]);
+                $httpRequest->withOptions(['proxy' => $proxy, 'verify' => false]);
+            } else {
+                if (config('app.env') !== 'local') {
+                    Log::error("❌ Security Block [Image]: No Proxy available for image download. Aborting to prevent hosting IP leakage.");
+                    return $url;
+                }
+                Log::warning("⚠️ Image downloading directly without proxy (DEV MODE)");
             }
             $response = $httpRequest->get($url);
 

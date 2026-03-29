@@ -152,13 +152,16 @@ trait ScraperEnginesTrait
 
             if ($response->successful()) {
                 $html = $response->json('results.0.content');
+                if (!$html) {
+                    $html = $response->body(); // Fallback for direct HTML output
+                }
                 if ($html && strlen($html) > 500) {
                     Log::info("✅ Universal Scraping API Success. HTML length: " . strlen($html));
                     return $html;
                 }
             }
 
-            Log::warning("⚠️ Universal Scraping API failed: " . $response->status() . " — " . $response->body());
+            Log::warning("⚠️ Universal Scraping API failed: " . $response->status() . " — " . substr($response->body(), 0, 500));
         } catch (\Exception $e) {
             Log::warning("⚠️ Universal Scraping API exception: " . $e->getMessage());
         }

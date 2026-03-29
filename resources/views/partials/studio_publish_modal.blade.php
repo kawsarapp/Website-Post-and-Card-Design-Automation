@@ -29,8 +29,6 @@
                 </select>
             </div>
 
-            </div>
-
             @php
                 $facebookPages = \App\Models\FacebookPage::where('is_active', true)->get();
             @endphp

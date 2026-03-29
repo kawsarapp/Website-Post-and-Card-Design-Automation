@@ -11,15 +11,22 @@
         </div>
         <div class="bg-emerald-50 rounded-xl border border-emerald-100 p-4 text-center shadow-sm">
             <span class="text-3xl font-black text-emerald-600">{{ $stats['published'] }}</span>
-            <p class="text-xs font-bold text-emerald-500 uppercase mt-1">Published</p>
+            <p class="text-xs font-bold text-emerald-500 uppercase mt-1">Published (All-time)</p>
         </div>
         <div class="bg-amber-50 rounded-xl border border-amber-100 p-4 text-center shadow-sm">
             <span class="text-3xl font-black text-amber-600">{{ $stats['draft'] }}</span>
-            <p class="text-xs font-bold text-amber-500 uppercase mt-1">Drafts</p>
+            <p class="text-xs font-bold text-amber-500 uppercase mt-1">Drafts (All-time)</p>
         </div>
-        <div class="bg-blue-50 rounded-xl border border-blue-100 p-4 text-center shadow-sm">
-            <span class="text-3xl font-black text-blue-600">{{ $stats['today'] }}</span>
-            <p class="text-xs font-bold text-blue-500 uppercase mt-1">গত ২৪ ঘন্টায়</p>
+        <div class="bg-blue-50 rounded-xl border border-blue-100 p-4 shadow-sm text-left">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-bold text-blue-500 uppercase">আজকের রিপোর্ট</span>
+                <span class="text-xl font-black text-blue-600">{{ $stats['today_total'] }}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-1 text-[10px] font-semibold text-slate-600 mt-2">
+                <div class="bg-white/50 px-2 py-1 rounded">✅ Publish: <span class="text-emerald-600">{{ $stats['today_published'] }}</span></div>
+                <div class="bg-white/50 px-2 py-1 rounded">🤖 AI Rewrite: <span class="text-blue-600">{{ $stats['today_rewritten'] }}</span></div>
+                <div class="bg-white/50 px-2 py-1 rounded mt-1 col-span-2">✍️ Custom/Manual: <span class="text-purple-600">{{ $stats['today_custom'] }}</span></div>
+            </div>
         </div>
     </div>
 
@@ -31,7 +38,7 @@
                     <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
                         <th class="px-4 py-3 font-bold">#</th>
                         <th class="px-4 py-3 font-bold">শিরোনাম</th>
-                        <th class="px-4 py-3 font-bold">সোর্স</th>
+                        <th class="px-4 py-3 font-bold">সোর্স/প্রেরক</th>
                         <th class="px-4 py-3 font-bold">স্ট্যাটাস</th>
                         <th class="px-4 py-3 font-bold">পোস্ট</th>
                         <th class="px-4 py-3 font-bold">তারিখ</th>
@@ -50,8 +57,14 @@
                                 <span class="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-bold">🤖 AI Rewritten</span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-xs text-slate-500">
-                            {{ $item->website->name ?? '—' }}
+                        <td class="px-4 py-3 text-xs">
+                            @if($item->website)
+                                <span class="text-slate-600 font-bold bg-slate-100 px-2 py-0.5 rounded whitespace-nowrap"><i class="fa-solid fa-robot mr-1 text-slate-400"></i>Observed <span class="text-[10px] font-normal text-slate-500">({{ $item->website->name }})</span></span>
+                            @elseif($item->reporter)
+                                <span class="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded whitespace-nowrap"><i class="fa-solid fa-user-pen mr-1"></i>Reporter <span class="text-[10px] font-normal text-indigo-400">({{ $item->reporter->name }})</span></span>
+                            @else
+                                <span class="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded whitespace-nowrap"><i class="fa-solid fa-pen-to-square mr-1"></i>Custom</span>
+                            @endif
                         </td>
                         <td class="px-4 py-3">
                             @php

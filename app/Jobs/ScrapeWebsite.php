@@ -51,8 +51,12 @@ class ScrapeWebsite implements ShouldQueue
 
             // 🔥 STRICT SECURITY ENFORCEMENT
             if (!$proxy && !$website->use_scraping_api) {
-                Log::error("❌ Security Block [List]: No Proxy configured AND API disabled. Aborting to protect Hosting Server IP.");
-                return;
+                if (config('app.env') === 'local') {
+                    Log::warning("⚠️ Running on LOCALHOST without Proxy/API. Proceeding directly (DEV MODE).");
+                } else {
+                    Log::error("❌ Security Block [List]: No Proxy configured AND API disabled. Aborting to protect Hosting Server IP.");
+                    return;
+                }
             }
 
             // ২. লিস্ট পেজ লোড (Raw HTML)
@@ -78,7 +82,7 @@ class ScrapeWebsite implements ShouldQueue
                 }
             } else {
                 // 🔥 JS-Rendered সাইটের জন্য সরাসরি Puppeteer ব্যবহার
-                $jsRenderedDomains = ['somoynews.tv', 'ekhon.tv', 'dbcnews.tv', 'banglatribune.com', 'bdnews24.com', 'prothomalo.com'];
+                $jsRenderedDomains = ['somoynews.tv', 'ekhon.tv', 'dbcnews.tv', 'banglatribune.com', 'bdnews24.com', 'prothomalo.com', 'channel24bd.tv', 'kalerkantho.com'];
                 $isJsRendered = collect($jsRenderedDomains)->some(fn($d) => str_contains($website->url, $d));
 
                 if ($isJsRendered) {
@@ -191,7 +195,7 @@ class ScrapeWebsite implements ShouldQueue
             $count = 0;
             $limit = 5; // লিমিট
 
-            $activeContainer->each(function (Crawler $node, $i) use ($website, &$count, $limit, $activeTitleSelector) {
+            $activeContainer->each(function (Crawler $node, $i) use ($website, &$count, $limit, $activeTitleSelector, $scraper) {
                 
                 if ($count >= $limit) return false; 
 
@@ -296,10 +300,14 @@ class ScrapeWebsite implements ShouldQueue
                     $listImage = null;
                     try {
                         $imgSelector = $website->selector_image ?? 'img';
-                        $node->filter($imgSelector)->each(function ($imgNode) use (&$listImage) {
+                        $node->filter($imgSelector)->each(function ($imgNode) use (&$listImage, $scraper) {
                             if ($listImage) return;
                             $src = $imgNode->attr('data-src') ?? $imgNode->attr('data-original') ?? $imgNode->attr('src');
-                            if ($src) $listImage = $src;
+                            if ($src && method_exists($scraper, 'isGarbageImage') && !$scraper->isGarbageImage($src)) {
+                                $listImage = $src;
+                            } elseif ($src && !method_exists($scraper, 'isGarbageImage')) {
+                                $listImage = $src;
+                            }
                         });
                     } catch (\Exception $e) {}
 
@@ -352,13 +360,13 @@ class ScrapeWebsite implements ShouldQueue
             return ['container' => '#loadMoreContent .col-12, #loadMoreContent .row', 'title' => 'a.text-decoration-none'];
         }
         if (str_contains($url, 'kalerkantho.com')) {
-            return ['container' => 'div.card h5.card-title a, .col-md-3 a', 'title' => null];
+            return ['container' => 'div.card h5.card-title a, .col-md-3 a, .col-sm-6 a, .col-xs-12 a, h5 a, h4 a, h3 a, h2 a, .card a', 'title' => null];
         }
         if (str_contains($url, 'thedailystar.net')) {
             return ['container' => 'div.card-presentation, div.card-view', 'title' => 'h3.title > a'];
         }
         if (str_contains($url, 'jamuna.tv')) {
-            return ['container' => '.latest-news-list .news-item', 'title' => 'h3.title > a'];
+            return ['container' => '.latest-news-list .news-item, .category-news-list a, .recent-news a, article a, h2 a, h3 a', 'title' => 'h3.title > a'];
         }
         if (str_contains($url, 'dhakapost.com')) {
              return ['container' => '.category-lead a, .section-content a', 'title' => null];
@@ -372,7 +380,7 @@ class ScrapeWebsite implements ShouldQueue
         }
         if (str_contains($url, 'somoynews.tv')) {
             // somoynews is full React — Puppeteer renders it; article links contain /news/
-            return ['container' => 'a[href*="/news/"]', 'title' => null];
+            return ['container' => 'a[href*="/news/"], a[href*="/article/"], h2 a, h3 a, .card a, article a', 'title' => null];
         }
         if (str_contains($url, 'ekhon.tv')) {
             // Ekhon TV articles are usually nested within specific content grids or have distinctive paths
@@ -396,11 +404,12 @@ class ScrapeWebsite implements ShouldQueue
         }
         if (str_contains($url, 'bdnews24.com')) {
             // bdnews24.com news links are inside SubCat-wrapper and similar grid classes
-            return ['container' => '.SubCat-wrapper a, .category-wrapper a', 'title' => null];
+            return ['container' => '.SubCat-wrapper a, .category-wrapper a, .story-content a, h1 a, h2 a, h3 a, h4 a, h5 a, h6 a, .title a, section a', 'title' => null];
         }
         if (str_contains($url, 'prothomalo.com')) {
-            // Prothom Alo uses heavily nested React classes, 'h2 a, .story-card a, article a' works best
-            return ['container' => 'h2 a, h3 a, h4 a, .story-card a, article a, [data-testid="story-card"] a, .news-card a, .headline-title, .title-link', 'title' => null];
+            // Prothom Alo uses generic <a> tags without semantic classes natively.
+            // We capture links via direct category slug structures + fallback classes
+            return ['container' => 'main a, .contents a, article a, a[href*="/bangladesh/"], a[href*="/politics/"], a[href*="/world/"], a[href*="/business/"], a[href*="/sports/"], a[href*="/entertainment/"], a[href*="/lifestyle/"], a[href*="/education/"], h2 a, h3 a, .story-card a', 'title' => null];
         }
         if (str_contains($url, 'asia-post.com')) {
             // override the dashboard .col-md-12 which wraps all news instead of individual cards
@@ -412,7 +421,7 @@ class ScrapeWebsite implements ShouldQueue
         }
         if (str_contains($url, 'channel24bd.tv')) {
             // override strategies failing
-            return ['container' => '.DCategoryListNews a, .DBottomNews a, main a, .content-area a, article a, .category-box a, .news-card a, .post a, h2 a, h3 a, h4 a, .card a, .col-md-3 a', 'title' => null];
+            return ['container' => '.DCategoryListNews a, .DBottomNews a, main a, .content-area a, article a, .category-box a, .news-card a, .post a, h2 a, h3 a, h4 a, .card a, .col-md-3 a, .col-sm-6 a, section a', 'title' => null];
         }
         return null;
     }

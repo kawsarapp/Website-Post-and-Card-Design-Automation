@@ -86,7 +86,10 @@
                         <i class="fa-solid fa-ellipsis-vertical"></i>
                     </button>
                     <div class="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 origin-top-right">
-                        
+                        <a href="{{ route('client.staff.news', $staff->id) }}" class="w-full text-left block px-4 py-2 border-b border-slate-100 text-sm font-bold text-blue-600 hover:bg-blue-50">
+                            <i class="fa-solid fa-newspaper w-5"></i> View Detailed Report
+                        </a>
+
                         <button type="button" onclick='openSourceModal("{{ $staff->id }}", "{{ $staff->name }}", @json($staff->accessibleWebsites->pluck("id")))' class="w-full text-left block px-4 py-2 text-sm text-slate-600 hover:bg-emerald-50 hover:text-emerald-600">
                             <i class="fa-solid fa-earth-asia w-5"></i> Allowed Sites
                         </button>
@@ -102,7 +105,7 @@
                         <div class="border-t border-slate-50 my-1"></div>
                         <form action="{{ route('client.staff.destroy', $staff->id) }}" method="POST" onsubmit="return confirm('সত্যিই ডিলিট করতে চান?');">
                             @csrf @method('DELETE')
-                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50">
+                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 border-t border-slate-100 mt-1">
                                 <i class="fa-solid fa-trash-can w-5"></i> Delete Staff
                             </button>
                         </form>
@@ -159,6 +162,12 @@
                         <p class="text-[9px] font-bold text-blue-500 uppercase">AI Rewrites</p>
                     </div>
                 </div>
+            </div>
+
+            <div class="px-5 pb-4">
+                <a href="{{ route('client.staff.news', $staff->id) }}" class="block w-full text-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-sm py-2 rounded-lg border border-indigo-100 transition">
+                    <i class="fa-solid fa-newspaper mr-1"></i> View Work History & Daily Report
+                </a>
             </div>
             
             {{-- Footer Status --}}

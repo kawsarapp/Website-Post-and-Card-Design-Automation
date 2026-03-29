@@ -1,0 +1,253 @@
+[
+  {
+    "href": "https://www.prothomalo.com/api/auth/v1/oauth/authorize?client_id=811&response_type=code&redirect_uri=https://www.prothomalo.com/api/auth/v1/oauth/token&callback_uri=https://www.prothomalo.com/latest",
+    "class": [
+      "auth-view",
+      "dEV7e"
+    ],
+    "text": "Login"
+  },
+  {
+    "href": "https://www.prothomalo.com/collection/latest",
+    "class": null,
+    "text": "সর্বশেষ"
+  },
+  {
+    "href": "https://www.prothomalo.com/bangladesh",
+    "class": null,
+    "text": "বাংলাদেশ"
+  },
+  {
+    "href": "https://www.prothomalo.com/politics",
+    "class": null,
+    "text": "রাজনীতি"
+  },
+  {
+    "href": "https://www.prothomalo.com/world",
+    "class": null,
+    "text": "বিশ্ব"
+  },
+  {
+    "href": "https://www.prothomalo.com/business",
+    "class": null,
+    "text": "বাণিজ্য"
+  },
+  {
+    "href": "https://www.prothomalo.com/opinion",
+    "class": null,
+    "text": "মতামত"
+  },
+  {
+    "href": "https://www.prothomalo.com/sports",
+    "class": null,
+    "text": "খেলা"
+  },
+  {
+    "href": "https://www.prothomalo.com/entertainment",
+    "class": null,
+    "text": "বিনোদন"
+  },
+  {
+    "href": "https://www.prothomalo.com/chakri",
+    "class": null,
+    "text": "চাকরি"
+  },
+  {
+    "href": "https://www.prothomalo.com/lifestyle",
+    "class": null,
+    "text": "জীবনযাপন"
+  },
+  {
+    "href": "https://www.prothomalo.com/video",
+    "class": null,
+    "text": "ভিডিও"
+  },
+  {
+    "href": "/search",
+    "class": [
+      "search",
+      "_5ndd-"
+    ],
+    "text": "খুঁজুন"
+  },
+  {
+    "href": "https://epaper.prothomalo.com",
+    "class": [
+      "epaper",
+      "JqeOY",
+      "_6vu3Q"
+    ],
+    "text": "ই-পেপার"
+  },
+  {
+    "href": "https://en.prothomalo.com",
+    "class": [
+      "edition",
+      "_7Dxzs",
+      "f9xpE"
+    ],
+    "text": "Eng"
+  },
+  {
+    "href": "https://www.prothomalo.com/api/auth/v1/oauth/authorize?client_id=811&response_type=code&redirect_uri=https://www.prothomalo.com/api/auth/v1/oauth/token&callback_uri=https://www.prothomalo.com/latest",
+    "class": [
+      "auth-view",
+      "dEV7e"
+    ],
+    "text": "Login"
+  },
+  {
+    "href": "https://www.prothomalo.com/privacy-policy",
+    "class": null,
+    "text": "Privacy Policy"
+  },
+  {
+    "href": "https://www.prothomalo.com/photo/bangladesh/dznyp69035",
+    "class": [
+      "NkRdr",
+      "WaXFh"
+    ],
+    "text": "ছবি"
+  },
+  {
+    "href": "https://www.prothomalo.com/video/bangladesh/w4rekkriz2",
+    "class": [
+      "NkRdr",
+      "WaXFh"
+    ],
+    "text": "ভিডিও"
+  },
+  {
+    "href": "https://www.prothomalo.com/entertainment/entertainment-interview/2xxa5ac3nh",
+    "class": [
+      "NkRdr",
+      "WaXFh"
+    ],
+    "text": "সাক্ষাৎকার"
+  },
+  {
+    "href": "/",
+    "class": null,
+    "text": "প্রচ্ছদে ফিরে যান"
+  },
+  {
+    "href": "https://nagorik.prothomalo.com/",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "নাগরিক সংবাদ"
+  },
+  {
+    "href": "https://www.kishoralo.com/",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "কিশোর আলো"
+  },
+  {
+    "href": "https://www.bigganchinta.com/",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "বিজ্ঞানচিন্তা"
+  },
+  {
+    "href": "https://trust.prothomalo.com/",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "প্রথম আলো ট্রাস্ট"
+  },
+  {
+    "href": "https://www.bondhushava.com/",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "বন্ধুসভা"
+  },
+  {
+    "href": "https://1971.prothomalo.com/",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "চিরন্তন ১৯৭১"
+  },
+  {
+    "href": "https://epaper.prothomalo.com/",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "ইপেপার"
+  },
+  {
+    "href": "https://www.prothoma.com/",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "প্রথমা"
+  },
+  {
+    "href": "https://www.prothomalo.com/mobile-vas",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "মোবাইল ভ্যাস"
+  },
+  {
+    "href": "https://prothomalo.com/about",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "আমাদের সম্পর্কে"
+  },
+  {
+    "href": "https://prothomalo.com/advertise",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "বিজ্ঞাপন"
+  },
+  {
+    "href": "https://www.prothomalo.com/circulation",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "সার্কুলেশন"
+  },
+  {
+    "href": "https://prothomalo.com/terms",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "নীতি ও শর্ত"
+  },
+  {
+    "href": "https://prothomalo.com/contact",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "যোগাযোগ"
+  },
+  {
+    "href": "https://mailchi.mp/prothomalo/prothom-alo-newsletter-landing",
+    "class": [
+      "footer-list-menu-item",
+      "jxJws"
+    ],
+    "text": "নিউজলেটার"
+  }
+]

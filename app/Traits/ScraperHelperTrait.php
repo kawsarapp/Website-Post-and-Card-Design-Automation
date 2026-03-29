@@ -111,6 +111,12 @@ trait ScraperHelperTrait
             $imageUrl = strtok($imageUrl, '?'); 
         }
 
+        if (str_contains($imageUrl, 'bbc.co.uk') || str_contains($imageUrl, 'bbci.co.uk')) {
+            if (str_contains($imageUrl, '/branded_bengali/')) {
+                $imageUrl = preg_replace('/news\/\d+\/branded_bengali/', 'ace/ws/800/cpsprodpb', $imageUrl);
+            }
+        }
+
         if (str_contains($imageUrl, 'rtvonline.com') || str_contains($imageUrl, 'kalerkantho.com') || str_contains($imageUrl, 'jamuna.tv') || str_contains($imageUrl, 'samakal.com')) {
             $imageUrl = strtok($imageUrl, '?');
         }
@@ -141,9 +147,9 @@ trait ScraperHelperTrait
     }
 
     // 🔥 POWER UP: Advanced Branding Image Filtering (EXTENDED)
-    private function isGarbageImage($url) {
-        // লোগো, আইকন, ডিফল্ট এবং ছোট সাইজের ইমেজ ব্লক করা হলো
-        return preg_match('/(logo|icon|svg|avatar|profile|ad-|banner|share|button|facebook|twitter|whatsapp|placeholder|default|lazy|blank|spinner|thumbs|300x250|branding|base64|gif)/i', $url);
+    public function isGarbageImage($url) {
+        // লোগো, আইকন, ডিফল্ট, সোশ্যাল ব্র্যান্ডিং এবং সাইজ ইমেজ ব্লক করা হলো
+        return preg_match('/(logo|icon|svg|avatar|profile|ad-|banner|share|button|facebook|twitter|whatsapp|placeholder|default|lazy|blank|spinner|thumbs|300x250|branding|og-image|og_image|base64|gif)/i', $url);
     }
 
     // 🔥 FORMAT TEXT (IMPROVED)
