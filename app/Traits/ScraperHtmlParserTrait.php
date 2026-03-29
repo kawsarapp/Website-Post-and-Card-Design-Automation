@@ -168,7 +168,10 @@ trait ScraperHtmlParserTrait
                 '.featured-image img', '.featured-img img', '.photo-feature img',
                 'article figure img', 'article picture img', 'main figure img',
                 '.main-image img', '.story-element-image img', '.single-post-image img',
-                '.td-post-featured-image img', '.post-thumbnail img', 'figure.image img'
+                '.td-post-featured-image img', '.post-thumbnail img', 'figure.image img',
+                '.feature-image img', '.post-image img', '.article-image img',
+                '.entry-header img', 'article header img', '.lead-img img',
+                '.detail-image img', '.story-pic img', '.news-pic img', '.img-responsive', '.pic img'
             ];
             foreach ($highPrioritySelectors as $selector) {
                 if ($crawler->filter($selector)->count() > 0) {
@@ -176,7 +179,6 @@ trait ScraperHtmlParserTrait
                     
                     // Prothom Alo uses data-gl-src and srcset
                     $src = $imgNode->attr('data-gl-src') ?? $imgNode->attr('data-original') ?? $imgNode->attr('data-src') ?? $imgNode->attr('src');
-                    
                     if (!$src || str_contains($src, 'data:image')) {
                         // Check if it's inside a picture tag
                         $parent = $imgNode->closest('picture');

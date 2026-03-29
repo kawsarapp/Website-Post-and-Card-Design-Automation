@@ -248,6 +248,10 @@ class ScrapeWebsite implements ShouldQueue
                         $link = $baseUrl . '/' . ltrim($link, '/');
                     }
 
+                    if (strlen($link) > 700) {
+                        return;
+                    }
+
                     // 🔥 Skip Homepage / Root URL exactly
                     if (rtrim($link, '/') === rtrim($baseUrl, '/')) {
                         return;
@@ -404,7 +408,7 @@ class ScrapeWebsite implements ShouldQueue
         }
         if (str_contains($url, 'bdnews24.com')) {
             // bdnews24.com news links are inside SubCat-wrapper and similar grid classes
-            return ['container' => '.SubCat-wrapper a, .category-wrapper a, .story-content a, h1 a, h2 a, h3 a, h4 a, h5 a, h6 a, .title a, section a', 'title' => null];
+            return ['container' => '.SubcatList-detail a, .SubCat-wrapper a, .category-wrapper a, .story-content a, h1 a, h2 a, h3 a, h4 a, h5 a, h6 a, .title a, section a', 'title' => null];
         }
         if (str_contains($url, 'prothomalo.com')) {
             // Prothom Alo uses generic <a> tags without semantic classes natively.

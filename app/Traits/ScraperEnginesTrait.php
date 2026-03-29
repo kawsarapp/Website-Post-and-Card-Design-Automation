@@ -147,7 +147,7 @@ trait ScraperEnginesTrait
                 'Authorization' => 'Basic ' . $token,
                 'Content-Type'  => 'application/json'
             ])->withBody($payload, 'application/json')
-              ->timeout(60)
+              ->timeout(120)
               ->post('https://scraper.smartproxy.org/v1/query');
 
             if ($response->successful()) {

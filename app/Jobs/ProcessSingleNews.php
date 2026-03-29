@@ -121,10 +121,15 @@ class ProcessSingleNews implements ShouldQueue
             // 🔥 Get Proxy to prevent server IP leak during image download
             $proxy = app(\App\Services\NewsScraperService::class)->getProxyConfig($this->userId, $url);
 
-            // 🚀 Fast Download using Laravel HTTP (Timeout 10s)
-            // file_get_contents ব্যবহার করবেন না, এটি সার্ভার ঝুলিয়ে দেয়
-            $httpRequest = Http::withOptions(['verify' => false])->timeout(10);
+            // 🚀 Fast Download using Laravel HTTP (Timeout 15s)
+            $httpRequest = Http::withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept' => 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Accept-Language' => 'en-US,en;q=0.9,bn;q=0.8'
+            ])->withOptions(['verify' => false])->timeout(15);
+            
             if ($proxy) {
+                // withOptions merges with existing config
                 $httpRequest->withOptions(['proxy' => $proxy, 'verify' => false]);
             } else {
                 if (config('app.env') !== 'local') {
@@ -134,6 +139,19 @@ class ProcessSingleNews implements ShouldQueue
                 Log::warning("⚠️ Image downloading directly without proxy (DEV MODE)");
             }
             $response = $httpRequest->get($url);
+
+            // ⚠️ Smart Fallback: Cloudflare usually blocks Datacenter Proxies from downloading static files (ntv, dailystar, etc.)
+            // If the proxy download fails, we fallback to a Direct Server Download for the image only.
+            if ($response->failed() && $proxy) {
+                Log::warning("⚠️ Proxy blocked by firewall/Cloudflare. Attempting Direct Server Download for: $url");
+                $directRequest = Http::withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept' => 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                    'Accept-Language' => 'en-US,en;q=0.9,bn;q=0.8',
+                ])->withOptions(['verify' => false])->timeout(15);
+                
+                $response = $directRequest->get($url);
+            }
 
             if ($response->failed()) return $url; // ডাউনলোড না হলে অরিজিনাল ইউআরএল রিটার্ন
 
