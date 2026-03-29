@@ -366,4 +366,23 @@ class StaffController extends Controller
         
         return back()->with('success', 'স্টাফ অ্যাকাউন্ট মুছে ফেলা হয়েছে।');
     }
+
+    /**
+     * ✍️ স্টাফের Author Signature আপডেট করা
+     */
+    public function updateSignature(Request $request, $id)
+    {
+        $request->validate([
+            'author_signature'    => 'nullable|string|max:100',
+            'signature_placement' => 'required|in:top,bottom',
+        ]);
+
+        $staff = User::where('parent_id', Auth::id())->findOrFail($id);
+
+        $staff->author_signature    = $request->author_signature ?: null; // খালি হলে null করো
+        $staff->signature_placement = $request->signature_placement;
+        $staff->save();
+
+        return back()->with('success', 'Author Signature আপডেট হয়েছে!');
+    }
 }

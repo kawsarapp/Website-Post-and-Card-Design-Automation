@@ -170,6 +170,7 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
     Route::put('/staff/{id}/permissions', [StaffController::class, 'updatePermissions'])->name('staff.permissions');
     Route::put('/staff/{id}/websites', [StaffController::class, 'updateWebsites'])->name('staff.websites');
     Route::put('/staff/{id}/templates', [StaffController::class, 'updateTemplates'])->name('staff.templates');
+    Route::put('/staff/{id}/signature', [StaffController::class, 'updateSignature'])->name('staff.signature');
     Route::put('/staff/{id}/info', [StaffController::class, 'updateInfo'])->name('staff.update_info');
     Route::post('/staff/{id}/toggle-status', [StaffController::class, 'toggleStatus'])->name('staff.toggle_status');
     Route::post('/staff/{id}/reset-password', [StaffController::class, 'resetPassword'])->name('staff.reset_password');

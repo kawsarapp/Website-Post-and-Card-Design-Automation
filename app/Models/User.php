@@ -23,6 +23,8 @@ class User extends Authenticatable
         'staff_limit',
         'permissions',
         'last_login_at',
+        'author_signature',
+        'signature_placement',
     ];
 
     protected $hidden = [

@@ -69,6 +69,29 @@ class ProcessNewsPost implements ShouldQueue
             $hashtags     = $this->customData['hashtags'] ?? $news->hashtags ?? '';
             $socialOnly   = $this->customData['social_only'] ?? false;
             $skipSocial   = $this->customData['skip_social'] ?? false;
+
+            // ✍️ Author Signature Logic
+            // The signing user is whoever dispatched this job ($user).
+            // If no signature is set on them, check their admin (parent).
+            $signingUser = $user;
+            $signature   = trim($signingUser->author_signature ?? '');
+            $placement   = $signingUser->signature_placement ?? 'bottom';
+
+            // Fallback: if staff has no signature, check admin's signature
+            if (empty($signature) && in_array($user->role, ['staff', 'reporter']) && $adminUser) {
+                $signature = trim($adminUser->author_signature ?? '');
+                $placement = $adminUser->signature_placement ?? 'bottom';
+            }
+
+            if (!empty($signature)) {
+                $signatureHtml = '<p><strong>' . e($signature) . '</strong></p>';
+                if ($placement === 'top') {
+                    $finalContent = $signatureHtml . "\n" . $finalContent;
+                } else {
+                    $finalContent = $finalContent . "\n" . $signatureHtml;
+                }
+                Log::info("✍️ Author Signature appended [{$placement}]: {$signature}");
+            }
             
             if ($socialOnly) Log::info("🚀 Social Only Mode Activated.");
             if ($skipSocial) Log::info("⏭️ Skipping Social Posting for now.");

@@ -101,6 +101,10 @@
                         <button type="button" onclick='openPermissionModal("{{ $staff->id }}", "{{ $staff->name }}", @json($staff->permissions ?? []))' class="w-full text-left block px-4 py-2 text-sm text-slate-600 hover:bg-pink-50 hover:text-pink-600">
                             <i class="fa-solid fa-shield-halved w-5"></i> Permissions
                         </button>
+
+                        <button type="button" onclick='openSignatureModal("{{ $staff->id }}", "{{ $staff->name }}", "{{ addslashes($staff->author_signature ?? '') }}", "{{ $staff->signature_placement ?? 'bottom' }}")' class="w-full text-left block px-4 py-2 text-sm text-slate-600 hover:bg-orange-50 hover:text-orange-600">
+                            <i class="fa-solid fa-pen-nib w-5"></i> Author Signature
+                        </button>
                         
                         <div class="border-t border-slate-50 my-1"></div>
                         <form action="{{ route('client.staff.destroy', $staff->id) }}" method="POST" onsubmit="return confirm('সত্যিই ডিলিট করতে চান?');">
@@ -328,6 +332,36 @@
     </div>
 </div>
 
+{{-- 5. Author Signature Modal --}}
+<div id="signatureModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">✍️ Author Signature: <span id="signatureStaffName" class="text-orange-600"></span></h3>
+            <button onclick="closeSignatureModal()" class="text-gray-400 hover:text-red-500 text-2xl">&times;</button>
+        </div>
+        <form id="signatureForm" method="POST" class="p-6 space-y-4">
+            @csrf @method('PUT')
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Author Signature Text</label>
+                <input type="text" name="author_signature" id="authorSignatureInput"
+                    placeholder="যেমন: আরটিভি/এসকে বা Daily Star/K.H"
+                    class="w-full border rounded-lg p-2.5 focus:ring-orange-500 outline-none text-sm">
+                <p class="text-[10px] text-gray-400 mt-1">খালি রাখলে নিউজে কোনো সিগনেচার যোগ হবে না।</p>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Placement</label>
+                <select name="signature_placement" id="signaturePlacementSelect" class="w-full border rounded-lg p-2.5 focus:ring-orange-500 outline-none text-sm">
+                    <option value="bottom">📌 নিউজের শেষে (Bottom)</option>
+                    <option value="top">📌 নিউজের শুরুতে (Top)</option>
+                </select>
+            </div>
+            <div class="flex justify-end pt-2">
+                <button type="submit" class="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-bold w-full transition">Save Signature</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     // --- Add Staff ---
     function openAddStaffModal() { document.getElementById('addStaffModal').classList.remove('hidden'); document.getElementById('addStaffModal').classList.add('flex'); }
@@ -361,5 +395,16 @@
         document.getElementById('templateModal').classList.remove('hidden'); document.getElementById('templateModal').classList.add('flex');
     }
     function closeTemplateModal() { document.getElementById('templateModal').classList.add('hidden'); document.getElementById('templateModal').classList.remove('flex'); }
+
+    // --- Author Signature ---
+    function openSignatureModal(id, name, signature, placement) {
+        document.getElementById('signatureStaffName').innerText = name;
+        document.getElementById('signatureForm').action = `/client/staff/${id}/signature`;
+        document.getElementById('authorSignatureInput').value = signature || '';
+        document.getElementById('signaturePlacementSelect').value = placement || 'bottom';
+        document.getElementById('signatureModal').classList.remove('hidden');
+        document.getElementById('signatureModal').classList.add('flex');
+    }
+    function closeSignatureModal() { document.getElementById('signatureModal').classList.add('hidden'); document.getElementById('signatureModal').classList.remove('flex'); }
 </script>
 @endsection
