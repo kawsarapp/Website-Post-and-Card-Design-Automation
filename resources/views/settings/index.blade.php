@@ -143,6 +143,81 @@
             </div>
         </div>
 
+        </div>
+
+        {{-- 🔥 AI CONFIGURATION (NEW) --}}
+        <div class="bg-indigo-50 p-6 rounded-xl shadow-sm border border-indigo-200 relative overflow-hidden mt-6 text-sm">
+            <div class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg shadow-sm">AI Configuration</div>
+            <h2 class="text-xl font-bold text-indigo-900 mb-2 border-b border-indigo-200 pb-2 flex items-center gap-2">
+                🤖 AI অপটিমাইজেশন সেটিংস
+            </h2>
+            <p class="text-xs text-indigo-700 mb-6 font-medium">প্রতিটি প্রোভাইডারের জন্য API Key এবং Model সেট করতে পারবেন। (খালি রাখলে সিস্টেমের ডিফল্ট .env এরগুলো ব্যবহার হবে)</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Gemini -->
+                <div class="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm col-span-1 md:col-span-2">
+                    <h3 class="font-bold text-gray-700 mb-2">Gemini (Google)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">API Key</label>
+                            <input type="password" name="gemini_api_key" value="{{ old('gemini_api_key', $settings->gemini_api_key ?? '') }}" placeholder="AIzaSy... (খালি রাখলে .env ব্যবহার হবে)" class="w-full border-gray-300 rounded shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Model Selection</label>
+                            <select name="gemini_model" class="w-full border-gray-300 rounded shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="">Default (gemini-1.5-flash)</option>
+                                <option value="gemini-2.5-flash" {{ ($settings->gemini_model ?? '') == 'gemini-2.5-flash' ? 'selected' : '' }}>Gemini 2.5 Flash (Fast + Balance)</option>
+                                <option value="gemini-2.5-pro" {{ ($settings->gemini_model ?? '') == 'gemini-2.5-pro' ? 'selected' : '' }}>Gemini 2.5 Pro (Complex Reasoning)</option>
+                                <option value="gemini-2.5-flash-lite" {{ ($settings->gemini_model ?? '') == 'gemini-2.5-flash-lite' ? 'selected' : '' }}>Gemini 2.5 Flash-Lite (High Volume)</option>
+                                <option value="gemini-3.1-pro-preview" {{ ($settings->gemini_model ?? '') == 'gemini-3.1-pro-preview' ? 'selected' : '' }}>Gemini 3.1 Pro Preview (Latest Reasoning)</option>
+                                <option value="gemini-3.1-flash-lite-preview" {{ ($settings->gemini_model ?? '') == 'gemini-3.1-flash-lite-preview' ? 'selected' : '' }}>Gemini 3.1 Flash Lite Preview (Efficient)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DeepSeek -->
+                <div class="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm col-span-1 md:col-span-2">
+                    <h3 class="font-bold text-gray-700 mb-2">DeepSeek</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">API Key</label>
+                            <input type="password" name="deepseek_api_key" value="{{ old('deepseek_api_key', $settings->deepseek_api_key ?? '') }}" placeholder="sk-... (খালি রাখলে .env ব্যবহার হবে)" class="w-full border-gray-300 rounded shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Model Selection</label>
+                            <select name="deepseek_model" class="w-full border-gray-300 rounded shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="">Default (deepseek-chat)</option>
+                                <option value="deepseek-chat" {{ ($settings->deepseek_model ?? '') == 'deepseek-chat' ? 'selected' : '' }}>DeepSeek V3 (deepseek-chat)</option>
+                                <option value="deepseek-reasoner" {{ ($settings->deepseek_model ?? '') == 'deepseek-reasoner' ? 'selected' : '' }}>DeepSeek R1 (deepseek-reasoner)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OpenAI -->
+                <div class="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm col-span-1 md:col-span-2">
+                    <h3 class="font-bold text-gray-700 mb-2">OpenAI (ChatGPT)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">API Key</label>
+                            <input type="password" name="openai_api_key" value="{{ old('openai_api_key', $settings->openai_api_key ?? '') }}" placeholder="sk-proj-... (খালি রাখলে .env ব্যবহার হবে)" class="w-full border-gray-300 rounded shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Model Selection</label>
+                            <select name="openai_model" class="w-full border-gray-300 rounded shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="">Default (gpt-4o-mini)</option>
+                                <option value="gpt-4o-mini" {{ ($settings->openai_model ?? '') == 'gpt-4o-mini' ? 'selected' : '' }}>GPT-4o Mini (Fast & Cheap)</option>
+                                <option value="gpt-4o" {{ ($settings->openai_model ?? '') == 'gpt-4o' ? 'selected' : '' }}>GPT-4o (Smartest)</option>
+                                <option value="o1-mini" {{ ($settings->openai_model ?? '') == 'o1-mini' ? 'selected' : '' }}>o1-mini (Reasoning)</option>
+                                <option value="o3-mini" {{ ($settings->openai_model ?? '') == 'o3-mini' ? 'selected' : '' }}>o3-mini (Advanced Reasoning)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- 🔥 WordPress কানেকশন --}}
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden">
             <div class="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">Required</div>

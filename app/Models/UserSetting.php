@@ -40,7 +40,12 @@ class UserSetting extends Model
 		'proxy_port',
 		'proxy_username',
 		'proxy_password',
-
+        'openai_api_key',
+        'openai_model',
+        'gemini_api_key',
+        'gemini_model',
+        'deepseek_api_key',
+        'deepseek_model',
     ];
 
 
@@ -56,6 +61,9 @@ class UserSetting extends Model
         'fb_access_token' => 'encrypted',
         'telegram_bot_token' => 'encrypted',
         'laravel_api_token' => 'encrypted',
+        'openai_api_key' => 'encrypted',
+        'gemini_api_key' => 'encrypted',
+        'deepseek_api_key' => 'encrypted',
     ];
 
     public const AVAILABLE_TEMPLATES = [

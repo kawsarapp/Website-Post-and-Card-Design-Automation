@@ -55,8 +55,8 @@ class AIWriterService
         EOT;
     }
 
-    // 🔥 আপডেট: $isRetry প্যারামিটার যুক্ত করা হয়েছে
-    public function rewrite($content, $title, $isRetry = false)
+    // 🔥 আপডেট: $isRetry এবং $userId প্যারামিটার যুক্ত করা হয়েছে
+    public function rewrite($content, $title, $isRetry = false, $userId = null)
     {
         if (empty($content) || strlen(strip_tags($content)) < 100) {
             throw new \Exception("SHORT_CONTENT");
@@ -73,37 +73,40 @@ class AIWriterService
 
         // 1️⃣ TRY DEEPSEEK FIRST
         try {
-            return $this->callDeepSeek($finalInput, $title, $isRetry);
+            return $this->callDeepSeek($finalInput, $title, $isRetry, $userId);
         } catch (\Exception $e) {
             Log::warning("⚠️ DeepSeek Failed: " . $e->getMessage() . ". Switching to OpenAI...");
         }
 
         // 2️⃣ THEN TRY OPENAI
         try {
-            return $this->callOpenAI($finalInput, $title, $isRetry);
+            return $this->callOpenAI($finalInput, $title, $isRetry, $userId);
         } catch (\Exception $e) {
             Log::warning("⚠️ OpenAI Failed: " . $e->getMessage() . ". Switching to Gemini...");
         }
 
         // 3️⃣ FINALLY TRY GEMINI
         try {
-            return $this->callGemini($finalInput, $title, $isRetry);
+            return $this->callGemini($finalInput, $title, $isRetry, $userId);
         } catch (\Exception $e) {
             Log::error("❌ ALL AI SERVICES FAILED: " . $e->getMessage());
             throw new \Exception("ALL_AI_FAILED");
         }
     }
 
-    private function callDeepSeek($content, $title, $isRetry)
+    private function callDeepSeek($content, $title, $isRetry, $userId)
     {
-        $apiKey = config('services.deepseek.key') ?? env('DEEPSEEK_API_KEY');
+        $settings = $userId ? \App\Models\UserSetting::where('user_id', $userId)->first() : null;
+        $apiKey = ($settings && $settings->deepseek_api_key) ? $settings->deepseek_api_key : (config('services.deepseek.key') ?? env('DEEPSEEK_API_KEY'));
+        $model = ($settings && $settings->deepseek_model) ? $settings->deepseek_model : "deepseek-chat";
+
         if (!$apiKey) throw new \Exception("DeepSeek API Key Missing");
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $apiKey,
             'Content-Type'  => 'application/json',
         ])->timeout(40)->post("https://api.deepseek.com/chat/completions", [
-            "model" => "deepseek-chat",
+            "model" => $model,
             "messages" => [
                 ["role" => "system", "content" => $this->systemPrompt], 
                 ["role" => "user", "content" => $content]
@@ -115,12 +118,19 @@ class AIWriterService
         return $this->parseResponse($response, 'DeepSeek');
     }
 
-    private function callGemini($content, $title, $isRetry)
+    private function callGemini($content, $title, $isRetry, $userId)
     {
-        $apiKey = config('services.gemini.key') ?? env('GEMINI_API_KEY');
+        $settings = $userId ? \App\Models\UserSetting::where('user_id', $userId)->first() : null;
+        $apiKey = ($settings && $settings->gemini_api_key) ? $settings->gemini_api_key : (config('services.gemini.key') ?? env('GEMINI_API_KEY'));
+        
         if (!$apiKey) throw new \Exception("Gemini API Key Missing");
 
-        $modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro"];
+        // Use custom model if available, else standard fallback array
+        if ($settings && $settings->gemini_model) {
+            $modelsToTry = [$settings->gemini_model];
+        } else {
+            $modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro"];
+        }
 
         foreach ($modelsToTry as $model) {
             try {
@@ -151,16 +161,19 @@ class AIWriterService
         throw new \Exception("Gemini Failed.");
     }
 
-    private function callOpenAI($content, $title, $isRetry)
+    private function callOpenAI($content, $title, $isRetry, $userId)
     {
-        $apiKey = config('services.openai.key') ?? env('OPENAI_API_KEY');
+        $settings = $userId ? \App\Models\UserSetting::where('user_id', $userId)->first() : null;
+        $apiKey = ($settings && $settings->openai_api_key) ? $settings->openai_api_key : (config('services.openai.key') ?? env('OPENAI_API_KEY'));
+        $model = ($settings && $settings->openai_model) ? $settings->openai_model : "gpt-4o-mini";
+
         if (!$apiKey) throw new \Exception("OpenAI API Key Missing");
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $apiKey,
             'Content-Type'  => 'application/json',
         ])->timeout(40)->post("https://api.openai.com/v1/chat/completions", [
-            "model" => "gpt-4o-mini", 
+            "model" => $model, 
             "messages" => [
                 ["role" => "system", "content" => $this->systemPrompt], 
                 ["role" => "user", "content" => $content]

@@ -58,6 +58,14 @@ class SettingsController extends Controller
             'custom_category_url'  => 'nullable|url',
             'custom_api_mapping'   => 'nullable|json',
             'auto_clean_days'      => 'nullable|integer|min:1|max:90',
+
+            // AI Options
+            'openai_api_key'       => 'nullable|string',
+            'openai_model'         => 'nullable|string',
+            'gemini_api_key'       => 'nullable|string',
+            'gemini_model'         => 'nullable|string',
+            'deepseek_api_key'     => 'nullable|string',
+            'deepseek_model'       => 'nullable|string',
         ]);
         
         $settings = UserSetting::firstOrCreate(['user_id' => Auth::id()]);
@@ -104,6 +112,14 @@ class SettingsController extends Controller
         if ($request->filled('auto_clean_days')) {
             $settings->auto_clean_days = (int) $request->auto_clean_days;
         }
+
+        // 🤖 AI APIs and Models
+        $settings->openai_api_key   = $request->openai_api_key;
+        $settings->openai_model     = $request->openai_model;
+        $settings->gemini_api_key   = $request->gemini_api_key;
+        $settings->gemini_model     = $request->gemini_model;
+        $settings->deepseek_api_key = $request->deepseek_api_key;
+        $settings->deepseek_model   = $request->deepseek_model;
 
         $settings->save();
 

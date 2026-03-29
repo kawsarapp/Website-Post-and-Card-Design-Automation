@@ -89,7 +89,7 @@ class AutoPostNews extends Command
 
             // --- STEP B: AI REWRITE ---
             // এখানে আমাদের আগের AI সার্ভিস ব্যবহার হবে (DeepSeek)
-            $aiResponse = $this->aiWriter->rewrite($news->content, $news->title);
+            $aiResponse = $this->aiWriter->rewrite($news->content, $news->title, false, $news->user_id);
             
             $finalTitle = $aiResponse['title'] ?? $news->title;
             $finalContent = $aiResponse['content'] ?? $news->content;
