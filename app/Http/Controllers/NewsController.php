@@ -183,7 +183,8 @@ class NewsController extends Controller
             $news = NewsItem::create([
                 'user_id' => $adminUser->id, 
                 'staff_id' => $staffId, 
-                'title' => $request->title, 'content' => $request->content,
+                'title' => strip_tags($request->input('title')), // Strip all tags from title for extra safety
+                'content' => clean($request->input('content')), // 🔥 Mathematical XSS cleansing via HTMLPurifier
                 'thumbnail_url' => $finalImage, 'original_link' => '#custom-' . uniqid(), 'status' => 'draft',
                 'published_at' => now()
             ]);

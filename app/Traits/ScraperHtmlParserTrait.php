@@ -113,7 +113,7 @@ trait ScraperHtmlParserTrait
                 }
             }
         }
-        return !empty($bestContent) ? $bestContent : null;
+        return !empty($bestContent) ? clean($bestContent) : null;
     }
 
     private function extractTitle(Crawler $crawler, $customSelectors)
