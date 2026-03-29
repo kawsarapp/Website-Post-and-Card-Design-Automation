@@ -91,12 +91,18 @@
         </div>
         <form id="scraperForm" method="POST" class="p-6">
             @csrf
-            <div class="mb-6">
+            <div class="mb-4">
+                <label class="block text-sm font-bold text-gray-600 mb-2">Scraper Engine</label>
                 <select name="scraper_method" id="scraperInput" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500 outline-none text-sm bg-white">
                     <option value="">Global Default</option>
                     <option value="node">Node.js (Puppeteer) - Fast ⚡</option>
                     <option value="python">Python (Playwright) - Stable 🐍</option>
                 </select>
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-600 mb-2">Auto Clean News After (Days)</label>
+                <input type="number" name="auto_clean_days" id="autoCleanDaysInput" min="1" max="90" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500 outline-none text-sm bg-white" required>
+                <p class="text-[10px] text-gray-400 mt-1">Pending news will be automatically deleted after these many days.</p>
             </div>
             <div class="flex justify-end gap-3">
                 <button type="button" onclick="closeScraperModal()" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg font-bold hover:bg-gray-200 transition text-sm">Cancel</button>

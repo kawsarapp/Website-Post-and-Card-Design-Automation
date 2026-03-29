@@ -107,10 +107,14 @@ class AdminController extends Controller
     
     public function updateScraperSettings(Request $request, $id)
     {
-        $request->validate(['scraper_method' => 'nullable|in:node,python']);
+        $request->validate([
+            'scraper_method' => 'nullable|in:node,python',
+            'auto_clean_days' => 'required|integer|min:1|max:90'
+        ]);
         
         $settings = UserSetting::firstOrCreate(['user_id' => $id]);
         $settings->scraper_method = $request->scraper_method;
+        $settings->auto_clean_days = $request->auto_clean_days;
         $settings->save();
 
         return back()->with('success', 'User scraper preference updated!');

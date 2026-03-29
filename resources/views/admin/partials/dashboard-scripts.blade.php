@@ -61,10 +61,11 @@
     }
 
     // --- Scraper Modal Script ---
-    function openScraperModal(userId, userName, currentMethod) {
+    function openScraperModal(userId, userName, currentMethod, autoCleanDays) {
         document.getElementById('scraperUserName').innerText = userName;
         document.getElementById('scraperForm').action = `/admin/users/${userId}/scraper`;
         document.getElementById('scraperInput').value = currentMethod || "";
+        document.getElementById('autoCleanDaysInput').value = autoCleanDays || 7;
         
         const modal = document.getElementById('scraperModal');
         modal.classList.remove('hidden');

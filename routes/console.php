@@ -112,12 +112,32 @@ Artisan::command('news:autopost', function () {
 Schedule::command('news:autopost')->everyMinute();
 
 Schedule::call(function () {
-    $hours = 745;
-    $count = NewsItem::where('created_at', '<', now()->subHours($hours))
-        ->where('is_queued', false) 
-        ->delete();
+    $settingsList = \App\Models\UserSetting::get();
+    $totalDeleted = 0;
     
-    if ($count > 0) {
-        Log::info("🧹 Auto Clean: {$count} items deleted (older than {$hours} hours).");
+    foreach ($settingsList as $setting) {
+        $days = (int) ($setting->auto_clean_days ?? 7);
+        $days = $days > 0 ? $days : 7; // Prevent 0/negative day accidental clearouts
+        
+        $count = NewsItem::where('user_id', $setting->user_id)
+            ->where('created_at', '<', now()->subDays($days))
+            ->where('is_posted', false) // Only un-posted
+            ->where('is_queued', false) // Not currently in queue waiting to be posted
+            ->delete();
+            
+        $totalDeleted += $count;
+    }
+    
+    // Fallback delete un-posted orphaned news (no user attached) after default 7 days
+    $orphanedCount = NewsItem::whereNull('user_id')
+        ->where('created_at', '<', now()->subDays(7))
+        ->where('is_posted', false)
+        ->where('is_queued', false)
+        ->delete();
+        
+    $totalDeleted += $orphanedCount;
+    
+    if ($totalDeleted > 0) {
+        Log::info("🧹 Dynamic Auto Clean: {$totalDeleted} garbage (pending) items deleted based on user preferences.");
     }
 })->hourly();
