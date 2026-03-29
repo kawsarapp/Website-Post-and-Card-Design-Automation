@@ -61,6 +61,7 @@ class WebsiteController extends Controller
 
         $data = $request->all();
         $data['user_id'] = Auth::id();
+        $data['use_scraping_api'] = $request->has('use_scraping_api') ? 1 : 0;
 
         Website::create($data);
 
@@ -128,7 +129,11 @@ class WebsiteController extends Controller
         }
         
         $website = Website::withoutGlobalScopes()->findOrFail($id);
-        $website->update($request->all());
+        
+        $data = $request->all();
+        $data['use_scraping_api'] = $request->has('use_scraping_api') ? 1 : 0;
+        
+        $website->update($data);
         
         return back()->with('success', 'Website Updated');
     }

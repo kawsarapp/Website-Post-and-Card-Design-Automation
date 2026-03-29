@@ -16,9 +16,40 @@ class NewsScraperService
 
     public function scrape($url, $customSelectors = [], $userId = null)
     {
-        $proxy = $this->getProxyConfig($userId);
-        $proxyLog = $proxy ? parse_url($proxy, PHP_URL_HOST) : "Direct";
+        $proxy = $this->getProxyConfig($userId, $url);
+        
+        $website = \App\Models\Website::withoutGlobalScopes()->where('url', 'like', '%'.parse_url($url, PHP_URL_HOST).'%')->first();
+        $useApi = $website ? $website->use_scraping_api : false;
+
+        // 🔥 STRICT SECURITY ENFORCEMENT
+        if (!$proxy && !$useApi) {
+            Log::error("❌ Security Block [Article]: No Proxy configured AND API disabled. Aborting to protect Hosting Server IP.");
+            return null;
+        }
+
+        $proxyLog = $proxy ? parse_url($proxy, PHP_URL_HOST) : "Universal API";
         Log::info("🚀 START SCRAPE: $url | via $proxyLog");
+
+        // 🌟 STEP 0: UNIVERSAL SCRAPING API (If enabled)
+        $htmlContent = null;
+        if ($useApi) {
+            Log::info("🔐 Using Universal Scraping API for article body.");
+            $htmlContent = $this->fetchWithUniversalScrapingApi($url);
+            
+            if ($htmlContent && strlen($htmlContent) > 500) {
+                $scrapedData = $this->processHtml($htmlContent, $url, $customSelectors);
+                
+                // 🔥 Image Cleaned Here
+                if (isset($scrapedData['image'])) {
+                    $scrapedData['image'] = $this->fixVendorImages($scrapedData['image']);
+                }
+                if (isset($scrapedData['title'])) {
+                    $scrapedData['title'] = $this->cleanTitle($scrapedData['title']);
+                }
+                return $scrapedData;
+            }
+            Log::warning("⚠️ Universal API failed for article. Falling back to default proxy...");
+        }
 
         $hardSites = ['jamuna.tv', 'kalerkantho.com', 'somoynews.tv', 'dailyamardesh.com', 'samakal.com', 'bartabazar.com'];
         $isHardSite = false;
@@ -27,6 +58,11 @@ class NewsScraperService
                 $isHardSite = true;
                 break;
             }
+        }
+
+        if (!$proxy) {
+            Log::error("❌ Security Block [Article Fallback]: Universal API failed and NO PROXY available. Aborting instead of leaking Hosting Server IP.");
+            return null;
         }
 
         // 🐍 STEP 1: PYTHON SCRAPER

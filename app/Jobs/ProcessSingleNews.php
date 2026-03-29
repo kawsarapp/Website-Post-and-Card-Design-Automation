@@ -118,9 +118,16 @@ class ProcessSingleNews implements ShouldQueue
     private function cropImage($url)
     {
         try {
+            // 🔥 Get Proxy to prevent server IP leak during image download
+            $proxy = app(\App\Services\NewsScraperService::class)->getProxyConfig($this->userId, $url);
+
             // 🚀 Fast Download using Laravel HTTP (Timeout 10s)
             // file_get_contents ব্যবহার করবেন না, এটি সার্ভার ঝুলিয়ে দেয়
-            $response = Http::timeout(10)->get($url);
+            $httpRequest = Http::timeout(10);
+            if ($proxy) {
+                $httpRequest->withOptions(['proxy' => $proxy]);
+            }
+            $response = $httpRequest->get($url);
 
             if ($response->failed()) return $url; // ডাউনলোড না হলে অরিজিনাল ইউআরএল রিটার্ন
 

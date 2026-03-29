@@ -65,6 +65,14 @@
                 <input type="text" name="selector_image" class="w-full border-gray-300 rounded-lg text-sm font-mono bg-slate-50">
             </div>
 
+            <div class="col-span-1 md:col-span-2 lg:col-span-4 mt-2">
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="use_scraping_api" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 w-5 h-5">
+                    <span class="ml-2 font-bold text-gray-700">Use Universal Scraping API (Bypass Proxy)</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-1">Check this if the default proxy gets blocked by the site (e.g. jamuna.tv).</p>
+            </div>
+
             <div class="col-span-1 md:col-span-2 lg:col-span-4 flex justify-end mt-2">
                 <button type="submit" class="bg-indigo-600 text-white px-8 py-2.5 rounded-lg font-bold hover:bg-indigo-700 shadow-md">
                     Save Website
@@ -131,7 +139,7 @@
                         </td>
                         <td class="px-4 md:px-6 py-4 text-[10px] font-mono text-slate-500">
                             C: {{ $site->selector_container }} <br> 
-                            T: {{ $site->selector_title }}
+                            API: {!! $site->use_scraping_api ? '<span class="text-green-600 font-bold">YES</span>' : '<span class="text-red-500">NO</span>' !!}
                         </td>
                         <td class="px-4 md:px-6 py-4 text-right">
                             <div class="flex justify-end gap-2">
@@ -242,6 +250,13 @@
                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Image Selector (Optional)</label>
                 <input type="text" name="selector_image" id="editImage" class="w-full border-gray-300 rounded-lg p-2 text-sm font-mono bg-slate-50">
             </div>
+            
+            <div class="mb-4">
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="use_scraping_api" id="editUseScrapingApi" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 w-5 h-5">
+                    <span class="ml-2 font-bold text-gray-700">Use Universal Scraping API</span>
+                </label>
+            </div>
 
             <div class="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-50">Cancel</button>
@@ -261,6 +276,7 @@
         document.getElementById('editTitle').value = site.selector_title;
         document.getElementById('editImage').value = site.selector_image || "";
         document.getElementById('editContent').value = site.selector_content || "";
+        document.getElementById('editUseScrapingApi').checked = site.use_scraping_api ? true : false;
         
         document.getElementById('editModal').classList.remove('hidden');
         document.getElementById('editModal').classList.add('flex');

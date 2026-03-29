@@ -46,8 +46,15 @@ class ScrapeWebsite implements ShouldQueue
             Log::info("🚀 JOB STARTED: {$website->name} | URL: {$website->url}");
 
             // ১. প্রক্সি লোড করা
-            $proxy = $scraper->getProxyConfig($this->userId);
+            $proxy = $scraper->getProxyConfig($this->userId, $website->url);
             if ($proxy) Log::info("🌐 Scraping with Proxy: " . parse_url($proxy, PHP_URL_HOST));
+
+            // 🔥 STRICT SECURITY ENFORCEMENT
+            if (!$proxy && !$website->use_scraping_api) {
+                Log::error("❌ Security Block [List]: No Proxy configured AND API disabled. Aborting to protect Hosting Server IP.");
+                return;
+            }
+
             // ২. লিস্ট পেজ লোড (Raw HTML)
             $listPageHtml = null;
 
@@ -58,10 +65,15 @@ class ScrapeWebsite implements ShouldQueue
 
                 // Fallback to Python if API is not configured or fails
                 if (!$listPageHtml || strlen($listPageHtml) < 500) {
+                    if (!$proxy) {
+                        Log::error("❌ Security Block: Universal API failed and no Proxy available. Aborting.");
+                        return;
+                    }
                     Log::info("🔄 Universal API failed or unconfigured — falling back to Python/Puppeteer.");
                     $listPageHtml = $scraper->fetchHtmlWithPython($website->url, $this->userId);
                 }
                 if (!$listPageHtml || strlen($listPageHtml) < 500) {
+                    if (!$proxy) return; // Prevent fallback
                     $listPageHtml = $scraper->runPuppeteer($website->url, $this->userId);
                 }
             } else {
